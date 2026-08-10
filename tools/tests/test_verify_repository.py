@@ -319,6 +319,7 @@ class InputWorkflowTest(unittest.TestCase):
         "app/build.gradle.kts",
         "tools/stage_protocol_artifacts.ps1",
         "tools/stage_lua_source.ps1",
+        "tools/verify_debug_artifacts.ps1",
         "tools/verify_lua_archive.ps1",
     )
 
@@ -389,6 +390,11 @@ class InputWorkflowTest(unittest.TestCase):
                     '"--project-dir=$checkout"',
                     '"--project-dir=$repositoryRoot"',
                 ),
+            ),
+            (
+                "debug artifact gate weakens ZIP alignment",
+                "tools/verify_debug_artifacts.ps1",
+                lambda text: text.replace("zipalign -c -P 16 4", "zipalign -c -P 4 4"),
             ),
         )
         for label, relative, mutate in mutations:

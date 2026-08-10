@@ -486,6 +486,24 @@ def verify_input_workflows() -> None:
         ),
         "Lua source intake",
     )
+    artifact_gate = (ROOT / "tools/verify_debug_artifacts.ps1").read_text("utf-8")
+    require_tokens(
+        artifact_gate,
+        (
+            "status --porcelain --untracked-files=all",
+            "rev-list --count HEAD",
+            "VERSION_BUILD must equal the positive commit count",
+            "app/build/test-results/testDebugUnitTest",
+            "app/build/outputs/apk/debug",
+            "zipalign -c -P 16 4",
+            "apksigner verify --verbose --print-certs",
+            "llvm-readelf",
+            "LUA_NATIVE_ENABLED = true;",
+            "LUA_PROVIDER_ENABLED = false;",
+            "DEBUG_ARTIFACT_GATE_PASS",
+        ),
+        "Debug artifact gate",
+    )
     archive_verifier = (ROOT / "tools/verify_lua_archive.ps1").read_text("utf-8")
     require_tokens(
         archive_verifier,

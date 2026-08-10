@@ -16,16 +16,16 @@ Gradle, Android, native, device, signing, or release acceptance.
   copying uncommitted or cache-derived binaries.
 - [x] Freeze PUC Lua 5.4.8 URL/SHA-256, exact CMake source admission, JNI probe,
   bounded allocator, and safe-library baseline without fake vendor sources.
-- [ ] Initialize Git and establish the independent release history.
+- [x] Initialize Git and establish the independent release history.
 - [ ] Add the ten-locale generated README/changelog/resource workflow.
-- [ ] Generate and commit a repository-owned Gradle wrapper.
-- [ ] Compile or assemble the scaffold.
+- [x] Generate and commit a repository-owned Gradle wrapper.
+- [x] Compile and assemble the native-enabled, provider-disabled scaffold.
 
 ## R3-B - Immutable inputs
 
-- [ ] Commit and gate the host protocol modules at an immutable revision.
-- [ ] Stage all three protocol AARs and verify their lock digests.
-- [ ] Import the verified PUC Lua 5.4.8 source and license from the locked
+- [x] Commit and gate the host protocol modules at an immutable revision.
+- [x] Stage all three protocol AARs and verify their lock digests.
+- [x] Import the verified PUC Lua 5.4.8 source and license from the locked
   archive; change vendor status only after review.
 - [ ] Reproduce native inputs from a clean checkout.
 
@@ -44,10 +44,11 @@ R3-B static input-gate evidence on 2026-08-10:
   immutable-input paths.
 - [x] Add a fail-closed `--require-build-ready` mode for future build/release
   gates; it intentionally rejects the current incomplete input state.
-- Pure Python static tests report 15/15 and the repository verifier reports
-  `protocol=not-staged lua=not-vendored build_ready=false`. No artifact,
-  vendored source, wrapper, Git history, Gradle result, or Android evidence was
-  created by this gate.
+- Pure Python static tests report 18/18 and the repository verifier reports
+  `protocol=ready lua=ready build_ready=true`. The three protocol AARs are
+  locked to AutoJs6 revision `ae422391759810ce9dbbf0bc119bb47834c66b85`;
+  the 63-file Lua tree is locked to SHA-256
+  `abc2321841ec25281797b4b3bb855d6ad1caa8ddea265ef0d47844cf959dcda8`.
 - Static self-consistency is not commit-existence, AAR-from-commit, or
   archive-to-tree provenance. Those claims remain blocked on the clean intake
   and build gates above; provider disablement in a merged manifest/APK remains
@@ -64,6 +65,8 @@ R3-B static input-gate evidence on 2026-08-10:
 - [x] Author `lua_sethook` cancellation/deadline checks and protected calls.
 - [x] Author output credits, unique terminal delivery, callback-close
   linearization, and idempotent cancel/close.
+- [x] Select the native runner only in native-enabled builds while keeping the
+  discoverable provider independently default-off.
 - [ ] Account for every incoming, duplicated, returned, and abandoned PFD.
 - [x] Keep coroutine, debug, unrestricted io, OS/process access, dynamic C
   modules, reflection, metatable installation, and loadlib unavailable in the
@@ -71,15 +74,15 @@ R3-B static input-gate evidence on 2026-08-10:
 
 R3-C source evidence on 2026-08-10:
 
-- The Android-free execution sources compile with cached Kotlin 2.3.20 on JDK
-  21, and direct JUnitCore reports 23/23 with zero failures. This is a
-  standalone diagnostic, not the Gradle/JNI/Android gate. An initial launcher
-  attempt omitted the compiler's cached annotations dependency and stopped
-  before source compilation; the corrected invocation supplied it.
-- The JNI adapter and six native-boundary tests are authored but not compiled
-  or run. The service still injects `DisabledLuaExecutionRunner`.
-- `python tools/verify_repository.py` reports
-  `STATIC_SCAFFOLD_OK protocol=not-staged lua=not-vendored build_ready=false`.
+- The repository-owned Gradle 9.6.1 wrapper compiles Kotlin/Java/JNI and both
+  admitted ABIs with native enabled and provider disabled. Eight JVM suites
+  report 30/30 with zero failures, errors, or skips.
+- The service now selects `NativeLuaExecutionRunner` only when
+  `BuildConfig.LUA_NATIVE_ENABLED` is true. Both exported services remain
+  controlled by the packaged false provider resource, so this is not device or
+  production-provider execution evidence.
+- `python tools/verify_repository.py --require-build-ready` reports
+  `STATIC_SCAFFOLD_OK protocol=ready lua=ready build_ready=true`.
 - PFD accounting remains unchecked until generated AIDL and cross-process
   Android evidence prove every ownership path. A wedged native runner still
   requires dedicated-process termination and recovery evidence. The retained
@@ -90,10 +93,26 @@ R3-C source evidence on 2026-08-10:
 
 ## R3-D - Deferred gates
 
-- [ ] Run focused JVM and static App compilation.
-- [ ] Assemble arm64-v8a, x86_64, and universal debug artifacts.
-- [ ] Verify packaged ABIs, 16 KiB ELF segments, and APK ZIP alignment.
+- [x] Run focused JVM and static App compilation.
+- [x] Assemble arm64-v8a, x86_64, and universal debug artifacts.
+- [x] Verify packaged ABIs, 16 KiB ELF segments, and APK ZIP alignment.
 - [ ] Run cross-package Binder/PFD conformance and hostile lifecycle cases.
 - [ ] Enable provider discovery only after all previous gates pass.
 - [ ] Create signed release artifacts and a clean, independently versioned
   release history.
+
+The checkable local artifact gate is:
+
+```powershell
+.\tools\verify_debug_artifacts.ps1 `
+    -SdkRoot 'E:\.android\sdk' `
+    -BuildToolsVersion '37.0.0' `
+    -NdkVersion '28.2.13676358' `
+    -ExpectedTests 30
+```
+
+It requires a clean revision whose positive `VERSION_BUILD` equals its commit
+count, 30/30 JVM tests, exactly three debug APK outputs, a single common signer,
+the exact split/universal ABI inventories, 16 KiB ZIP and ELF LOAD alignment,
+and packaged `native=true/provider=false` gates. It does not run Gradle, ADB,
+Binder, native execution, install, process recovery, or release signing.

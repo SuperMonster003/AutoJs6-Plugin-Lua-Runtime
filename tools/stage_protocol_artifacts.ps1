@@ -29,6 +29,7 @@ if (-not (Test-Path -LiteralPath $gradlew -PathType Leaf)) {
     throw "Host Gradle wrapper is missing: $gradlew"
 }
 $gradleArgs = @(
+    "--project-dir=$checkout"
     ':plugin-api:common-plugin-api:assembleDebug'
     ':plugin-api:protocol-wire-api:assembleDebug'
     ':plugin-api:lua-runtime-api:assembleDebug'

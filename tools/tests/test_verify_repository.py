@@ -333,6 +333,14 @@ class InputWorkflowTest(unittest.TestCase):
                 "tools/stage_protocol_artifacts.ps1",
                 lambda text: text.replace("--no-build-cache", "--build-cache"),
             ),
+            (
+                "protocol build uses caller working directory",
+                "tools/stage_protocol_artifacts.ps1",
+                lambda text: text.replace(
+                    '"--project-dir=$checkout"',
+                    '"--project-dir=$repositoryRoot"',
+                ),
+            ),
         )
         for label, relative, mutate in mutations:
             with self.subTest(label=label), tempfile.TemporaryDirectory() as directory:

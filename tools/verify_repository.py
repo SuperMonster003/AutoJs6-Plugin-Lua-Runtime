@@ -377,6 +377,7 @@ def verify_input_workflows() -> None:
             "git -C $checkout rev-parse HEAD",
             "$actualRevision -ne $ExpectedRevision.ToLowerInvariant()",
             "git -C $checkout status --porcelain --untracked-files=all",
+            '"--project-dir=$checkout"',
             ":plugin-api:common-plugin-api:assembleDebug",
             ":plugin-api:protocol-wire-api:assembleDebug",
             ":plugin-api:lua-runtime-api:assembleDebug",

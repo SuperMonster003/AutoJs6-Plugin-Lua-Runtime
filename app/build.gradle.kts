@@ -36,6 +36,7 @@ android {
         targetSdk = versionProperties.getProperty("TARGET_SDK_VERSION").toInt()
         versionCode = versionProperties.getProperty("VERSION_BUILD").toInt()
         versionName = versionProperties.getProperty("VERSION_NAME")
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("boolean", "LUA_NATIVE_ENABLED", luaNativeEnabled.get().toString())
         buildConfigField("boolean", "LUA_PROVIDER_ENABLED", luaProviderEnabled.get().toString())
@@ -133,6 +134,8 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib:2.3.20")
     implementation(files(protocolArtifacts))
     testImplementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
 }
 
 tasks.register("verifyPinnedInputs") {

@@ -110,6 +110,12 @@ Before provider enablement, the implementation still needs:
 4. prove provider-disabled merged-manifest behavior on Android
 5. pass install, release-signing, API-matrix, and recovery gates
 
+The first Android-native gate is intentionally narrower: instrumentation may
+call `NativeLuaRuntime.execute()` with `native=true/provider=false` to verify
+scalar results, failures, hooks, and allocator recovery without discovering or
+binding either production service. Crash/wedge recovery remains a separate
+dedicated-process gate.
+
 The repository JVM suite now contains 38 tests, while the watchdog-focused
 Android-free diagnostic passes 20/20. These do not exercise Android process
 termination, Binder/PFD behavior, native code on a device, or discovery.
@@ -122,7 +128,7 @@ Gradle/native job uses that wrapper with native enabled and provider disabled.
 CI wiring is not Binder/PFD, install, release-signing, API-matrix, or device
 recovery evidence.
 
-The input-gate Python suite currently covers 20 normal and hostile cases for
+The input-gate Python suite currently covers 21 normal and hostile cases for
 lock schemas and duplicate keys, revision syntax, artifact inventory/digests,
 tree-lock consistency, default-off parsing, CI provider containment, Git-ignore
 precedence, intake-script drift, and watchdog token/fail-stop wiring. It is a

@@ -46,7 +46,7 @@ R3-B static input-gate evidence on 2026-08-10:
   immutable-input paths.
 - [x] Add a fail-closed `--require-build-ready` mode for future build/release
   gates; it intentionally rejects the current incomplete input state.
-- Pure Python static tests report 20/20 and the repository verifier reports
+- Pure Python static tests report 21/21 and the repository verifier reports
   `protocol=ready lua=ready build_ready=true`. The three protocol AARs are
   locked to AutoJs6 revision `ae422391759810ce9dbbf0bc119bb47834c66b85`;
   the 63-file Lua tree is locked to SHA-256
@@ -108,6 +108,9 @@ R3-C source evidence on 2026-08-10:
 - [x] Run focused JVM and static App compilation.
 - [x] Assemble arm64-v8a, x86_64, and universal debug artifacts.
 - [x] Verify packaged ABIs, 16 KiB ELF segments, and APK ZIP alignment.
+- [ ] Run the provider-disabled native instrumentation gate for scalar results,
+  error classification, hook cancellation/deadline, Lua allocator OOM, and
+  post-failure reuse while INFO/RUNTIME remain disabled.
 - [ ] Run cross-package Binder/PFD conformance and hostile lifecycle cases.
 - [ ] Enable provider discovery only after all previous gates pass.
 - [ ] Create signed release artifacts and a clean, independently versioned

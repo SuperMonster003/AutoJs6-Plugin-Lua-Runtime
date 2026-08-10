@@ -498,6 +498,7 @@ def verify_input_workflows() -> None:
             "zipalign -c -P 16 4",
             "apksigner verify --verbose --print-certs",
             "llvm-readelf",
+            "app/build/generated/source/buildConfig/debug/",
             "LUA_NATIVE_ENABLED = true;",
             "LUA_PROVIDER_ENABLED = false;",
             "DEBUG_ARTIFACT_GATE_PASS",
@@ -739,8 +740,47 @@ def verify_watchdog_boundary() -> None:
     ).read_text("utf-8")
     require(
         "normalFinishCancelsEveryTaskAndAStaleCallbackCannotKillReplacement" in tests
-        and "schedulerFailurePoisonsProcessAndFailsDispatchClosed" in tests,
+        and "schedulerFailurePoisonsProcessAndFailsDispatchClosed" in tests
+        and "expiredDeadlineFailsClosedBeforeWorkerDispatchEvenIfTerminatorReturns" in tests
+        and "expiredStopGraceFailsClosedBeforeWorkerDispatch" in tests,
         "Android-free watchdog race coverage is missing",
+    )
+
+
+def verify_native_android_test_boundary() -> None:
+    build = (ROOT / "app/build.gradle.kts").read_text("utf-8")
+    require_tokens(
+        build,
+        (
+            'testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"',
+            'androidTestImplementation("androidx.test:runner:1.7.0")',
+            'androidTestImplementation("androidx.test.ext:junit:1.3.0")',
+        ),
+        "Provider-disabled native Android test configuration",
+    )
+
+    test = (
+        ROOT
+        / "app/src/androidTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/NativeLuaRuntimeInstrumentationTest.kt"
+    ).read_text("utf-8")
+    require_tokens(
+        test,
+        (
+            "assertTrue(BuildConfig.LUA_NATIVE_ENABLED)",
+            "assertFalse(BuildConfig.LUA_PROVIDER_ENABLED)",
+            "providerRemainsDisabledDuringNativeTests",
+            "nativeCoreAndRunnerReturnV1Scalars",
+            "syntaxAndRuntimeErrorsAreClassified",
+            "infiniteLoopIsCancelledByHook",
+            "infiniteLoopHonoursDeadline",
+            "allocatorLimitFailsClosedAndTheProcessRemainsReusable",
+            "unsupportedResultsAndArgumentsFailClosed",
+        ),
+        "Provider-disabled native Android test matrix",
+    )
+    require(
+        "bindService(" not in test,
+        "The provider-disabled native core gate must not bind production services",
     )
 
 
@@ -768,6 +808,7 @@ def main() -> int:
     verify_wrapper()
     verify_native_boundary()
     verify_watchdog_boundary()
+    verify_native_android_test_boundary()
     build_ready = protocol_ready and vendor_ready
     if args.require_build_ready:
         require(

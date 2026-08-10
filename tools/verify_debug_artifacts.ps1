@@ -247,12 +247,14 @@ if (@($manifest | Select-String 'android:enabled.*=@0x').Count -ne 2) {
     throw 'Packaged Lua services are not both controlled by the false resource gate'
 }
 
-$buildConfigs = @(
-    Get-ChildItem -LiteralPath (Join-Path $repositoryRoot 'app/build/generated') `
-        -Recurse -Filter 'BuildConfig.java' -File
+$buildConfigPath = Join-Path $repositoryRoot (
+    'app/build/generated/source/buildConfig/debug/' +
+    'io/github/supermonster003/autojs6/plugin/lua/runtime/BuildConfig.java'
 )
-if ($buildConfigs.Count -ne 1) { throw "Expected one generated BuildConfig, got $($buildConfigs.Count)" }
-$buildConfig = Get-Content -LiteralPath $buildConfigs[0].FullName -Raw
+if (-not (Test-Path -LiteralPath $buildConfigPath -PathType Leaf)) {
+    throw "Generated main debug BuildConfig is missing: $buildConfigPath"
+}
+$buildConfig = Get-Content -LiteralPath $buildConfigPath -Raw
 foreach ($token in @(
     "VERSION_CODE = $versionCode;",
     'LUA_NATIVE_ENABLED = true;',

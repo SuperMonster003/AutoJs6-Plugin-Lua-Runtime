@@ -396,6 +396,15 @@ class InputWorkflowTest(unittest.TestCase):
                 "tools/verify_debug_artifacts.ps1",
                 lambda text: text.replace("zipalign -c -P 16 4", "zipalign -c -P 4 4"),
             ),
+            (
+                "debug artifact gate admits AndroidTest BuildConfig",
+                "tools/verify_debug_artifacts.ps1",
+                lambda text: text.replace(
+                    "app/build/generated/source/buildConfig/debug/",
+                    "app/build/generated/source/buildConfig/",
+                    1,
+                ),
+            ),
         )
         for label, relative, mutate in mutations:
             with self.subTest(label=label), tempfile.TemporaryDirectory() as directory:
@@ -431,6 +440,7 @@ class RepositoryCheckpointTest(unittest.TestCase):
             verifier.verify_input_workflows()
             verifier.verify_native_boundary()
             verifier.verify_watchdog_boundary()
+            verifier.verify_native_android_test_boundary()
             with mock.patch.object(
                 sys,
                 "argv",
@@ -441,6 +451,41 @@ class RepositoryCheckpointTest(unittest.TestCase):
                 else:
                     with self.assertRaisesRegex(RuntimeError, "not ready"):
                         verifier.main()
+
+
+class NativeAndroidBoundaryTest(unittest.TestCase):
+    FILES = (
+        "app/build.gradle.kts",
+        "app/src/androidTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/NativeLuaRuntimeInstrumentationTest.kt",
+    )
+
+    def test_provider_enablement_or_service_binding_is_rejected(self) -> None:
+        mutations = (
+            (
+                "provider assertion",
+                lambda text: text.replace(
+                    "assertFalse(BuildConfig.LUA_PROVIDER_ENABLED)",
+                    "assertTrue(BuildConfig.LUA_PROVIDER_ENABLED)",
+                    1,
+                ),
+            ),
+            (
+                "production bind",
+                lambda text: text + "\n// bindService( production provider )\n",
+            ),
+        )
+        for label, mutate in mutations:
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                for relative in self.FILES:
+                    destination = root / relative
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(SOURCE_ROOT / relative, destination)
+                test_path = root / self.FILES[1]
+                write_text(test_path, mutate(test_path.read_text("utf-8")))
+                with mock.patch.object(verifier, "ROOT", root):
+                    with self.assertRaises(RuntimeError):
+                        verifier.verify_native_android_test_boundary()
 
 
 class WatchdogBoundaryTest(unittest.TestCase):

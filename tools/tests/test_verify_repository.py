@@ -367,10 +367,10 @@ class InputWorkflowTest(unittest.TestCase):
 
 
 class RepositoryCheckpointTest(unittest.TestCase):
-    def test_repository_stays_valid_default_off_and_not_ready(self) -> None:
+    def test_repository_stays_valid_default_off_and_reports_readiness(self) -> None:
         with mock.patch.object(verifier, "ROOT", SOURCE_ROOT):
-            self.assertFalse(verifier.verify_protocol())
-            self.assertFalse(verifier.verify_vendor())
+            protocol_ready = verifier.verify_protocol()
+            vendor_ready = verifier.verify_vendor()
             verifier.verify_manifest()
             verifier.verify_default_off()
             verifier.verify_input_workflows()
@@ -380,8 +380,11 @@ class RepositoryCheckpointTest(unittest.TestCase):
                 "argv",
                 ["verify_repository.py", "--require-build-ready"],
             ):
-                with self.assertRaisesRegex(RuntimeError, "not ready"):
+                if protocol_ready and vendor_ready:
                     verifier.main()
+                else:
+                    with self.assertRaisesRegex(RuntimeError, "not ready"):
+                        verifier.main()
 
 
 if __name__ == "__main__":

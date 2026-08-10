@@ -1,23 +1,23 @@
 {
   "schemaVersion": 1,
-  "status": "not-staged",
+  "status": "staged",
   "sourceRepository": "AutoJs6",
-  "sourceRevision": null,
+  "sourceRevision": "ae422391759810ce9dbbf0bc119bb47834c66b85",
   "artifacts": [
     {
       "file": "common-plugin-api.aar",
-      "sourceModule": ":plugin-api:common-plugin-api",
-      "sha256": null
+      "sha256": "d745bb24d6a6995e68ebea27d592faec162f0bad4f9bf70cb038a480ad8c6df2",
+      "sourceModule": ":plugin-api:common-plugin-api"
     },
     {
       "file": "protocol-wire-api.aar",
-      "sourceModule": ":plugin-api:protocol-wire-api",
-      "sha256": null
+      "sha256": "6c597ec095852eac7e6277574191141100dc96b6c5a803725ed540f42aa7d871",
+      "sourceModule": ":plugin-api:protocol-wire-api"
     },
     {
       "file": "lua-runtime-api.aar",
-      "sourceModule": ":plugin-api:lua-runtime-api",
-      "sha256": null
+      "sha256": "a40a0fff299f60520d07a2739a8f0c9ab004d3f307ff016bab35dc902635b851",
+      "sourceModule": ":plugin-api:lua-runtime-api"
     }
   ]
 }

@@ -344,6 +344,13 @@ def require_tokens(text: str, tokens: tuple[str, ...], label: str) -> None:
 
 
 def verify_input_workflows() -> None:
+    attributes_lines = (ROOT / ".gitattributes").read_text("utf-8").splitlines()
+    vendor_whitespace_rule = "app/src/main/cpp/vendor/lua-5.4.8/src/** -whitespace"
+    require(
+        attributes_lines.count(vendor_whitespace_rule) == 1,
+        "Immutable upstream Lua whitespace exception drift",
+    )
+
     ignore_lines = [
         line.strip()
         for line in (ROOT / ".gitignore").read_text("utf-8").splitlines()

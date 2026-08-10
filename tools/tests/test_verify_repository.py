@@ -297,6 +297,7 @@ class DefaultOffTest(unittest.TestCase):
 
 class InputWorkflowTest(unittest.TestCase):
     INPUT_FILES = (
+        ".gitattributes",
         ".gitignore",
         "tools/stage_protocol_artifacts.ps1",
         "tools/stage_lua_source.ps1",
@@ -318,6 +319,14 @@ class InputWorkflowTest(unittest.TestCase):
 
     def test_missing_git_exception_or_archive_lock_comparison_is_rejected(self) -> None:
         mutations = (
+            (
+                "missing upstream Lua whitespace exception",
+                ".gitattributes",
+                lambda text: text.replace(
+                    "app/src/main/cpp/vendor/lua-5.4.8/src/** -whitespace\n",
+                    "",
+                ),
+            ),
             ("missing AAR exception", ".gitignore", lambda text: text.replace("!protocol/*.aar\n", "")),
             ("late JAR ignore", ".gitignore", lambda text: text + "*.jar\n"),
             (

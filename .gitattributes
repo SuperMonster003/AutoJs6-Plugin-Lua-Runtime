@@ -3,3 +3,4 @@
 *.png binary
 *.aar binary
 *.jar binary
+app/src/main/cpp/vendor/lua-5.4.8/src/** -whitespace

@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "status": "not-vendored",
+  "runtimeSlot": "lua54",
+  "name": "PUC Lua",
+  "version": "5.4.8",
+  "archive": "lua-5.4.8.tar.gz",
+  "sourceUrl": "https://www.lua.org/ftp/lua-5.4.8.tar.gz",
+  "sha256": "4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae",
+  "sourceDirectory": "lua-5.4.8",
+  "sourceTreeRoot": "lua-5.4.8/src",
+  "sourceFileCount": null,
+  "sourceTreeSha256": null,
+  "vendoredAt": null
+}

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Lua 运行时</string>
+    <string name="plugin_description">独立的 PUC Lua 5.4 运行时插件</string>
+    <string name="plugin_instruction">仅在原生运行时与一致性测试门槛通过后提供隔离的 Lua 执行能力。</string>
+</resources>

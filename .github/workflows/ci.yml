@@ -1,0 +1,51 @@
+name: Lua Runtime Plugin CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-boundary:
+    runs-on: ubuntu-latest
+    outputs:
+      build_ready: ${{ steps.verify.outputs.build_ready }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - id: verify
+        run: python tools/verify_repository.py --github-output
+
+  build-after-intake:
+    needs: static-boundary
+    if: needs.static-boundary.outputs.build_ready == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: android-actions/setup-android@v3
+      - run: >-
+          sdkmanager
+          "platforms;android-36"
+          "build-tools;36.0.0"
+          "ndk;28.2.13676358"
+          "cmake;3.22.1"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.6.1"
+      - run: >-
+          gradle
+          :app:testDebugUnitTest
+          :app:assembleDebug
+          -Pautojs.lua.native.enabled=true
+          -Pautojs.lua.provider.enabled=false
+          --no-daemon
+          --console=plain

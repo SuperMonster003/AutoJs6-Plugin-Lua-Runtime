@@ -1,0 +1,3 @@
+-keep class org.autojs.plugin.common.api.** { *; }
+-keep class org.autojs.plugin.lua.runtime.api.** { *; }
+-keep class io.github.supermonster003.autojs6.plugin.lua.runtime.service.** { *; }

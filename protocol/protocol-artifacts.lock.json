@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "status": "not-staged",
+  "sourceRepository": "AutoJs6",
+  "sourceRevision": null,
+  "artifacts": [
+    {
+      "file": "common-plugin-api.aar",
+      "sourceModule": ":plugin-api:common-plugin-api",
+      "sha256": null
+    },
+    {
+      "file": "protocol-wire-api.aar",
+      "sourceModule": ":plugin-api:protocol-wire-api",
+      "sha256": null
+    },
+    {
+      "file": "lua-runtime-api.aar",
+      "sourceModule": ":plugin-api:lua-runtime-api",
+      "sha256": null
+    }
+  ]
+}

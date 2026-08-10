@@ -9,5 +9,6 @@ local.properties
 *.keystore
 sign.properties
 releases/
+.cxx/
 !protocol/*.aar
 !gradle/wrapper/gradle-wrapper.jar

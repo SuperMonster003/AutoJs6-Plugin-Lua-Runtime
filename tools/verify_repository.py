@@ -378,6 +378,15 @@ def verify_default_off() -> None:
         ci_gradle_property_values(ci, "autojs.lua.native.enabled") == ["true"],
         "Post-intake CI must compile the pinned native scaffold exactly once",
     )
+    require(
+        ci.count("python tools/verify_repository.py --require-build-ready --github-output") == 1,
+        "CI must fail closed when immutable inputs regress",
+    )
+    require(
+        ci.count("          ./gradlew\n") == 1
+        and "gradle-version:" not in ci,
+        "CI must execute the repository-owned Gradle wrapper",
+    )
     service = (ROOT / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaRuntimeService.kt").read_text("utf-8")
     require(
         "override fun onBind(intent: Intent?): IBinder = binder" in service,
@@ -415,6 +424,7 @@ def verify_input_workflows() -> None:
         if line.strip() and not line.lstrip().startswith("#")
     ]
     exceptions = ("!protocol/*.aar", "!gradle/wrapper/gradle-wrapper.jar")
+    require(ignore_lines.count(".cxx/") == 1, "Native build output ignore drift")
     for exception in exceptions:
         require(
             ignore_lines.count(exception) == 1,
@@ -485,6 +495,12 @@ def verify_input_workflows() -> None:
 
 
 def verify_native_boundary() -> None:
+    cmake = (ROOT / "app/src/main/cpp/CMakeLists.txt").read_text("utf-8")
+    require(
+        "if(NOT DEFINED AUTOJS_LUA_RUNTIME_SLOT)" in cmake
+        and 'if(NOT "${AUTOJS_LUA_RUNTIME_SLOT}" STREQUAL "lua54")' in cmake,
+        "Native build no longer pins the lua54 runtime slot",
+    )
     native = (ROOT / "app/src/main/cpp/lua_runtime_jni.cpp").read_text("utf-8")
     preflight = "new_size > budget->limit - used_without_old"
     realloc = "std::realloc(pointer, new_size)"

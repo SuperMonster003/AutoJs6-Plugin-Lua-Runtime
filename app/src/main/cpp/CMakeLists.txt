@@ -6,6 +6,13 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+if(NOT DEFINED AUTOJS_LUA_RUNTIME_SLOT)
+    message(FATAL_ERROR "AUTOJS_LUA_RUNTIME_SLOT must be pinned by the Android build")
+endif()
+if(NOT "${AUTOJS_LUA_RUNTIME_SLOT}" STREQUAL "lua54")
+    message(FATAL_ERROR "Unsupported Lua runtime slot: ${AUTOJS_LUA_RUNTIME_SLOT}")
+endif()
+
 set(LUA54_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/vendor/lua-5.4.8")
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/lua54-sources.cmake")
 

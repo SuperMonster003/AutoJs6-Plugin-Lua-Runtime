@@ -99,10 +99,11 @@ def write_default_off_fixture(root: Path) -> None:
   build:
     steps:
       - run: >-
-          gradle
+          ./gradlew
           :app:assembleDebug
           -Pautojs.lua.native.enabled=true
           -Pautojs.lua.provider.enabled=false
+      - run: python tools/verify_repository.py --require-build-ready --github-output
 """,
     )
     write_text(
@@ -294,6 +295,21 @@ class DefaultOffTest(unittest.TestCase):
                     with self.assertRaises(RuntimeError):
                         verifier.verify_default_off()
 
+    def test_ci_cannot_downgrade_readiness_or_bypass_the_wrapper(self) -> None:
+        mutations = (
+            lambda text: text.replace("--require-build-ready ", ""),
+            lambda text: text.replace("          ./gradlew\n", "          gradle\n"),
+        )
+        for mutate in mutations:
+            with self.subTest(mutate=mutate), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                write_default_off_fixture(root)
+                ci_path = root / ".github/workflows/ci.yml"
+                write_text(ci_path, mutate(ci_path.read_text("utf-8")))
+                with mock.patch.object(verifier, "ROOT", root):
+                    with self.assertRaises(RuntimeError):
+                        verifier.verify_default_off()
+
 
 class InputWorkflowTest(unittest.TestCase):
     INPUT_FILES = (
@@ -337,6 +353,11 @@ class InputWorkflowTest(unittest.TestCase):
                     "app/src/main/cpp/vendor/lua-5.4.8/src/** -whitespace\n",
                     "",
                 ),
+            ),
+            (
+                "missing native build output ignore",
+                ".gitignore",
+                lambda text: text.replace(".cxx/\n", ""),
             ),
             ("missing AAR exception", ".gitignore", lambda text: text.replace("!protocol/*.aar\n", "")),
             ("late JAR ignore", ".gitignore", lambda text: text + "*.jar\n"),

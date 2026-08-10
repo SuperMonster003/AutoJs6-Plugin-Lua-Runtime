@@ -15,6 +15,9 @@ internal fun interface LuaExecutionDispatcher {
 internal class LuaSerialExecutionWorker(
     threadName: String = "autojs-lua-execution",
 ) : LuaExecutionDispatcher, AutoCloseable {
+    // Let execute() create the core thread with its firstTask. Prestarting a core thread with a
+    // SynchronousQueue creates a startup window where no consumer is waiting and the first task is
+    // spuriously rejected, even though the worker is idle.
     private val executor = ThreadPoolExecutor(
         1,
         1,
@@ -23,9 +26,7 @@ internal class LuaSerialExecutionWorker(
         SynchronousQueue(),
         DaemonThreadFactory(threadName),
         ThreadPoolExecutor.AbortPolicy(),
-    ).apply {
-        prestartCoreThread()
-    }
+    )
 
     override fun dispatch(task: Runnable): Boolean = try {
         executor.execute(task)

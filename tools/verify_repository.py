@@ -676,6 +676,74 @@ def verify_native_boundary() -> None:
         'luaL_loadbufferx(..., "t")' in readme,
         "The required text-only execution loader gate is not documented",
     )
+
+
+def verify_watchdog_boundary() -> None:
+    watchdog = (
+        ROOT
+        / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/execution/LuaExecutionWatchdog.kt"
+    ).read_text("utf-8")
+    require_tokens(
+        watchdog,
+        (
+            "if (poisoned || active != null) return null",
+            "execution.token !== token",
+            "poisoned = true",
+            "DEADLINE_CLEANUP_EXPIRED",
+            "STOP_CLEANUP_EXPIRED",
+            "WATCHDOG_CONTROL_FAILURE",
+            "execution.stopRequestedNanos?.let",
+            "tasks.forEach { task -> runCatching { task.cancel() } }",
+        ),
+        "Process watchdog token and fail-stop boundary",
+    )
+
+    controller = (
+        ROOT
+        / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/execution/LuaExecutionSessionController.kt"
+    ).read_text("utf-8")
+    require(
+        "if (!watchdog.executionDispatched())" in controller
+        and controller.count("watchdog.stopRequestedQuietly()") >= 3
+        and "watchdog.closeQuietly()" in controller,
+        "Session lifecycle no longer arms, shortens, and revokes its watchdog lease",
+    )
+
+    manager = (
+        ROOT
+        / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaRuntimeExecutionManager.kt"
+    ).read_text("utf-8")
+    require_tokens(
+        manager,
+        (
+            "ProcessExecutionResources.watchdog.tryAcquire(",
+            "watchdog = watchdogLease",
+            "terminator = AndroidLuaRuntimeProcessTerminator",
+            "cleanupGraceMillis = WATCHDOG_CLEANUP_GRACE_MILLIS",
+            "WATCHDOG_CLEANUP_GRACE_MILLIS = 2_000L",
+        ),
+        "Runtime manager watchdog ownership",
+    )
+
+    process_guard = (
+        ROOT
+        / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaRuntimeProcessWatchdog.kt"
+    ).read_text("utf-8")
+    kill_at = process_guard.index("Process.killProcess(pid)")
+    halt_at = process_guard.index("Runtime.getRuntime().halt(")
+    require(kill_at < halt_at, "Dedicated-process termination fallback ordering drift")
+
+    tests = (
+        ROOT
+        / "app/src/test/java/io/github/supermonster003/autojs6/plugin/lua/runtime/execution/LuaExecutionWatchdogTest.kt"
+    ).read_text("utf-8")
+    require(
+        "normalFinishCancelsEveryTaskAndAStaleCallbackCannotKillReplacement" in tests
+        and "schedulerFailurePoisonsProcessAndFailsDispatchClosed" in tests,
+        "Android-free watchdog race coverage is missing",
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--github-output", action="store_true")
@@ -699,6 +767,7 @@ def main() -> int:
     verify_input_workflows()
     verify_wrapper()
     verify_native_boundary()
+    verify_watchdog_boundary()
     build_ready = protocol_ready and vendor_ready
     if args.require_build_ready:
         require(

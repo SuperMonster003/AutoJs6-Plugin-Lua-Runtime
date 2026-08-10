@@ -95,6 +95,13 @@ contains callback/terminal/close races. Native-enabled builds now select
 `DisabledLuaExecutionRunner`. Provider discovery remains an independent,
 default-off gate, so this is not yet a discoverable production provider.
 
+A process-wide watchdog is bound to each admitted execution token. It arms only
+immediately before worker dispatch, shortens its grace window on cancel, close,
+or callback death, and clears its token on normal finish. If the worker survives
+the end-to-end deadline or stop request plus the cleanup grace, the dedicated
+runtime process is poisoned and terminated. The Android kill/rebind/new-PID
+recovery path remains unverified and provider discovery therefore stays off.
+
 Before provider enablement, the implementation still needs:
 
 1. add native stdout/stderr credits, argument binding, and the host broker
@@ -103,9 +110,9 @@ Before provider enablement, the implementation still needs:
 4. prove provider-disabled merged-manifest behavior on Android
 5. pass install, release-signing, API-matrix, and recovery gates
 
-The Android-free execution state machine currently has a standalone Kotlin
-2.3.20/JDK 21 diagnostic of 23/23 tests. This does not compile AIDL or Android
-sources, load native code, exercise Binder/PFD behavior, or enable discovery.
+The repository JVM suite now contains 38 tests, while the watchdog-focused
+Android-free diagnostic passes 20/20. These do not exercise Android process
+termination, Binder/PFD behavior, native code on a device, or discovery.
 
 ## CI
 
@@ -115,14 +122,14 @@ Gradle/native job uses that wrapper with native enabled and provider disabled.
 CI wiring is not Binder/PFD, install, release-signing, API-matrix, or device
 recovery evidence.
 
-The input-gate Python suite currently covers 15 normal and hostile cases for
+The input-gate Python suite currently covers 20 normal and hostile cases for
 lock schemas and duplicate keys, revision syntax, artifact inventory/digests,
 tree-lock consistency, default-off parsing, CI provider containment, Git-ignore
-precedence, and intake-script drift. It is a static gate only; current output
-remains `protocol=not-staged`, `lua=not-vendored`, and `build_ready=false`.
-After immutable inputs are actually staged, build-required/release automation
-must invoke `python tools/verify_repository.py --require-build-ready`; the same
-command intentionally fails at this checkpoint.
+precedence, intake-script drift, and watchdog token/fail-stop wiring. It is a
+static gate only; current output is
+`STATIC_SCAFFOLD_OK protocol=ready lua=ready build_ready=true`. Build and release
+automation must continue invoking
+`python tools/verify_repository.py --require-build-ready`.
 
 Static lock consistency does not prove that a Git revision exists, that an AAR
 was produced by that revision, or that a re-locked Lua tree came from the

@@ -37,6 +37,7 @@ class LuaExecutionSessionControllerTest {
         val source = FakeSource()
         val runnerCalls = AtomicInteger()
         val finished = AtomicInteger()
+        val watchdog = RecordingWatchdogLease()
         val controller = controller(
             dispatcher = dispatcher,
             observer = observer,
@@ -45,6 +46,7 @@ class LuaExecutionSessionControllerTest {
                 runnerCalls.incrementAndGet()
                 LuaValue.StringValue("ok")
             },
+            watchdog = watchdog,
             onFinished = { finished.incrementAndGet() },
         )
 
@@ -58,6 +60,9 @@ class LuaExecutionSessionControllerTest {
         assertTrue(source.closed)
         assertTrue(observer.closed)
         assertTrue(controller.snapshot().finished)
+        assertEquals(1, watchdog.dispatched.get())
+        assertEquals(0, watchdog.stops.get())
+        assertEquals(1, watchdog.closes.get())
     }
 
     @Test
@@ -67,6 +72,7 @@ class LuaExecutionSessionControllerTest {
         val runnerEntered = CountDownLatch(1)
         val releaseRunner = CountDownLatch(1)
         val finished = AtomicInteger()
+        val watchdog = RecordingWatchdogLease()
         val controller = controller(
             dispatcher = dispatcher,
             observer = observer,
@@ -75,6 +81,7 @@ class LuaExecutionSessionControllerTest {
                 releaseRunner.await(2, TimeUnit.SECONDS)
                 LuaValue.StringValue("late")
             },
+            watchdog = watchdog,
             onFinished = { finished.incrementAndGet() },
         )
 
@@ -85,12 +92,15 @@ class LuaExecutionSessionControllerTest {
         assertTrue(controller.cancel())
         assertFalse(controller.cancel())
         assertEquals(listOf("started"), observer.events)
+        assertEquals(1, watchdog.stops.get())
+        assertEquals(0, watchdog.closes.get())
         releaseRunner.countDown()
         worker.join(2_000L)
 
         assertEquals(listOf("started", "cancelled"), observer.events)
         assertEquals(1, finished.get())
         assertTrue(controller.snapshot().terminalClaimed)
+        assertEquals(1, watchdog.closes.get())
     }
 
     @Test
@@ -99,6 +109,7 @@ class LuaExecutionSessionControllerTest {
         val observer = RecordingObserver()
         val runnerCalls = AtomicInteger()
         val finished = AtomicInteger()
+        val watchdog = RecordingWatchdogLease()
         val controller = controller(
             dispatcher = dispatcher,
             observer = observer,
@@ -106,6 +117,7 @@ class LuaExecutionSessionControllerTest {
                 runnerCalls.incrementAndGet()
                 LuaValue.Nil
             },
+            watchdog = watchdog,
             onFinished = { finished.incrementAndGet() },
         )
 
@@ -113,11 +125,14 @@ class LuaExecutionSessionControllerTest {
         assertTrue(controller.close())
         assertFalse(controller.close())
         assertEquals(0, finished.get())
+        assertEquals(1, watchdog.stops.get())
+        assertEquals(0, watchdog.closes.get())
         dispatcher.runAccepted()
 
         assertEquals(0, runnerCalls.get())
         assertTrue(observer.events.isEmpty())
         assertEquals(1, finished.get())
+        assertEquals(1, watchdog.closes.get())
     }
 
     @Test
@@ -188,6 +203,26 @@ class LuaExecutionSessionControllerTest {
     }
 
     @Test
+    fun watchdogControlFailureRejectsBeforeWorkerDispatch() {
+        val dispatcher = ManualDispatcher()
+        val observer = RecordingObserver()
+        val watchdog = RecordingWatchdogLease(armSucceeds = false)
+        val controller = controller(
+            dispatcher = dispatcher,
+            observer = observer,
+            watchdog = watchdog,
+        )
+
+        assertTrue(controller.start())
+
+        assertFalse(dispatcher.hasAcceptedTask())
+        assertEquals(listOf("failed"), observer.events)
+        assertEquals(LuaExecutionErrorCode.INTERNAL, observer.lastError?.code)
+        assertEquals(1, watchdog.dispatched.get())
+        assertEquals(1, watchdog.closes.get())
+    }
+
+    @Test
     fun unstartedSessionLeaseExpiresWithoutManufacturingCallback() {
         val dispatcher = ManualDispatcher()
         val observer = RecordingObserver()
@@ -244,6 +279,7 @@ class LuaExecutionSessionControllerTest {
         val observer = RecordingObserver(failOnStarted = true)
         val runnerCalls = AtomicInteger()
         val finished = AtomicInteger()
+        val watchdog = RecordingWatchdogLease()
         val controller = controller(
             dispatcher = dispatcher,
             observer = observer,
@@ -251,6 +287,7 @@ class LuaExecutionSessionControllerTest {
                 runnerCalls.incrementAndGet()
                 LuaValue.Nil
             },
+            watchdog = watchdog,
             onFinished = { finished.incrementAndGet() },
         )
 
@@ -318,6 +355,7 @@ class LuaExecutionSessionControllerTest {
         val observer = RecordingObserver()
         val runnerCalls = AtomicInteger()
         val finished = AtomicInteger()
+        val watchdog = RecordingWatchdogLease()
         val controller = controller(
             dispatcher = dispatcher,
             observer = observer,
@@ -325,18 +363,22 @@ class LuaExecutionSessionControllerTest {
                 runnerCalls.incrementAndGet()
                 LuaValue.Nil
             },
+            watchdog = watchdog,
             onFinished = { finished.incrementAndGet() },
         )
 
         assertTrue(controller.start())
         assertTrue(controller.observerDied())
         assertFalse(controller.observerDied())
+        assertEquals(1, watchdog.stops.get())
+        assertEquals(0, watchdog.closes.get())
         dispatcher.runAccepted()
 
         assertEquals(0, runnerCalls.get())
         assertTrue(observer.events.isEmpty())
         assertEquals(1, finished.get())
         assertFalse(controller.snapshot().observerAvailable)
+        assertEquals(1, watchdog.closes.get())
     }
 
     @Test
@@ -419,6 +461,7 @@ class LuaExecutionSessionControllerTest {
         runner: LuaExecutionRunner = LuaExecutionRunner { LuaValue.Nil },
         initialFailure: LuaExecutionError? = null,
         clock: LuaMonotonicClock = LuaMonotonicClock { 1_000_000L },
+        watchdog: LuaExecutionWatchdogLease = RecordingWatchdogLease(),
         onFinished: () -> Unit = {},
     ): LuaExecutionSessionController = LuaExecutionSessionController(
         request = REQUEST,
@@ -426,6 +469,7 @@ class LuaExecutionSessionControllerTest {
         source = source,
         runner = runner,
         dispatcher = dispatcher,
+        watchdog = watchdog,
         observer = observer,
         initialFailure = initialFailure,
         clock = clock,
@@ -458,6 +502,27 @@ class LuaExecutionSessionControllerTest {
 
         override fun close() {
             closed = true
+        }
+    }
+
+    private class RecordingWatchdogLease(
+        private val armSucceeds: Boolean = true,
+    ) : LuaExecutionWatchdogLease {
+        val dispatched = AtomicInteger()
+        val stops = AtomicInteger()
+        val closes = AtomicInteger()
+
+        override fun executionDispatched(): Boolean {
+            dispatched.incrementAndGet()
+            return armSucceeds
+        }
+
+        override fun stopRequested() {
+            stops.incrementAndGet()
+        }
+
+        override fun close() {
+            closes.incrementAndGet()
         }
     }
 

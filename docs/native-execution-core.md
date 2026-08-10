@@ -25,8 +25,8 @@ object. The caller owns the serial worker and terminal race. The default-off
 runner adapter accepts only `nil` and the host's empty-map representation of
 "no arguments"; it rejects every non-empty argument value until explicit Lua
 argument binding is implemented. Selecting the adapter does not load JNI; the
-library is loaded only after a provider-authorized execution reaches the native
-boundary.
+library is loaded only after an admitted native execution reaches the native
+boundary; the provider switch may remain false for isolated native tests.
 
 ## Per-call native lifecycle
 
@@ -85,12 +85,16 @@ performs that explicit scalar mapping.
   C-library operation, or native heap teardown. The bridge polls immediately
   before and after loading and protected execution, while the allocator still
   bounds Lua-owned memory. Metatable removal prevents user finalizers from
-  making teardown infinite, but a process-level cleanup watchdog remains an
+  making teardown infinite. A token-bound process-level cleanup watchdog now
+  fail-stops the dedicated process after the request deadline or stop request
+  plus a two-second grace, but kill/rebind/new-PID recovery remains an Android
   enablement gate.
 - The cancellation probe executes synchronously on the Lua worker thread and
   must remain non-blocking.
-- Native crashes, Android process rebuild, ABI packaging, and 16 KiB alignment
-  remain deferred Android gates.
+- Native crashes and Android process rebuild remain deferred Android gates. ABI
+  packaging plus 16 KiB ELF/ZIP alignment pass the debug artifact gate.
 
 `NativeLuaRuntimeBoundaryTest` records the defensive snapshot, UTF-8, scalar
-mapping, and result-limit expectations. These tests have not been run.
+mapping, and result-limit expectations. The repository JVM gate also covers
+watchdog token, stop, finish, and scheduler-failure races; device-native
+execution remains pending.

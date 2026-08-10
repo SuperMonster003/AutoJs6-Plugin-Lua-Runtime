@@ -6,6 +6,9 @@ import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaExecuti
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaExecutionRunner
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaExecutionSessionController
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaExecutionSource
+import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaExecutionWatchdog
+import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaExecutionWatchdogLease
+import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaMonotonicClock
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaSerialExecutionWorker
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaSourceVerifier
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaStartLease
@@ -67,6 +70,7 @@ internal class LuaRuntimeExecutionManager(
         )
         val token = Any()
         var activeAcquired = false
+        var watchdogLease: LuaExecutionWatchdogLease? = null
         var ownedSource: LuaParcelFileExecutionSource? = null
         try {
             activeAcquired = ProcessExecutionResources.active.tryAcquire(token)
@@ -81,9 +85,16 @@ internal class LuaRuntimeExecutionManager(
                     initialFailure = busyError(request),
                     createdNanos = createdNanos,
                     retainedLease = retainedLease,
+                    watchdogLease = RejectedSessionWatchdogLease,
                     onFinished = {},
                 )
             }
+            val admittedWatchdog = ProcessExecutionResources.watchdog.tryAcquire(
+                token = token,
+                createdNanos = createdNanos,
+                timeoutMillis = request.timeoutMillis,
+            ) ?: error("The Lua runtime watchdog is unavailable or poisoned")
+            watchdogLease = admittedWatchdog
             val admittedSource = LuaParcelFileExecutionSource.duplicateOf(incomingSource)
             ownedSource = admittedSource
             newRemoteSession(
@@ -96,10 +107,12 @@ internal class LuaRuntimeExecutionManager(
                 initialFailure = null,
                 createdNanos = createdNanos,
                 retainedLease = retainedLease,
+                watchdogLease = admittedWatchdog,
                 onFinished = { ProcessExecutionResources.active.release(token) },
             )
         } catch (error: Throwable) {
             ownedSource?.close()
+            watchdogLease?.runCatching { close() }
             if (activeAcquired) ProcessExecutionResources.active.release(token)
             retainedLease.close()
             throw error
@@ -125,6 +138,7 @@ internal class LuaRuntimeExecutionManager(
         initialFailure: LuaExecutionError?,
         createdNanos: Long,
         retainedLease: RetainedExecutionLease,
+        watchdogLease: LuaExecutionWatchdogLease,
         onFinished: () -> Unit,
     ): RemoteLuaExecutionSession {
         val observer = BinderLuaExecutionObserver(callback, hostBroker)
@@ -135,6 +149,7 @@ internal class LuaRuntimeExecutionManager(
             source = source,
             runner = runner,
             dispatcher = ProcessExecutionResources.worker,
+            watchdog = watchdogLease,
             observer = observer,
             initialFailure = initialFailure,
             createdNanos = createdNanos,
@@ -194,11 +209,27 @@ internal class LuaRuntimeExecutionManager(
 private object ProcessExecutionResources {
     val active = SingleActiveExecutionGate<Any>()
     val worker = LuaSerialExecutionWorker()
+    val watchdog = LuaExecutionWatchdog(
+        clock = LuaMonotonicClock(System::nanoTime),
+        scheduler = LuaRuntimeWatchdogScheduler,
+        terminator = AndroidLuaRuntimeProcessTerminator,
+        cleanupGraceMillis = WATCHDOG_CLEANUP_GRACE_MILLIS,
+    )
     private val retainedSessions = RetainedExecutionGate(MAX_RETAINED_SESSIONS)
 
     fun tryRetainSession(): RetainedExecutionLease? = retainedSessions.tryAcquire()
 
     private const val MAX_RETAINED_SESSIONS = 2
+    private const val WATCHDOG_CLEANUP_GRACE_MILLIS = 2_000L
+}
+
+/** A typed BUSY session never dispatches and therefore owns no process watchdog slot. */
+private object RejectedSessionWatchdogLease : LuaExecutionWatchdogLease {
+    override fun executionDispatched(): Boolean = false
+
+    override fun stopRequested() = Unit
+
+    override fun close() = Unit
 }
 
 private class RemoteLuaExecutionSession(

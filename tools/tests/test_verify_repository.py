@@ -430,6 +430,7 @@ class RepositoryCheckpointTest(unittest.TestCase):
             verifier.verify_default_off()
             verifier.verify_input_workflows()
             verifier.verify_native_boundary()
+            verifier.verify_watchdog_boundary()
             with mock.patch.object(
                 sys,
                 "argv",
@@ -440,6 +441,39 @@ class RepositoryCheckpointTest(unittest.TestCase):
                 else:
                     with self.assertRaisesRegex(RuntimeError, "not ready"):
                         verifier.main()
+
+
+class WatchdogBoundaryTest(unittest.TestCase):
+    WATCHDOG_FILES = (
+        "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/execution/LuaExecutionWatchdog.kt",
+        "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/execution/LuaExecutionSessionController.kt",
+        "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaRuntimeExecutionManager.kt",
+        "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaRuntimeProcessWatchdog.kt",
+        "app/src/test/java/io/github/supermonster003/autojs6/plugin/lua/runtime/execution/LuaExecutionWatchdogTest.kt",
+    )
+
+    def copy_watchdog_boundary(self, root: Path) -> None:
+        for relative in self.WATCHDOG_FILES:
+            destination = root / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(SOURCE_ROOT / relative, destination)
+
+    def test_current_watchdog_boundary_is_token_bound_and_fail_stop(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.copy_watchdog_boundary(root)
+            with mock.patch.object(verifier, "ROOT", root):
+                verifier.verify_watchdog_boundary()
+
+    def test_removing_stale_token_check_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.copy_watchdog_boundary(root)
+            path = root / self.WATCHDOG_FILES[0]
+            write_text(path, path.read_text("utf-8").replace("execution.token !== token", "false"))
+            with mock.patch.object(verifier, "ROOT", root):
+                with self.assertRaisesRegex(RuntimeError, "execution.token !== token"):
+                    verifier.verify_watchdog_boundary()
 
 
 class WrapperInputTest(unittest.TestCase):

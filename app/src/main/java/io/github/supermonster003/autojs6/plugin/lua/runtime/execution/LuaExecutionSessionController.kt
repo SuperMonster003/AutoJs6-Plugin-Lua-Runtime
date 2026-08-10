@@ -49,6 +49,7 @@ internal class LuaExecutionSessionController(
     private val source: LuaExecutionSource,
     private val runner: LuaExecutionRunner,
     private val dispatcher: LuaExecutionDispatcher,
+    private val watchdog: LuaExecutionWatchdogLease,
     private val observer: LuaExecutionObserver,
     private val initialFailure: LuaExecutionError? = null,
     private val clock: LuaMonotonicClock = LuaMonotonicClock(System::nanoTime),
@@ -121,7 +122,12 @@ internal class LuaExecutionSessionController(
         }
         if (!shouldDispatch) return false
         try {
-            if (!dispatcher.dispatch(Runnable(::runOnWorker))) {
+            if (!watchdog.executionDispatched()) {
+                handleDispatchUnavailable(
+                    code = LuaExecutionErrorCode.INTERNAL,
+                    message = "The Lua execution watchdog could not be armed",
+                )
+            } else if (!dispatcher.dispatch(Runnable(::runOnWorker))) {
                 handleDispatchUnavailable(
                     code = LuaExecutionErrorCode.BUSY,
                     message = "The serial Lua execution worker is unavailable",
@@ -176,6 +182,7 @@ internal class LuaExecutionSessionController(
 
     /** Credit grants are additive; calls after terminal/close are harmless no-ops. */
     fun grantOutputCredits(count: Int): Boolean {
+        var stopDispatchedWork = false
         val accepted = synchronized(lock) {
             if (closeRequested || terminalClaimed || phase == Phase.FINISHED) {
                 false
@@ -187,6 +194,7 @@ internal class LuaExecutionSessionController(
                 pendingFailure = failure
                 if (startRequested) {
                     cancelRequested = true
+                    stopDispatchedWork = true
                 }
                 false
             } else {
@@ -194,6 +202,7 @@ internal class LuaExecutionSessionController(
                 true
             }
         }
+        if (stopDispatchedWork) watchdog.stopRequestedQuietly()
         if (!accepted && synchronized(lock) { startRequested }) source.close()
         return accepted
     }
@@ -216,6 +225,7 @@ internal class LuaExecutionSessionController(
             }
         }
         if (!changed) return false
+        watchdog.stopRequestedQuietly()
         source.close()
         cancellation?.let { value -> deliver { it.onCancelled(value) } }
         if (finishWithoutWorker) finish()
@@ -259,7 +269,10 @@ internal class LuaExecutionSessionController(
                 output = candidate
             }
         }
-        if (failed) return false
+        if (failed) {
+            watchdog.stopRequestedQuietly()
+            return false
+        }
         output?.let { value -> deliver { it.onOutput(value) } }
         return output != null
     }
@@ -469,6 +482,7 @@ internal class LuaExecutionSessionController(
             }
         }
         if (!changed) return false
+        watchdog.stopRequestedQuietly()
         source.close()
         callbackGate.close()
         if (finishWithoutWorker) finish()
@@ -517,6 +531,7 @@ internal class LuaExecutionSessionController(
 
     private fun finish() {
         if (!cleanupStarted.compareAndSet(false, true)) return
+        watchdog.closeQuietly()
         val leaseToCancel = synchronized(lock) {
             phase = Phase.FINISHED
             startLease.also { startLease = null }
@@ -638,5 +653,13 @@ internal class LuaExecutionSessionController(
 }
 
 private fun LuaStartLease.closeQuietly() {
+    runCatching { close() }
+}
+
+private fun LuaExecutionWatchdogLease.stopRequestedQuietly() {
+    runCatching { stopRequested() }
+}
+
+private fun LuaExecutionWatchdogLease.closeQuietly() {
     runCatching { close() }
 }

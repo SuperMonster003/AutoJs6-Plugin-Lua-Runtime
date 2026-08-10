@@ -3,7 +3,8 @@ param(
     [string] $SdkRoot,
     [string] $BuildToolsVersion = '37.0.0',
     [string] $NdkVersion = '28.2.13676358',
-    [int] $ExpectedTests = 30
+    [int] $ExpectedTests = 38,
+    [switch] $RequireFaultHarness
 )
 
 $ErrorActionPreference = 'Stop'
@@ -109,6 +110,11 @@ $signerDigests = [Collections.Generic.HashSet[string]]::new(
     [StringComparer]::OrdinalIgnoreCase
 )
 $nativeDigests = @{}
+$faultSymbols = @(
+    'Java_io_github_supermonster003_autojs6_plugin_lua_runtime_debug_NativeLuaFaults_nativeCrash',
+    'Java_io_github_supermonster003_autojs6_plugin_lua_runtime_debug_NativeLuaFaults_nativeWedge'
+)
+$expectedFaultSymbolCount = if ($RequireFaultHarness) { 1 } else { 0 }
 $artifactRecords = [Collections.Generic.List[object]]::new()
 try {
     foreach ($element in $elements) {
@@ -202,6 +208,17 @@ try {
                         throw "ELF LOAD alignment is below 16 KiB: $($entry.FullName) $alignment"
                     }
                 }
+                $symbols = @(& $readelf --dyn-syms --wide $destination)
+                if ($LASTEXITCODE -ne 0) { throw "ELF symbol inspection failed: $($entry.FullName)" }
+                foreach ($symbol in $faultSymbols) {
+                    $count = @($symbols | Select-String ([regex]::Escape($symbol))).Count
+                    if ($count -ne $expectedFaultSymbolCount) {
+                        throw (
+                            "Debug fault JNI symbol drift in $($entry.FullName): " +
+                            "$symbol count=$count expected=$expectedFaultSymbolCount"
+                        )
+                    }
+                }
                 $digest = (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant()
                 if ($nativeDigests.ContainsKey($abi) -and $nativeDigests[$abi] -ne $digest) {
                     throw "Split/universal native payload mismatch for $abi"
@@ -236,15 +253,59 @@ if (
 ) {
     throw 'Packaged provider-discovery resource is not false'
 }
+$expectedFaultResource = if ($RequireFaultHarness) { '0xffffffff' } else { '0x00000000' }
+if (
+    $resourceText -notmatch
+        "lua_runtime_fault_harness_enabled[\s\S]*?t=0x12 d=$expectedFaultResource"
+) {
+    throw "Packaged fault-harness resource does not match RequireFaultHarness=$RequireFaultHarness"
+}
 $manifest = @(& $aapt dump xmltree $universalApk AndroidManifest.xml)
 if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect packaged Android manifest' }
+
+function Get-PackagedServiceBlock([string[]] $lines, [string] $serviceName) {
+    $nameMatches = @(
+        for ($index = 0; $index -lt $lines.Count; $index++) {
+            if ($lines[$index].Contains($serviceName)) { $index }
+        }
+    )
+    if ($nameMatches.Count -ne 1) {
+        throw "Packaged service inventory drift: $serviceName"
+    }
+    $nameIndex = $nameMatches[0]
+    $start = $nameIndex
+    while ($start -ge 0 -and $lines[$start] -notmatch '^(\s*)E: service\b') { $start-- }
+    if ($start -lt 0) { throw "Unable to locate service node: $serviceName" }
+    $indent = ([regex]::Match($lines[$start], '^(\s*)')).Groups[1].Value.Length
+    $end = $lines.Count
+    for ($index = $start + 1; $index -lt $lines.Count; $index++) {
+        $match = [regex]::Match($lines[$index], '^(\s*)E: ')
+        if ($match.Success -and $match.Groups[1].Value.Length -le $indent) {
+            $end = $index
+            break
+        }
+    }
+    return @($lines[$start..($end - 1)])
+}
+
 foreach ($service in @('LuaPluginInfoService', 'LuaRuntimeService')) {
-    if (@($manifest | Select-String $service).Count -ne 1) {
-        throw "Packaged service inventory drift: $service"
+    $block = Get-PackagedServiceBlock $manifest $service
+    if (
+        @($block | Select-String 'android:enabled.*=@0x').Count -ne 1 -or
+        @($block | Select-String 'android:exported.*0xffffffff').Count -ne 1 -or
+        @($block | Select-String 'android:process.*:lua_runtime').Count -ne 1
+    ) {
+        throw "Packaged production service boundary drift: $service"
     }
 }
-if (@($manifest | Select-String 'android:enabled.*=@0x').Count -ne 2) {
-    throw 'Packaged Lua services are not both controlled by the false resource gate'
+$faultBlock = Get-PackagedServiceBlock $manifest 'LuaRuntimeFaultService'
+if (
+    @($faultBlock | Select-String 'android:enabled.*=@0x').Count -ne 1 -or
+    @($faultBlock | Select-String 'android:exported.*0x0').Count -ne 1 -or
+    @($faultBlock | Select-String 'android:process.*:lua_runtime').Count -ne 1 -or
+    @($faultBlock | Select-String 'E: intent-filter').Count -ne 0
+) {
+    throw 'Packaged debug fault service is not explicit, non-exported, and process-isolated'
 }
 
 $buildConfigPath = Join-Path $repositoryRoot (
@@ -258,7 +319,8 @@ $buildConfig = Get-Content -LiteralPath $buildConfigPath -Raw
 foreach ($token in @(
     "VERSION_CODE = $versionCode;",
     'LUA_NATIVE_ENABLED = true;',
-    'LUA_PROVIDER_ENABLED = false;'
+    'LUA_PROVIDER_ENABLED = false;',
+    "LUA_FAULT_HARNESS_ENABLED = $($RequireFaultHarness.ToString().ToLowerInvariant());"
 )) {
     if (-not $buildConfig.Contains($token)) { throw "Generated BuildConfig drift: $token" }
 }
@@ -272,4 +334,4 @@ $summary = [ordered]@{
     artifacts = $artifactRecords
 }
 $summary | ConvertTo-Json -Depth 6
-Write-Host 'DEBUG_ARTIFACT_GATE_PASS provider=false elfPageAlign=16384 zipPageAlign=16384'
+Write-Host "DEBUG_ARTIFACT_GATE_PASS provider=false faultHarness=$($RequireFaultHarness.ToString().ToLowerInvariant()) elfPageAlign=16384 zipPageAlign=16384"

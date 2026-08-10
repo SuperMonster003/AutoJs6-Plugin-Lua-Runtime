@@ -5,13 +5,17 @@ import android.content.pm.PackageManager
 import android.os.Binder
 import io.github.supermonster003.autojs6.plugin.lua.runtime.LuaProviderMetadata
 
-internal class HostCallerVerifier(context: Context) {
+internal fun interface LuaSessionCallerVerifier {
+    fun enforceSessionOwner(expectedUid: Int)
+}
+
+internal class HostCallerVerifier(context: Context) : LuaSessionCallerVerifier {
     private val packageManager = context.applicationContext.packageManager
     private val providerPackageName = context.applicationContext.packageName
 
     fun enforceAllowedCaller(): Int = Binder.getCallingUid().also(::enforceAllowedUid)
 
-    fun enforceSessionOwner(expectedUid: Int) {
+    override fun enforceSessionOwner(expectedUid: Int) {
         val callingUid = Binder.getCallingUid()
         if (callingUid != expectedUid) {
             throw SecurityException("Lua runtime session UID does not match its owner")

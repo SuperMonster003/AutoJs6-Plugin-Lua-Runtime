@@ -13,6 +13,11 @@ if(NOT "${AUTOJS_LUA_RUNTIME_SLOT}" STREQUAL "lua54")
     message(FATAL_ERROR "Unsupported Lua runtime slot: ${AUTOJS_LUA_RUNTIME_SLOT}")
 endif()
 
+option(AUTOJS_LUA_DEBUG_FAULT_HARNESS "Compile debug-only native fault entry points" OFF)
+if(AUTOJS_LUA_DEBUG_FAULT_HARNESS AND NOT "${CMAKE_BUILD_TYPE}" MATCHES "^[Dd]ebug$")
+    message(FATAL_ERROR "The native Lua fault harness may only be compiled for a debug variant")
+endif()
+
 set(LUA54_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/vendor/lua-5.4.8")
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/lua54-sources.cmake")
 
@@ -38,6 +43,12 @@ target_include_directories(autojs_lua_runtime PRIVATE
 target_compile_definitions(autojs_lua_runtime PRIVATE
     LUA_USE_POSIX
 )
+
+if(AUTOJS_LUA_DEBUG_FAULT_HARNESS)
+    target_compile_definitions(autojs_lua_runtime PRIVATE
+        AUTOJS_LUA_DEBUG_FAULT_HARNESS=1
+    )
+endif()
 
 target_compile_options(autojs_lua_runtime PRIVATE
     -Wall

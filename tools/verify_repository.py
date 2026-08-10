@@ -318,7 +318,11 @@ def verify_manifest() -> None:
 
 
 def parse_default_off_flags(properties: str) -> dict[str, str]:
-    required_flags = {"autojs.lua.native.enabled", "autojs.lua.provider.enabled"}
+    required_flags = {
+        "autojs.lua.native.enabled",
+        "autojs.lua.provider.enabled",
+        "autojs.lua.faultHarness.enabled",
+    }
     parsed_flags: dict[str, str] = {}
     reference_counts = {key: 0 for key in required_flags}
     patterns = {
@@ -379,6 +383,10 @@ def verify_default_off() -> None:
         "Post-intake CI must compile the pinned native scaffold exactly once",
     )
     require(
+        ci_gradle_property_values(ci, "autojs.lua.faultHarness.enabled") == [],
+        "CI must not enable the device-only native fault harness",
+    )
+    require(
         ci.count("python tools/verify_repository.py --require-build-ready --github-output") == 1,
         "CI must fail closed when immutable inputs regress",
     )
@@ -387,6 +395,7 @@ def verify_default_off() -> None:
         and "gradle-version:" not in ci,
         "CI must execute the repository-owned Gradle wrapper",
     )
+    require(ci.count("-ExpectedTests 38") == 1, "CI JVM test count drift")
     service = (ROOT / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaRuntimeService.kt").read_text("utf-8")
     require(
         "override fun onBind(intent: Intent?): IBinder = binder" in service,
@@ -491,6 +500,7 @@ def verify_input_workflows() -> None:
         artifact_gate,
         (
             "status --porcelain --untracked-files=all",
+            "[int] $ExpectedTests = 38",
             "rev-list --count HEAD",
             "VERSION_BUILD must equal the positive commit count",
             "app/build/test-results/testDebugUnitTest",
@@ -784,6 +794,166 @@ def verify_native_android_test_boundary() -> None:
     )
 
 
+def verify_fault_harness_boundary() -> None:
+    build = (ROOT / "app/build.gradle.kts").read_text("utf-8")
+    require_tokens(
+        build,
+        (
+            'flag("autojs.lua.faultHarness.enabled")',
+            "luaFaultHarnessEnabled.get() && (!luaNativeEnabled.get() || luaProviderEnabled.get())",
+            '"LUA_FAULT_HARNESS_ENABLED",\n                luaFaultHarnessEnabled.get().toString()',
+            '"lua_runtime_fault_harness_enabled",\n                luaFaultHarnessEnabled.get().toString()',
+            '"-DAUTOJS_LUA_DEBUG_FAULT_HARNESS=ON"',
+            'buildConfigField("boolean", "LUA_FAULT_HARNESS_ENABLED", "false")',
+            'resValue("bool", "lua_runtime_fault_harness_enabled", "false")',
+            '"-DAUTOJS_LUA_DEBUG_FAULT_HARNESS=OFF"',
+        ),
+        "Explicit debug fault-harness build gate",
+    )
+
+    debug_manifest_path = ROOT / "app/src/debug/AndroidManifest.xml"
+    debug_manifest = ET.parse(debug_manifest_path).getroot()
+    debug_application = debug_manifest.find("application")
+    require(debug_application is not None, "Debug fault manifest has no application node")
+    debug_services = debug_application.findall("service")
+    require(len(debug_services) == 1, "Debug fault service inventory drift")
+    service = debug_services[0]
+    require(
+        service.get(ANDROID + "name") == ".debug.LuaRuntimeFaultService"
+        and service.get(ANDROID + "enabled") == "@bool/lua_runtime_fault_harness_enabled"
+        and service.get(ANDROID + "exported") == "false"
+        and service.get(ANDROID + "process") == ":lua_runtime"
+        and not service.findall("intent-filter"),
+        "Debug fault service isolation or explicit-only binding drift",
+    )
+    main_manifest = (ROOT / "app/src/main/AndroidManifest.xml").read_text("utf-8")
+    require("LuaRuntimeFaultService" not in main_manifest, "Fault service entered the main manifest")
+    release_root = ROOT / "app/src/release"
+    if release_root.exists():
+        release_text = "\n".join(
+            path.read_text("utf-8", errors="ignore")
+            for path in release_root.rglob("*")
+            if path.is_file()
+        )
+        require("LuaRuntimeFault" not in release_text, "Fault harness entered release sources")
+
+    service_text = (
+        ROOT
+        / "app/src/debug/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/LuaRuntimeFaultService.kt"
+    ).read_text("utf-8")
+    require_tokens(
+        service_text,
+        (
+            "LuaRuntimeExecutionManager(",
+            "object : ILuaRuntimeProvider.Stub()",
+            "writeStrongBinder(runtimeProvider)",
+            "LuaRuntimeValidation.validateRequestAgainst(",
+            "executionManager.create(",
+            "incomingSource = source",
+            "source.contentEquals(FAULT_WEDGE_SOURCE) -> NativeLuaFaults.wedge()",
+            "else -> NativeLuaExecutionRunner.execute(request)",
+            "LuaRuntimeFaultProcessEpoch.nonce",
+            "Application.getProcessName()",
+        ),
+        "Fault harness production-session route",
+    )
+    for bypass in (
+        "Executors.new",
+        "LuaExecutionWatchdog(",
+        "AndroidLuaRuntimeProcessTerminator",
+        "NativeLuaRuntime.execute(",
+    ):
+        require(bypass not in service_text, f"Fault harness bypasses the production session route: {bypass}")
+
+    native_wrapper = (
+        ROOT
+        / "app/src/debug/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/NativeLuaFaults.kt"
+    ).read_text("utf-8")
+    require_tokens(
+        native_wrapper,
+        (
+            "check(BuildConfig.DEBUG)",
+            "check(BuildConfig.LUA_FAULT_HARNESS_ENABLED)",
+            "check(BuildConfig.LUA_NATIVE_ENABLED)",
+            "check(!BuildConfig.LUA_PROVIDER_ENABLED)",
+            "private external fun nativeCrash()",
+            "private external fun nativeWedge()",
+        ),
+        "Debug-only native fault wrapper",
+    )
+
+    cmake = (ROOT / "app/src/main/cpp/CMakeLists.txt").read_text("utf-8")
+    require_tokens(
+        cmake,
+        (
+            "option(AUTOJS_LUA_DEBUG_FAULT_HARNESS",
+            'AUTOJS_LUA_DEBUG_FAULT_HARNESS AND NOT "${CMAKE_BUILD_TYPE}" MATCHES "^[Dd]ebug$"',
+            "AUTOJS_LUA_DEBUG_FAULT_HARNESS=1",
+        ),
+        "Native fault compile boundary",
+    )
+    native = (ROOT / "app/src/main/cpp/lua_runtime_jni.cpp").read_text("utf-8")
+    production_end = native.index("return result;")
+    guard_at = native.find("#if defined(AUTOJS_LUA_DEBUG_FAULT_HARNESS)", production_end)
+    crash_at = native.find("NativeLuaFaults_nativeCrash", max(guard_at, production_end))
+    wedge_at = native.find("NativeLuaFaults_nativeWedge", max(crash_at, production_end))
+    end_at = native.find("#endif", max(wedge_at, production_end))
+    require(
+        production_end <= guard_at < crash_at < wedge_at < end_at,
+        "Native fault JNI escaped its debug guard",
+    )
+
+    instrumentation = (
+        ROOT
+        / "app/src/androidTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/LuaRuntimeFaultRecoveryInstrumentationTest.kt"
+    ).read_text("utf-8")
+    require_tokens(
+        instrumentation,
+        (
+            "nativeCrashCausesBinderDeathAndRecoversInANewProcess",
+            "nativeWedgeIsKilledByWatchdogAndRecoversInANewProcess",
+            "assertFalse(BuildConfig.LUA_PROVIDER_ENABLED)",
+            "assertProductionProvidersDisabled(context)",
+            'assertNotEquals("The fault harness did not enter a remote process", Process.myPid()',
+            '"${context.packageName}:lua_runtime"',
+            'assertEquals("A second live bind changed the Lua runtime PID"',
+            '"The process epoch nonce was not stable across live binds"',
+            "linkToDeath",
+            "provider.createExecution(",
+            "ParcelFileDescriptor.open(snapshot, ParcelFileDescriptor.MODE_READ_ONLY)",
+            "sourceSha256 = LuaSha256.digest(source)",
+            "session.start()",
+            "callback.awaitStarted()",
+            "LuaRuntimeCodec.decodeStarted(checkNotNull(metadata))",
+            "assertStartedWithoutTerminal()",
+            "assertCompletedOnce()",
+            'assertNotEquals("The Lua runtime process nonce did not change"',
+            "assertEquals(7L, executeReturnSeven(context, recovered.client.provider()))",
+        ),
+        "Native fault recovery instrumentation",
+    )
+
+    artifact_gate = (ROOT / "tools/verify_fault_harness_artifacts.ps1").read_text("utf-8")
+    require_tokens(
+        artifact_gate,
+        (
+            "InvocationStartedAtUtc",
+            "status --porcelain --untracked-files=all",
+            "VERSION_BUILD must equal the canonical commit count",
+            "Artifact predates the canonical invocation",
+            "merged_manifest/release",
+            "LuaRuntimeService.class",
+            "LUA_FAULT_HARNESS_ENABLED = false;",
+            "arm64-v8a",
+            "x86_64",
+            "NativeLuaFaults_nativeCrash",
+            "NativeLuaFaults_nativeWedge",
+            "RELEASE_VARIANT_FAULT_HARNESS_EXCLUSION_PASS",
+        ),
+        "Release fault-harness physical exclusion gate",
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--github-output", action="store_true")
@@ -809,6 +979,7 @@ def main() -> int:
     verify_native_boundary()
     verify_watchdog_boundary()
     verify_native_android_test_boundary()
+    verify_fault_harness_boundary()
     build_ready = protocol_ready and vendor_ready
     if args.require_build_ready:
         require(

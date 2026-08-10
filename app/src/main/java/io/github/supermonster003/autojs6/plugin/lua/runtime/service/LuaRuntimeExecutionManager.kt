@@ -38,7 +38,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 /** Owns process-local admission, worker lifetime, Binder peers, and source PFDs. */
 internal class LuaRuntimeExecutionManager(
-    private val callerVerifier: HostCallerVerifier,
+    private val callerVerifier: LuaSessionCallerVerifier,
     private val runner: LuaExecutionRunner,
 ) : AutoCloseable {
     private val sessions = ConcurrentHashMap.newKeySet<RemoteLuaExecutionSession>()
@@ -234,7 +234,7 @@ private object RejectedSessionWatchdogLease : LuaExecutionWatchdogLease {
 
 private class RemoteLuaExecutionSession(
     private val ownerUid: Int,
-    private val callerVerifier: HostCallerVerifier,
+    private val callerVerifier: LuaSessionCallerVerifier,
     private val controller: LuaExecutionSessionController,
 ) : ILuaExecutionSession.Stub() {
     override fun start() {

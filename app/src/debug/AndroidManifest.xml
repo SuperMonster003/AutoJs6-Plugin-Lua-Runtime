@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <service
+            android:name=".debug.LuaRuntimeFaultService"
+            android:enabled="@bool/lua_runtime_fault_harness_enabled"
+            android:exported="false"
+            android:process=":lua_runtime" />
+    </application>
+
+</manifest>

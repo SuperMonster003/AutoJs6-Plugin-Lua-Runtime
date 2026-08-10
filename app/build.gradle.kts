@@ -14,6 +14,7 @@ fun flag(name: String) = providers.gradleProperty(name)
 
 val luaNativeEnabled = flag("autojs.lua.native.enabled")
 val luaProviderEnabled = flag("autojs.lua.provider.enabled")
+val luaFaultHarnessEnabled = flag("autojs.lua.faultHarness.enabled")
 val supportedAbis = setOf("arm64-v8a", "x86_64")
 val protocolArtifacts = listOf(
     rootProject.file("protocol/common-plugin-api.aar"),
@@ -23,6 +24,11 @@ val protocolArtifacts = listOf(
 
 if (luaProviderEnabled.get() && !luaNativeEnabled.get()) {
     throw GradleException("The Lua provider cannot be enabled without the pinned native runtime")
+}
+if (luaFaultHarnessEnabled.get() && (!luaNativeEnabled.get() || luaProviderEnabled.get())) {
+    throw GradleException(
+        "The debug Lua fault harness requires native=true and provider=false",
+    )
 }
 
 android {
@@ -90,10 +96,40 @@ android {
     buildTypes {
         debug {
             isMinifyEnabled = false
+            buildConfigField(
+                "boolean",
+                "LUA_FAULT_HARNESS_ENABLED",
+                luaFaultHarnessEnabled.get().toString(),
+            )
+            resValue(
+                "bool",
+                "lua_runtime_fault_harness_enabled",
+                luaFaultHarnessEnabled.get().toString(),
+            )
+            if (luaNativeEnabled.get()) {
+                externalNativeBuild {
+                    cmake {
+                        arguments += if (luaFaultHarnessEnabled.get()) {
+                            "-DAUTOJS_LUA_DEBUG_FAULT_HARNESS=ON"
+                        } else {
+                            "-DAUTOJS_LUA_DEBUG_FAULT_HARNESS=OFF"
+                        }
+                    }
+                }
+            }
         }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            buildConfigField("boolean", "LUA_FAULT_HARNESS_ENABLED", "false")
+            resValue("bool", "lua_runtime_fault_harness_enabled", "false")
+            if (luaNativeEnabled.get()) {
+                externalNativeBuild {
+                    cmake {
+                        arguments += "-DAUTOJS_LUA_DEBUG_FAULT_HARNESS=OFF"
+                    }
+                }
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",

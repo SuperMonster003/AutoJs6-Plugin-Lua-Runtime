@@ -91,7 +91,8 @@ def stage_vendor(root: Path, lock: dict[str, object], files: dict[str, bytes]) -
 def write_default_off_fixture(root: Path) -> None:
     write_text(
         root / "gradle.properties",
-        "autojs.lua.native.enabled=false\nautojs.lua.provider.enabled=false\n",
+        "autojs.lua.native.enabled=false\nautojs.lua.provider.enabled=false\n"
+        "autojs.lua.faultHarness.enabled=false\n",
     )
     write_text(
         root / ".github/workflows/ci.yml",
@@ -103,6 +104,7 @@ def write_default_off_fixture(root: Path) -> None:
           :app:assembleDebug
           -Pautojs.lua.native.enabled=true
           -Pautojs.lua.provider.enabled=false
+      - run: ./tools/verify_debug_artifacts.ps1 -ExpectedTests 38
       - run: python tools/verify_repository.py --require-build-ready --github-output
 """,
     )
@@ -268,12 +270,17 @@ class DefaultOffTest(unittest.TestCase):
 
     def test_duplicate_or_enabled_default_is_rejected(self) -> None:
         invalid = (
-            "autojs.lua.native.enabled=false\nautojs.lua.provider.enabled=true\n",
+            "autojs.lua.native.enabled=false\nautojs.lua.provider.enabled=true\n"
+            "autojs.lua.faultHarness.enabled=false\n",
             "autojs.lua.native.enabled=false\nautojs.lua.provider.enabled=false\n"
-            "autojs.lua.provider.enabled=false\n",
-            "autojs.lua.native.enabled=false\\\nautojs.lua.provider.enabled=false\n",
+            "autojs.lua.provider.enabled=false\nautojs.lua.faultHarness.enabled=false\n",
+            "autojs.lua.native.enabled=false\\\nautojs.lua.provider.enabled=false\n"
+            "autojs.lua.faultHarness.enabled=false\n",
             "autojs.lua.native.enabled=false\nautojs.lua.provider.enabled=false\n"
+            "autojs.lua.faultHarness.enabled=false\n"
             "systemProp.org.gradle.project.autojs.lua.provider.enabled=true\n",
+            "autojs.lua.native.enabled=false\nautojs.lua.provider.enabled=false\n"
+            "autojs.lua.faultHarness.enabled=true\n",
         )
         for properties in invalid:
             with self.subTest(properties=properties):
@@ -284,6 +291,7 @@ class DefaultOffTest(unittest.TestCase):
         additions = (
             "      - run: gradle :app:tasks -Pautojs.lua.provider.enabled=true\n",
             "    env:\n      ORG_GRADLE_PROJECT_autojs.lua.provider.enabled: true\n",
+            "      - run: gradle :app:tasks -Pautojs.lua.faultHarness.enabled=true\n",
         )
         for addition in additions:
             with self.subTest(addition=addition), tempfile.TemporaryDirectory() as directory:
@@ -405,6 +413,11 @@ class InputWorkflowTest(unittest.TestCase):
                     1,
                 ),
             ),
+            (
+                "debug artifact gate stale JVM count",
+                "tools/verify_debug_artifacts.ps1",
+                lambda text: text.replace("[int] $ExpectedTests = 38", "[int] $ExpectedTests = 30"),
+            ),
         )
         for label, relative, mutate in mutations:
             with self.subTest(label=label), tempfile.TemporaryDirectory() as directory:
@@ -441,6 +454,7 @@ class RepositoryCheckpointTest(unittest.TestCase):
             verifier.verify_native_boundary()
             verifier.verify_watchdog_boundary()
             verifier.verify_native_android_test_boundary()
+            verifier.verify_fault_harness_boundary()
             with mock.patch.object(
                 sys,
                 "argv",
@@ -486,6 +500,65 @@ class NativeAndroidBoundaryTest(unittest.TestCase):
                 with mock.patch.object(verifier, "ROOT", root):
                     with self.assertRaises(RuntimeError):
                         verifier.verify_native_android_test_boundary()
+
+
+class FaultHarnessBoundaryTest(unittest.TestCase):
+    FILES = (
+        "app/build.gradle.kts",
+        "app/src/main/AndroidManifest.xml",
+        "app/src/debug/AndroidManifest.xml",
+        "app/src/main/cpp/CMakeLists.txt",
+        "app/src/main/cpp/lua_runtime_jni.cpp",
+        "app/src/debug/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/NativeLuaFaults.kt",
+        "app/src/debug/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/LuaRuntimeFaultService.kt",
+        "app/src/androidTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/LuaRuntimeFaultRecoveryInstrumentationTest.kt",
+        "tools/verify_fault_harness_artifacts.ps1",
+    )
+
+    def copy_boundary(self, root: Path) -> None:
+        for relative in self.FILES:
+            destination = root / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(SOURCE_ROOT / relative, destination)
+
+    def test_current_fault_harness_is_opt_in_isolated_and_uses_production_sessions(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.copy_boundary(root)
+            with mock.patch.object(verifier, "ROOT", root):
+                verifier.verify_fault_harness_boundary()
+
+    def test_export_or_production_route_bypass_is_rejected(self) -> None:
+        mutations = (
+            (
+                "exported service",
+                "app/src/debug/AndroidManifest.xml",
+                lambda text: text.replace('android:exported="false"', 'android:exported="true"'),
+            ),
+            (
+                "manager bypass",
+                "app/src/debug/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/LuaRuntimeFaultService.kt",
+                lambda text: text.replace("executionManager.create(", "bypass.create(", 1),
+            ),
+            (
+                "unguarded native entry",
+                "app/src/main/cpp/lua_runtime_jni.cpp",
+                lambda text: text.replace(
+                    "#if defined(AUTOJS_LUA_DEBUG_FAULT_HARNESS)\nextern \"C\" JNIEXPORT void JNICALL",
+                    "extern \"C\" JNIEXPORT void JNICALL",
+                    1,
+                ),
+            ),
+        )
+        for label, relative, mutate in mutations:
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                self.copy_boundary(root)
+                path = root / relative
+                write_text(path, mutate(path.read_text("utf-8")))
+                with mock.patch.object(verifier, "ROOT", root):
+                    with self.assertRaises(RuntimeError):
+                        verifier.verify_fault_harness_boundary()
 
 
 class WatchdogBoundaryTest(unittest.TestCase):

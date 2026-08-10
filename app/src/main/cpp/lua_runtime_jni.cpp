@@ -9,6 +9,10 @@
 #include <cstring>
 #include <limits>
 
+#if defined(AUTOJS_LUA_DEBUG_FAULT_HARNESS)
+#include <thread>
+#endif
+
 extern "C" {
 #include "lauxlib.h"
 #include "lua.h"
@@ -527,3 +531,23 @@ Java_io_github_supermonster003_autojs6_plugin_lua_runtime_NativeLuaRuntime_nativ
     }
     return result;
 }
+
+#if defined(AUTOJS_LUA_DEBUG_FAULT_HARNESS)
+extern "C" JNIEXPORT void JNICALL
+Java_io_github_supermonster003_autojs6_plugin_lua_runtime_debug_NativeLuaFaults_nativeCrash(
+    JNIEnv* /* environment */,
+    jobject /* receiver */) {
+    std::abort();
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_io_github_supermonster003_autojs6_plugin_lua_runtime_debug_NativeLuaFaults_nativeWedge(
+    JNIEnv* /* environment */,
+    jobject /* receiver */) {
+    for (;;) {
+        // This intentionally never returns and never polls Lua cancellation. The debug-only
+        // remote-process harness must recover exclusively through the real process watchdog.
+        std::this_thread::sleep_for(std::chrono::hours(24));
+    }
+}
+#endif

@@ -615,22 +615,26 @@ def verify_native_boundary() -> None:
         / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaRuntimeService.kt"
     ).read_text("utf-8")
     require(
-        "runner = DisabledLuaExecutionRunner" in runtime_service,
-        "The source-only native adapter must not be injected into the runtime service",
+        "runner = selectLuaExecutionRunner(BuildConfig.LUA_NATIVE_ENABLED)" in runtime_service,
+        "Runtime service no longer selects its runner from the native build flag",
     )
     require(
-        "NativeLuaExecutionRunner" not in runtime_service,
-        "The uncompiled native adapter leaked into the runtime service",
+        "internal fun selectLuaExecutionRunner(nativeEnabled: Boolean): LuaExecutionRunner" in runtime_service
+        and "if (nativeEnabled) NativeLuaExecutionRunner else DisabledLuaExecutionRunner" in runtime_service,
+        "Native/disabled runner selection drift",
     )
 
     native_doc = (ROOT / "docs/native-execution-core.md").read_text("utf-8")
-    require("SOURCE ONLY / NOT COMPILED / NOT RUN" in native_doc, "Native evidence boundary is missing")
+    require(
+        "COMPILED AND PACKAGED / PROVIDER DEFAULT-OFF / NOT DEVICE-EXECUTED" in native_doc,
+        "Native evidence boundary is missing",
+    )
     require("There is no stdout/stderr implementation" in native_doc, "Native output limitation is missing")
     require("There is no module loader" in native_doc, "Native capability limitation is missing")
     require("There is no coroutine library" in native_doc, "Native coroutine limitation is missing")
     require("infinite `__gc` or `__close` handler" in native_doc, "Native teardown limitation is missing")
     require("process-level cleanup watchdog" in native_doc, "Native cleanup watchdog gate is missing")
-    require("The adapter is not injected into the service" in native_doc, "Native adapter status is ambiguous")
+    require("Selecting the adapter does not load JNI" in native_doc, "Native adapter status is ambiguous")
 
     inventory = (ROOT / "app/src/main/cpp/cmake/lua54-sources.cmake").read_text("utf-8")
     for forbidden in (

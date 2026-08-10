@@ -1,11 +1,13 @@
 # Native execution core checkpoint
 
-Status: **SOURCE ONLY / NOT COMPILED / NOT RUN**.
+Status: **COMPILED AND PACKAGED / PROVIDER DEFAULT-OFF / NOT DEVICE-EXECUTED**.
 
-The R3 native core is a blocking, process-local seam. It is not connected to
-the production Binder service at this checkpoint. Provider discovery and the
-native build remain default-off, the protocol AARs are not staged, and PUC Lua
-has not been vendored.
+The R3 native core is a blocking, process-local seam. Immutable protocol AARs
+and PUC Lua 5.4.8 are staged, and native-enabled/provider-disabled debug builds
+compile and package both admitted ABIs. The Binder service conditionally
+selects the native runner only when `LUA_NATIVE_ENABLED` is true; provider
+discovery remains independently default-off. No device execution or
+cross-process provider acceptance is claimed at this checkpoint.
 
 ## Ownership boundary
 
@@ -19,10 +21,12 @@ has not been vendored.
 
 It does not receive an Android `Context`, file descriptor, Binder object,
 session controller, output callback, capability broker, or arbitrary Java
-object. The caller owns the serial worker and terminal race. The source-only
+object. The caller owns the serial worker and terminal race. The default-off
 runner adapter accepts only `nil` and the host's empty-map representation of
 "no arguments"; it rejects every non-empty argument value until explicit Lua
-argument binding is implemented. The adapter is not injected into the service.
+argument binding is implemented. Selecting the adapter does not load JNI; the
+library is loaded only after a provider-authorized execution reaches the native
+boundary.
 
 ## Per-call native lifecycle
 

@@ -112,11 +112,10 @@ internal object NativeLuaRuntime {
 }
 
 /**
- * Source-only adapter for the Android-free execution seam.
+ * Default-off adapter for the Android-free execution seam.
  *
- * This object is deliberately not injected into the Binder runtime service. The service keeps
- * using the disabled runner until the native source, ABI packaging, and Android gates have been
- * reviewed.
+ * The Binder service selects this object only in native-enabled builds. Provider discovery stays
+ * independently disabled until the Binder/PFD, watchdog, recovery, and device gates pass.
  */
 internal object NativeLuaExecutionRunner : LuaExecutionRunner {
     override fun execute(request: LuaRunnerRequest): LuaValue {

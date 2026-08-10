@@ -90,19 +90,18 @@ introduced, because `lundump.c` remains part of the Lua core.
 default-off provider gate. It duplicates and closes source descriptors,
 verifies exact length/SHA-256/EOF/strict UTF-8 on a process-wide zero-queue
 worker, admits one active execution, bounds retained/unstarted sessions, and
-contains callback/terminal/close races. The service deliberately injects
-`DisabledLuaExecutionRunner`; the uncompiled JNI adapter is not connected.
-Consequently this is lifecycle source for review, not a functional provider.
+contains callback/terminal/close races. Native-enabled builds now select
+`NativeLuaExecutionRunner`, while native-disabled builds retain
+`DisabledLuaExecutionRunner`. Provider discovery remains an independent,
+default-off gate, so this is not yet a discoverable production provider.
 
 Before provider enablement, the implementation still needs:
 
-1. stage the immutable protocol AARs and verified PUC Lua source
-2. compile the Kotlin/AIDL/JNI boundary with the pinned Android toolchain
-3. connect `NativeLuaExecutionRunner` only after its native tests pass
-4. add native stdout/stderr credits, argument binding, and the host broker
-5. prove complete PFD/session accounting across real Binder processes
-6. prove cancellation, native crash, OOM, wedged-call, and process recovery
-7. pass ABI, 16 KiB alignment, signing, install, and release gates
+1. add native stdout/stderr credits, argument binding, and the host broker
+2. prove complete PFD/session accounting across real Binder processes
+3. prove cancellation, native crash, OOM, wedged-call, and process recovery
+4. prove provider-disabled merged-manifest behavior on Android
+5. pass install, release-signing, API-matrix, and recovery gates
 
 The Android-free execution state machine currently has a standalone Kotlin
 2.3.20/JDK 21 diagnostic of 23/23 tests. This does not compile AIDL or Android
@@ -110,10 +109,11 @@ sources, load native code, exercise Binder/PFD behavior, or enable discovery.
 
 ## CI
 
-The static job always validates identity, manifest boundaries, default-off
-flags, locks, and input state. The Gradle/native job is skipped until all three
-protocol AARs and the pinned Lua source are present. CI wiring is not local
-Gradle, APK, Binder, ABI, 16 KiB alignment, signing, or device evidence.
+The static job requires immutable protocol and Lua inputs, validates the pinned
+repository wrapper, and fails closed if build readiness regresses. The
+Gradle/native job uses that wrapper with native enabled and provider disabled.
+CI wiring is not Binder/PFD, install, release-signing, API-matrix, or device
+recovery evidence.
 
 The input-gate Python suite currently covers 15 normal and hostile cases for
 lock schemas and duplicate keys, revision syntax, artifact inventory/digests,

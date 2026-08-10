@@ -4,9 +4,12 @@ import android.app.Service
 import android.content.Intent
 import android.os.IBinder
 import android.os.ParcelFileDescriptor
+import io.github.supermonster003.autojs6.plugin.lua.runtime.BuildConfig
 import io.github.supermonster003.autojs6.plugin.lua.runtime.LuaProviderMetadata
+import io.github.supermonster003.autojs6.plugin.lua.runtime.NativeLuaExecutionRunner
 import io.github.supermonster003.autojs6.plugin.lua.runtime.NativeLuaRuntime
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.DisabledLuaExecutionRunner
+import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaExecutionRunner
 import org.autojs.plugin.lua.runtime.api.ILuaExecutionCallback
 import org.autojs.plugin.lua.runtime.api.ILuaExecutionSession
 import org.autojs.plugin.lua.runtime.api.ILuaHostCapabilityBroker
@@ -26,11 +29,9 @@ class LuaRuntimeService : Service() {
     override fun onCreate() {
         super.onCreate()
         callerVerifier = HostCallerVerifier(this)
-        // Intentionally fail-closed. A reviewed native adapter is injected only
-        // after R3 execution and conformance gates pass.
         executionManager = LuaRuntimeExecutionManager(
             callerVerifier = callerVerifier,
-            runner = DisabledLuaExecutionRunner,
+            runner = selectLuaExecutionRunner(BuildConfig.LUA_NATIVE_ENABLED),
         )
     }
 
@@ -90,3 +91,6 @@ class LuaRuntimeService : Service() {
         }
     }
 }
+
+internal fun selectLuaExecutionRunner(nativeEnabled: Boolean): LuaExecutionRunner =
+    if (nativeEnabled) NativeLuaExecutionRunner else DisabledLuaExecutionRunner

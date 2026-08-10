@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "status": "not-vendored",
+  "status": "vendored",
   "runtimeSlot": "lua54",
   "name": "PUC Lua",
   "version": "5.4.8",
@@ -9,7 +9,7 @@
   "sha256": "4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae",
   "sourceDirectory": "lua-5.4.8",
   "sourceTreeRoot": "lua-5.4.8/src",
-  "sourceFileCount": null,
-  "sourceTreeSha256": null,
-  "vendoredAt": null
+  "sourceFileCount": 63,
+  "sourceTreeSha256": "abc2321841ec25281797b4b3bb855d6ad1caa8ddea265ef0d47844cf959dcda8",
+  "vendoredAt": "2026-08-10T07:19:02.456243Z"
 }

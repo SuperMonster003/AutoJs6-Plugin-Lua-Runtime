@@ -415,5 +415,55 @@ class RepositoryCheckpointTest(unittest.TestCase):
                         verifier.main()
 
 
+class WrapperInputTest(unittest.TestCase):
+    WRAPPER_FILES = (
+        "gradlew",
+        "gradlew.bat",
+        "gradle/wrapper/gradle-wrapper.jar",
+        "gradle/wrapper/gradle-wrapper.properties",
+    )
+
+    def copy_wrapper(self, root: Path) -> None:
+        for relative in self.WRAPPER_FILES:
+            destination = root / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(SOURCE_ROOT / relative, destination)
+
+    def test_wrapper_scripts_properties_and_jar_are_pinned(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.copy_wrapper(root)
+            with mock.patch.object(verifier, "ROOT", root):
+                verifier.verify_wrapper()
+
+    def test_wrapper_property_or_jar_drift_is_rejected(self) -> None:
+        mutations = (
+            (
+                "distribution checksum",
+                "gradle/wrapper/gradle-wrapper.properties",
+                lambda path: path.write_text(
+                    path.read_text("utf-8").replace(
+                        verifier.GRADLE_DISTRIBUTION_SHA256,
+                        "0" * 64,
+                    ),
+                    encoding="utf-8",
+                ),
+            ),
+            (
+                "wrapper jar",
+                "gradle/wrapper/gradle-wrapper.jar",
+                lambda path: path.write_bytes(path.read_bytes() + b"drift"),
+            ),
+        )
+        for label, relative, mutate in mutations:
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                self.copy_wrapper(root)
+                mutate(root / relative)
+                with mock.patch.object(verifier, "ROOT", root):
+                    with self.assertRaises(RuntimeError):
+                        verifier.verify_wrapper()
+
+
 if __name__ == "__main__":
     unittest.main()

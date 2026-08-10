@@ -20,6 +20,8 @@ PROTOCOL_MODULES = {
     "lua-runtime-api.aar": ":plugin-api:lua-runtime-api",
 }
 LUA_SHA256 = "4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae"
+GRADLE_DISTRIBUTION_SHA256 = "9c0f7faeeb306cb14e4279a3e084ca6b596894089a0638e68a07c945a32c9e14"
+GRADLE_WRAPPER_JAR_SHA256 = "497c8c2a7e5031f6aa847f88104aa80a93532ec32ee17bdb8d1d2f67a194a9c7"
 LOWER_SHA256 = re.compile(r"[0-9a-f]{64}")
 FULL_GIT_REVISION = re.compile(r"[0-9a-f]{40}")
 PROTOCOL_LOCK_KEYS = {
@@ -105,6 +107,51 @@ def sha256(path: Path) -> str:
         for block in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(block)
     return digest.hexdigest()
+
+
+def verify_wrapper() -> None:
+    script_tokens = {
+        ROOT / "gradlew": "gradle/wrapper/gradle-wrapper.jar",
+        ROOT / "gradlew.bat": r"gradle\wrapper\gradle-wrapper.jar",
+    }
+    for path, token in script_tokens.items():
+        require(path.is_file() and not path.is_symlink(), f"Missing regular wrapper script: {path.name}")
+        require(token in path.read_text("utf-8"), f"Wrapper script drift: {path.name}")
+
+    jar = ROOT / "gradle/wrapper/gradle-wrapper.jar"
+    require(jar.is_file() and not jar.is_symlink(), "Missing regular Gradle wrapper JAR")
+    require(sha256(jar) == GRADLE_WRAPPER_JAR_SHA256, "Gradle wrapper JAR digest drift")
+
+    properties_path = ROOT / "gradle/wrapper/gradle-wrapper.properties"
+    require(
+        properties_path.is_file() and not properties_path.is_symlink(),
+        "Missing regular Gradle wrapper properties",
+    )
+    properties: dict[str, str] = {}
+    for raw_line in properties_path.read_text("utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith(("#", "!")):
+            continue
+        require("=" in line, "Malformed Gradle wrapper property")
+        key, value = line.split("=", 1)
+        require(key not in properties, f"Duplicate Gradle wrapper property: {key}")
+        properties[key] = value
+    require(
+        properties
+        == {
+            "distributionBase": "GRADLE_USER_HOME",
+            "distributionPath": "wrapper/dists",
+            "distributionSha256Sum": GRADLE_DISTRIBUTION_SHA256,
+            "distributionUrl": r"https\://services.gradle.org/distributions/gradle-9.6.1-bin.zip",
+            "networkTimeout": "10000",
+            "retries": "0",
+            "retryBackOffMs": "500",
+            "validateDistributionUrl": "true",
+            "zipStoreBase": "GRADLE_USER_HOME",
+            "zipStorePath": "wrapper/dists",
+        },
+        "Gradle wrapper property inventory drift",
+    )
 
 
 def verify_protocol() -> bool:
@@ -612,6 +659,7 @@ def main() -> int:
     verify_manifest()
     verify_default_off()
     verify_input_workflows()
+    verify_wrapper()
     verify_native_boundary()
     build_ready = protocol_ready and vendor_ready
     if args.require_build_ready:

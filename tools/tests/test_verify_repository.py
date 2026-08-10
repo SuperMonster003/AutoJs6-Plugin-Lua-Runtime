@@ -299,6 +299,8 @@ class InputWorkflowTest(unittest.TestCase):
     INPUT_FILES = (
         ".gitattributes",
         ".gitignore",
+        "build.gradle.kts",
+        "app/build.gradle.kts",
         "tools/stage_protocol_artifacts.ps1",
         "tools/stage_lua_source.ps1",
         "tools/verify_lua_archive.ps1",
@@ -319,6 +321,15 @@ class InputWorkflowTest(unittest.TestCase):
 
     def test_missing_git_exception_or_archive_lock_comparison_is_rejected(self) -> None:
         mutations = (
+            (
+                "legacy Android Kotlin plugin",
+                "app/build.gradle.kts",
+                lambda text: text.replace(
+                    'id("com.android.application")',
+                    'id("com.android.application")\n    id("org.jetbrains.kotlin.android")',
+                    1,
+                ),
+            ),
             (
                 "missing upstream Lua whitespace exception",
                 ".gitattributes",

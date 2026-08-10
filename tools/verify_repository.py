@@ -344,6 +344,17 @@ def require_tokens(text: str, tokens: tuple[str, ...], label: str) -> None:
 
 
 def verify_input_workflows() -> None:
+    root_build = (ROOT / "build.gradle.kts").read_text("utf-8")
+    app_build = (ROOT / "app/build.gradle.kts").read_text("utf-8")
+    require(
+        "org.jetbrains.kotlin.android" not in root_build + app_build,
+        "AGP 9 built-in Kotlin must not be combined with the legacy Android Kotlin plugin",
+    )
+    require(
+        "kotlinOptions" not in app_build,
+        "AGP 9 build must not use the legacy android.kotlinOptions DSL",
+    )
+
     attributes_lines = (ROOT / ".gitattributes").read_text("utf-8").splitlines()
     vendor_whitespace_rule = "app/src/main/cpp/vendor/lua-5.4.8/src/** -whitespace"
     require(

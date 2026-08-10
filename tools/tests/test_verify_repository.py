@@ -329,6 +329,14 @@ class InputWorkflowTest(unittest.TestCase):
                 ),
             ),
             (
+                "Lua vendor timestamp exceeds verifier precision",
+                "tools/stage_lua_source.ps1",
+                lambda text: text.replace(
+                    "yyyy-MM-dd'T'HH:mm:ss.ffffff'Z'",
+                    "yyyy-MM-dd'T'HH:mm:ss.fffffff'Z'",
+                ),
+            ),
+            (
                 "protocol build cache admitted",
                 "tools/stage_protocol_artifacts.ps1",
                 lambda text: text.replace("--no-build-cache", "--build-cache"),

@@ -86,7 +86,10 @@ try {
     $lock.status = 'vendored'
     $lock.sourceFileCount = [int] $fingerprint.sourceFileCount
     $lock.sourceTreeSha256 = [string] $fingerprint.sourceTreeSha256
-    $lock.vendoredAt = [DateTimeOffset]::UtcNow.ToString('O')
+    $lock.vendoredAt = [DateTimeOffset]::UtcNow.ToString(
+        "yyyy-MM-dd'T'HH:mm:ss.ffffff'Z'",
+        [Globalization.CultureInfo]::InvariantCulture
+    )
     $lock | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $temporaryLock -Encoding utf8NoBOM
     Move-Item -LiteralPath $temporaryLock -Destination $lockPath -Force
     $lockPublished = $true

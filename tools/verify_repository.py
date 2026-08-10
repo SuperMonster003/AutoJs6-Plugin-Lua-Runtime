@@ -405,6 +405,7 @@ def verify_input_workflows() -> None:
             "$lock.status = 'vendored'",
             "$lock.sourceFileCount =",
             "$lock.sourceTreeSha256 =",
+            "yyyy-MM-dd'T'HH:mm:ss.ffffff'Z'",
             "$lock.vendoredAt =",
             "tools/verify_repository.py",
         ),

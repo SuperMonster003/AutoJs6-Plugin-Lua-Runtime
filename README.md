@@ -94,9 +94,12 @@ contains callback/terminal/close races. Native-enabled builds now select
 `NativeLuaExecutionRunner`, while native-disabled builds retain
 `DisabledLuaExecutionRunner`. Provider discovery remains an independent,
 default-off gate. A controlled `require("autojs")` exposes only
-`console.log(string)` and `console.error(string)`; both use the existing
-sequence, credit, chunk, and total-output limits. General module loading,
-`print`, and `warn` remain unavailable.
+`console.log(string)`, `console.error(string)`, and an execution-local
+`arguments` snapshot. The snapshot maps the complete bounded V1 value model to
+Lua scalars, 1-based dense arrays, and string-key tables; strings and bytes use
+binary-safe Lua strings. Console calls retain the existing sequence, credit,
+chunk, and total-output limits. General module loading, `print`, and `warn`
+remain unavailable.
 
 A process-wide watchdog is bound to each admitted execution token. It arms only
 immediately before worker dispatch, shortens its grace window on cancel, close,
@@ -107,7 +110,7 @@ kill/rebind/new-PID recovery, while Provider discovery remains default-off.
 
 Before public Provider enablement, the implementation still needs:
 
-1. add explicit argument binding and the first host-broker capability
+1. add the first host-broker capability
 2. complete the product-facing editor and persistent-entry experience
 3. create a signed Provider-enabled release candidate
 4. run the focused release compatibility and rollback sample
@@ -118,7 +121,7 @@ output, failures, hooks, and allocator recovery without discovering either
 production service. A separate opt-in smoke exercises the production
 INFO/RUNTIME Binder path while keeping repository defaults disabled.
 
-The repository JVM suite contains 38 tests, while focused Android evidence is
+The repository JVM suite contains 39 tests, while focused Android evidence is
 kept separate for native, Binder/PFD, process-recovery, and Provider paths.
 
 ## CI

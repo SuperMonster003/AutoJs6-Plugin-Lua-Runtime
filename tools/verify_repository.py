@@ -395,7 +395,7 @@ def verify_default_off() -> None:
         and "gradle-version:" not in ci,
         "CI must execute the repository-owned Gradle wrapper",
     )
-    require(ci.count("-ExpectedTests 38") == 1, "CI JVM test count drift")
+    require(ci.count("-ExpectedTests 39") == 1, "CI JVM test count drift")
     service = (ROOT / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaRuntimeService.kt").read_text("utf-8")
     require(
         "override fun onBind(intent: Intent?): IBinder = binder" in service,
@@ -500,7 +500,7 @@ def verify_input_workflows() -> None:
         artifact_gate,
         (
             "status --porcelain --untracked-files=all",
-            "[int] $ExpectedTests = 38",
+            "[int] $ExpectedTests = 39",
             "rev-list --count HEAD",
             "VERSION_BUILD must equal the positive commit count",
             "app/build/test-results/testDebugUnitTest",
@@ -574,6 +574,11 @@ def verify_native_boundary() -> None:
         'int restricted_require(lua_State* state)': "The controlled require boundary is missing",
         'std::memcmp(name, "autojs", 6U)': "The autojs module admission is not exact",
         'lua_setfield(state, -2, "console")': "The controlled console module is missing",
+        'lua_setfield(state, -2, "arguments")': "The bounded argument snapshot is missing",
+        "push_native_argument_value(": "The native argument decoder is missing",
+        "lua_rawseti(state, -2": "Lua arrays are not installed with 1-based raw indices",
+        "lua_rawset(state, -3)": "Lua maps are not installed with binary-safe raw keys",
+        "reader.cursor == reader.end": "The native argument decoder accepts trailing bytes",
         'CallBooleanMethod(': "The native output bridge is missing",
     }
     for token, message in required_execution_tokens.items():
@@ -627,6 +632,9 @@ def verify_native_boundary() -> None:
         "NativeLuaFailureKind.UNSUPPORTED_RESULT",
         "LuaRuntimeContract.MAX_VALUE_STRING_OR_BYTES",
         "internal object NativeLuaExecutionRunner : LuaExecutionRunner",
+        "internal object NativeLuaArgumentCodec",
+        "LuaValueValidation.validate(value)",
+        "internal fun argumentsSnapshot(): ByteArray",
         "LuaRunnerFailureKind.UNSUPPORTED_ARGUMENTS",
         "fun NativeLuaExecutionValue.toProtocolValue(): LuaValue",
         "internal fun interface NativeLuaOutputEmitter",
@@ -664,9 +672,10 @@ def verify_native_boundary() -> None:
         "COMPILED, PACKAGED, AND DEVICE-EXECUTED / PROVIDER DEFAULT-OFF" in native_doc,
         "Native evidence boundary is missing",
     )
-    require("only admitted module is the built-in `autojs` console module" in native_doc, "Native module boundary is missing")
+    require("only admitted module is the built-in `autojs` module" in native_doc, "Native module boundary is missing")
+    require("## Bounded argument boundary" in native_doc, "Native argument boundary is missing")
     require("sequence, credit, chunk, and total-byte limits" in native_doc, "Native output boundary is missing")
-    require("There is no\n  general module loader" in native_doc, "Native capability limitation is missing")
+    require("no general module loader" in native_doc, "Native capability limitation is missing")
     require("There is no coroutine library" in native_doc, "Native coroutine limitation is missing")
     require("infinite `__gc` or `__close` handler" in native_doc, "Native teardown limitation is missing")
     require("process-level cleanup watchdog" in native_doc, "Native cleanup watchdog gate is missing")
@@ -787,11 +796,12 @@ def verify_native_android_test_boundary() -> None:
             "assertFalse(BuildConfig.LUA_PROVIDER_ENABLED)",
             "providerRemainsDisabledDuringNativeTests",
             "nativeCoreAndRunnerReturnV1Scalars",
+            "nativeRunnerMapsV1ArgumentsIntoTheControlledAutoJsModule",
             "syntaxAndRuntimeErrorsAreClassified",
             "infiniteLoopIsCancelledByHook",
             "infiniteLoopHonoursDeadline",
             "allocatorLimitFailsClosedAndTheProcessRemainsReusable",
-            "unsupportedResultsAndArgumentsFailClosed",
+            "unsupportedResultsAndMalformedArgumentsFailClosed",
         ),
         "Provider-disabled native Android test matrix",
     )

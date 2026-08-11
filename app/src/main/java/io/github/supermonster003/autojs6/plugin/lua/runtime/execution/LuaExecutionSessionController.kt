@@ -587,7 +587,7 @@ internal class LuaExecutionSessionController(
         LuaRunnerFailureKind.UNSUPPORTED_ARGUMENTS -> executionError(
             LuaExecutionErrorCode.INTERNAL,
             LuaExecutionFailurePhase.LOAD,
-            "The Lua execution adapter does not yet implement argument binding",
+            "The Lua execution arguments were rejected by the native adapter",
         )
         LuaRunnerFailureKind.UNSUPPORTED_RESULT -> executionError(
             LuaExecutionErrorCode.RESULT_LIMIT,

@@ -46,7 +46,7 @@ R3-B static input-gate evidence on 2026-08-10:
   immutable-input paths.
 - [x] Add a fail-closed `--require-build-ready` mode for future build/release
   gates; it intentionally rejects the current incomplete input state.
-- Pure Python static tests report 21/21 and the repository verifier reports
+- Pure Python static tests report 23/23 and the repository verifier reports
   `protocol=ready lua=ready build_ready=true`. The three protocol AARs are
   locked to AutoJs6 revision `ae422391759810ce9dbbf0bc119bb47834c66b85`;
   the 63-file Lua tree is locked to SHA-256
@@ -67,6 +67,9 @@ R3-B static input-gate evidence on 2026-08-10:
 - [x] Author `lua_sethook` cancellation/deadline checks and protected calls.
 - [x] Author output credits, unique terminal delivery, callback-close
   linearization, and idempotent cancel/close.
+- [x] Map the bounded V1 argument model into `require("autojs").arguments`
+  through a process-private versioned snapshot, without broadening scalar
+  results.
 - [x] Select the native runner only in native-enabled builds while keeping the
   discoverable provider independently default-off.
 - [x] Add a process-wide, execution-token-bound fail-stop watchdog for deadline,
@@ -81,7 +84,7 @@ R3-C source evidence on 2026-08-10:
 
 - The repository-owned Gradle 9.6.1 wrapper compiles Kotlin/Java/JNI and both
   admitted ABIs with native enabled and provider disabled. The current focused
-  JVM gate contains 38 tests, including token/stop/finish/scheduler watchdog
+  JVM gate contains 39 tests, including token/stop/finish/scheduler watchdog
   races.
 - The service now selects `NativeLuaExecutionRunner` only when
   `BuildConfig.LUA_NATIVE_ENABLED` is true. Both exported services remain
@@ -123,11 +126,11 @@ The checkable local artifact gate is:
     -SdkRoot 'E:\.android\sdk' `
     -BuildToolsVersion '37.0.0' `
     -NdkVersion '28.2.13676358' `
-    -ExpectedTests 38
+    -ExpectedTests 39
 ```
 
 It requires a clean revision whose positive `VERSION_BUILD` equals its commit
-count, 38/38 JVM tests, exactly three debug APK outputs, a single common signer,
+count, 39/39 JVM tests, exactly three debug APK outputs, a single common signer,
 the exact split/universal ABI inventories, 16 KiB ZIP and ELF LOAD alignment,
 and packaged `native=true/provider=false` gates. It does not run Gradle, ADB,
 Binder, native execution, install, process recovery, or release signing.

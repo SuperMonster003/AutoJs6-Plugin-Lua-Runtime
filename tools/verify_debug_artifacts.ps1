@@ -3,7 +3,7 @@ param(
     [string] $SdkRoot,
     [string] $BuildToolsVersion = '37.0.0',
     [string] $NdkVersion = '28.2.13676358',
-    [int] $ExpectedTests = 38,
+    [int] $ExpectedTests = 39,
     [switch] $RequireFaultHarness
 )
 

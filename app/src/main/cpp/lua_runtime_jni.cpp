@@ -1,9 +1,11 @@
 #include <jni.h>
 
 #include <algorithm>
+#include <bit>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -25,6 +27,15 @@ constexpr jsize kMaxSourceBytes = 16 * 1024 * 1024;
 constexpr jsize kMaxSourceNameBytes = 1024;
 constexpr size_t kMaxOutputChunkBytes = 32 * 1024;
 constexpr size_t kMaxScalarStringBytes = 64 * 1024;
+constexpr jsize kMaxArgumentSnapshotBytes = 256 * 1024 + 17 * 4096 + 16;
+constexpr size_t kMaxArgumentDepth = 32;
+constexpr size_t kMaxArgumentNodes = 4096;
+constexpr size_t kMaxArgumentDataBytes = 256 * 1024;
+constexpr uint32_t kMaxArgumentContainerEntries = 1023;
+constexpr uint32_t kMaxArgumentStringOrBytes = 64 * 1024;
+constexpr uint32_t kMaxArgumentMapKeyBytes = 1024;
+constexpr uint32_t kArgumentMagic = 0x41364C41U;  // A6LA
+constexpr uint8_t kArgumentVersion = 1U;
 constexpr jlong kMaxMemoryBytes = 256LL * 1024LL * 1024LL;
 constexpr jlong kMaxTimeoutMillis = 10LL * 60LL * 1000LL;
 constexpr int kHookInstructionCount = 10'000;
@@ -164,6 +175,220 @@ struct ExecutionControl {
     TerminationReason termination_reason;
 };
 
+struct NativeArgumentView {
+    const uint8_t* bytes;
+    size_t size;
+};
+
+struct NativeArgumentReader {
+    const uint8_t* cursor;
+    const uint8_t* end;
+    size_t nodes;
+    size_t data_bytes;
+    bool failed;
+};
+
+bool read_argument_u8(NativeArgumentReader* reader, uint8_t* value) {
+    if (reader->failed || reader->cursor == reader->end) {
+        reader->failed = true;
+        return false;
+    }
+    *value = *reader->cursor++;
+    return true;
+}
+
+bool read_argument_u32(NativeArgumentReader* reader, uint32_t* value) {
+    if (reader->failed || static_cast<size_t>(reader->end - reader->cursor) < 4U) {
+        reader->failed = true;
+        return false;
+    }
+    *value = (static_cast<uint32_t>(reader->cursor[0]) << 24U) |
+        (static_cast<uint32_t>(reader->cursor[1]) << 16U) |
+        (static_cast<uint32_t>(reader->cursor[2]) << 8U) |
+        static_cast<uint32_t>(reader->cursor[3]);
+    reader->cursor += 4;
+    return true;
+}
+
+bool read_argument_u64(NativeArgumentReader* reader, uint64_t* value) {
+    if (reader->failed || static_cast<size_t>(reader->end - reader->cursor) < 8U) {
+        reader->failed = true;
+        return false;
+    }
+    uint64_t decoded = 0U;
+    for (int index = 0; index < 8; ++index) {
+        decoded = (decoded << 8U) | static_cast<uint64_t>(reader->cursor[index]);
+    }
+    reader->cursor += 8;
+    *value = decoded;
+    return true;
+}
+
+bool read_argument_bytes(
+    NativeArgumentReader* reader,
+    uint32_t maximum_length,
+    const uint8_t** bytes,
+    size_t* length) {
+    uint32_t encoded_length = 0U;
+    if (!read_argument_u32(reader, &encoded_length) || encoded_length > maximum_length) {
+        reader->failed = true;
+        return false;
+    }
+    const size_t decoded_length = static_cast<size_t>(encoded_length);
+    if (reader->data_bytes > kMaxArgumentDataBytes - decoded_length ||
+        static_cast<size_t>(reader->end - reader->cursor) < decoded_length) {
+        reader->failed = true;
+        return false;
+    }
+    *bytes = reader->cursor;
+    *length = decoded_length;
+    reader->cursor += decoded_length;
+    reader->data_bytes += decoded_length;
+    return true;
+}
+
+bool push_native_argument_value(
+    lua_State* state,
+    NativeArgumentReader* reader,
+    size_t depth,
+    bool allow_nil) {
+    if (reader->failed || depth > kMaxArgumentDepth || reader->nodes >= kMaxArgumentNodes) {
+        reader->failed = true;
+        return false;
+    }
+    ++reader->nodes;
+
+    uint8_t kind = 0U;
+    if (!read_argument_u8(reader, &kind)) {
+        return false;
+    }
+    switch (kind) {
+        case 0U:
+            if (!allow_nil) {
+                reader->failed = true;
+                return false;
+            }
+            lua_pushnil(state);
+            return true;
+        case 1U:
+            lua_pushboolean(state, 0);
+            return true;
+        case 2U:
+            lua_pushboolean(state, 1);
+            return true;
+        case 3U: {
+            uint64_t encoded = 0U;
+            if (!read_argument_u64(reader, &encoded)) {
+                return false;
+            }
+            static_assert(sizeof(lua_Integer) == sizeof(int64_t));
+            static_assert(std::numeric_limits<lua_Integer>::is_signed);
+            lua_pushinteger(state, static_cast<lua_Integer>(std::bit_cast<int64_t>(encoded)));
+            return true;
+        }
+        case 4U: {
+            uint64_t encoded = 0U;
+            if (!read_argument_u64(reader, &encoded)) {
+                return false;
+            }
+            const double value = std::bit_cast<double>(encoded);
+            if (!std::isfinite(value)) {
+                reader->failed = true;
+                return false;
+            }
+            lua_pushnumber(state, static_cast<lua_Number>(value));
+            return true;
+        }
+        case 5U:
+        case 6U: {
+            const uint8_t* bytes = nullptr;
+            size_t length = 0U;
+            if (!read_argument_bytes(
+                    reader,
+                    kMaxArgumentStringOrBytes,
+                    &bytes,
+                    &length)) {
+                return false;
+            }
+            lua_pushlstring(state, reinterpret_cast<const char*>(bytes), length);
+            return true;
+        }
+        case 7U: {
+            uint32_t count = 0U;
+            if (!read_argument_u32(reader, &count) || count > kMaxArgumentContainerEntries) {
+                reader->failed = true;
+                return false;
+            }
+            lua_createtable(state, static_cast<int>(count), 0);
+            for (uint32_t index = 0U; index < count; ++index) {
+                if (!push_native_argument_value(state, reader, depth + 1U, false)) {
+                    return false;
+                }
+                lua_rawseti(state, -2, static_cast<lua_Integer>(index + 1U));
+            }
+            return true;
+        }
+        case 8U: {
+            uint32_t count = 0U;
+            if (!read_argument_u32(reader, &count) || count > kMaxArgumentContainerEntries) {
+                reader->failed = true;
+                return false;
+            }
+            lua_createtable(state, 0, static_cast<int>(count));
+            for (uint32_t index = 0U; index < count; ++index) {
+                const uint8_t* key = nullptr;
+                size_t key_length = 0U;
+                if (!read_argument_bytes(
+                        reader,
+                        kMaxArgumentMapKeyBytes,
+                        &key,
+                        &key_length)) {
+                    return false;
+                }
+                lua_pushlstring(state, reinterpret_cast<const char*>(key), key_length);
+                lua_pushvalue(state, -1);
+                lua_rawget(state, -3);
+                const bool duplicate_key = lua_type(state, -1) != LUA_TNIL;
+                lua_pop(state, 1);
+                if (duplicate_key) {
+                    reader->failed = true;
+                    return false;
+                }
+                if (!push_native_argument_value(state, reader, depth + 1U, false)) {
+                    return false;
+                }
+                lua_rawset(state, -3);
+            }
+            return true;
+        }
+        default:
+            reader->failed = true;
+            return false;
+    }
+}
+
+bool push_native_arguments(lua_State* state, const NativeArgumentView* arguments) {
+    if (arguments == nullptr || arguments->bytes == nullptr || arguments->size < 6U ||
+        arguments->size > static_cast<size_t>(kMaxArgumentSnapshotBytes)) {
+        return false;
+    }
+    NativeArgumentReader reader{
+        arguments->bytes,
+        arguments->bytes + arguments->size,
+        0U,
+        0U,
+        false,
+    };
+    uint32_t magic = 0U;
+    uint8_t version = 0U;
+    if (!read_argument_u32(&reader, &magic) || magic != kArgumentMagic ||
+        !read_argument_u8(&reader, &version) || version != kArgumentVersion ||
+        !push_native_argument_value(state, &reader, 0U, true)) {
+        return false;
+    }
+    return !reader.failed && reader.cursor == reader.end;
+}
+
 bool poll_execution_control(ExecutionControl* control) {
     if (control->termination_reason != TerminationReason::kNone) {
         return false;
@@ -276,6 +501,10 @@ int restricted_require(lua_State* state) {
 }
 
 int install_autojs_module(lua_State* state) {
+    if (lua_gettop(state) != 1 || lua_type(state, 1) != LUA_TLIGHTUSERDATA) {
+        return luaL_error(state, "AutoJs argument bridge input is unavailable");
+    }
+    const auto* arguments = static_cast<const NativeArgumentView*>(lua_touserdata(state, 1));
     lua_newtable(state);
     lua_newtable(state);
     lua_pushcfunction(state, autojs_console_log);
@@ -283,6 +512,11 @@ int install_autojs_module(lua_State* state) {
     lua_pushcfunction(state, autojs_console_error);
     lua_setfield(state, -2, "error");
     lua_setfield(state, -2, "console");
+
+    if (!push_native_arguments(state, arguments)) {
+        return luaL_error(state, "AutoJs argument bridge input is invalid");
+    }
+    lua_setfield(state, -2, "arguments");
 
     lua_pushvalue(state, -1);
     lua_pushcclosure(state, restricted_require, 1);
@@ -479,22 +713,27 @@ Java_io_github_supermonster003_autojs6_plugin_lua_runtime_NativeLuaRuntime_nativ
     jobject /* receiver */,
     jbyteArray source,
     jbyteArray source_name_utf8,
+    jbyteArray arguments,
     jlong memory_limit_bytes,
     jlong timeout_millis,
     jobject cancellation_probe,
     jobject output_emitter) {
     static_assert(LUA_EXTRASPACE >= sizeof(ExecutionControl*));
-    if (source == nullptr || source_name_utf8 == nullptr || cancellation_probe == nullptr ||
-        output_emitter == nullptr) {
+    if (source == nullptr || source_name_utf8 == nullptr || arguments == nullptr ||
+        cancellation_probe == nullptr || output_emitter == nullptr) {
         return fail(environment, "INTERNAL", "Native Lua execution input is null");
     }
     const jsize source_length = environment->GetArrayLength(source);
     const jsize source_name_length = environment->GetArrayLength(source_name_utf8);
+    const jsize argument_length = environment->GetArrayLength(arguments);
     if (source_length < 0 || source_length > kMaxSourceBytes) {
         return fail(environment, "INTERNAL", "Lua source exceeds the native admission limit");
     }
     if (source_name_length <= 0 || source_name_length > kMaxSourceNameBytes) {
         return fail(environment, "INTERNAL", "Lua source name exceeds the native admission limit");
+    }
+    if (argument_length < 6 || argument_length > kMaxArgumentSnapshotBytes) {
+        return fail(environment, "INTERNAL", "Lua arguments exceed the native admission limit");
     }
     if (memory_limit_bytes <= 0 || memory_limit_bytes > kMaxMemoryBytes ||
         static_cast<unsigned long long>(memory_limit_bytes) > std::numeric_limits<size_t>::max()) {
@@ -590,13 +829,29 @@ Java_io_github_supermonster003_autojs6_plugin_lua_runtime_NativeLuaRuntime_nativ
         return fail_for_termination(environment, control.termination_reason);
     }
 
+    jbyte* argument_bytes = environment->GetByteArrayElements(arguments, nullptr);
+    if (argument_bytes == nullptr) {
+        if (environment->ExceptionCheck()) {
+            return nullptr;
+        }
+        return fail(environment, "INTERNAL", "Lua argument bytes are unavailable");
+    }
+    NativeArgumentView argument_view{
+        reinterpret_cast<const uint8_t*>(argument_bytes),
+        static_cast<size_t>(argument_length),
+    };
     lua_pushcfunction(state, install_autojs_module);
-    status = lua_pcall(state, 0, 0, 0);
+    lua_pushlightuserdata(state, &argument_view);
+    status = lua_pcall(state, 1, 0, 0);
+    environment->ReleaseByteArrayElements(arguments, argument_bytes, JNI_ABORT);
     if (budget.accounting_failed) {
         return fail_for_allocator_accounting(environment);
     }
     if (status != LUA_OK) {
-        return fail_for_lua_status(environment, status, false);
+        if (status == LUA_ERRMEM) {
+            return fail(environment, "MEMORY_LIMIT", "Lua argument mapping exceeded its memory limit");
+        }
+        return fail(environment, "INTERNAL", "Lua argument mapping failed");
     }
     if (!poll_execution_control(&control)) {
         return fail_for_termination(environment, control.termination_reason);

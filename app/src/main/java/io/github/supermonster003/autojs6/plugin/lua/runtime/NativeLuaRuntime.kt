@@ -5,9 +5,13 @@ import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaOutputE
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaRunnerException
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaRunnerFailureKind
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaRunnerRequest
+import org.autojs.plugin.lua.runtime.api.LuaContractException
 import org.autojs.plugin.lua.runtime.api.LuaOutputStream
 import org.autojs.plugin.lua.runtime.api.LuaRuntimeContract
 import org.autojs.plugin.lua.runtime.api.LuaValue
+import org.autojs.plugin.lua.runtime.api.LuaValueValidation
+import java.io.ByteArrayOutputStream
+import java.io.DataOutputStream
 import java.nio.ByteBuffer
 import java.nio.CharBuffer
 import java.nio.charset.CharacterCodingException
@@ -77,10 +81,12 @@ internal object NativeLuaRuntime {
         requireNativeLoaded()
         val source = request.sourceSnapshot()
         val sourceName = encodeStrictUtf8(request.sourceName, "Lua source name")
+        val arguments = request.argumentsSnapshot()
         val rawValue = try {
             nativeExecute(
                 source = source,
                 sourceNameUtf8 = sourceName,
+                arguments = arguments,
                 memoryLimitBytes = request.memoryLimitBytes,
                 timeoutMillis = request.timeoutMillis,
                 cancellationProbe = request.cancellationProbe,
@@ -106,6 +112,7 @@ internal object NativeLuaRuntime {
     private external fun nativeExecute(
         source: ByteArray,
         sourceNameUtf8: ByteArray,
+        arguments: ByteArray,
         memoryLimitBytes: Long,
         timeoutMillis: Long,
         cancellationProbe: NativeLuaCancellationProbe,
@@ -123,11 +130,11 @@ internal object NativeLuaRuntime {
  */
 internal object NativeLuaExecutionRunner : LuaExecutionRunner {
     override fun execute(request: LuaRunnerRequest): LuaValue {
-        requireSupportedArguments(request.arguments)
         val nativeRequest = try {
             NativeLuaExecutionRequest(
                 sourceUtf8 = request.sourceUtf8(),
                 sourceName = request.sourceName,
+                arguments = request.arguments,
                 memoryLimitBytes = request.memoryLimitBytes,
                 timeoutMillis = request.timeoutMillis,
                 cancellationProbe = BooleanSupplier {
@@ -136,6 +143,12 @@ internal object NativeLuaExecutionRunner : LuaExecutionRunner {
                 outputEmitter = NativeLuaOutputEmitter { streamWireCode, textUtf8 ->
                     emitNativeOutput(request.outputEmitter, streamWireCode, textUtf8)
                 },
+            )
+        } catch (failure: LuaContractException) {
+            throw LuaRunnerException(
+                LuaRunnerFailureKind.UNSUPPORTED_ARGUMENTS,
+                "Lua execution arguments are outside the admitted V1 value model",
+                failure,
             )
         } catch (failure: IllegalArgumentException) {
             throw LuaRunnerException(
@@ -164,17 +177,6 @@ internal object NativeLuaExecutionRunner : LuaExecutionRunner {
     }
 }
 
-internal fun requireSupportedArguments(arguments: LuaValue) {
-    val representsNoArguments = arguments === LuaValue.Nil ||
-        arguments is LuaValue.MapValue && arguments.values.isEmpty()
-    if (!representsNoArguments) {
-        throw LuaRunnerException(
-            LuaRunnerFailureKind.UNSUPPORTED_ARGUMENTS,
-            "Native Lua argument binding is not deployed",
-        )
-    }
-}
-
 internal fun NativeLuaExecutionValue.toProtocolValue(): LuaValue = when (this) {
     NativeLuaExecutionValue.Nil -> LuaValue.Nil
     is NativeLuaExecutionValue.BooleanValue -> LuaValue.BooleanValue(value)
@@ -197,12 +199,14 @@ private fun NativeLuaFailureKind.toRunnerFailureKind(): LuaRunnerFailureKind = w
 internal class NativeLuaExecutionRequest(
     sourceUtf8: ByteArray,
     val sourceName: String,
+    arguments: LuaValue = LuaValue.Nil,
     val memoryLimitBytes: Long,
     val timeoutMillis: Long,
     val cancellationProbe: NativeLuaCancellationProbe,
     val outputEmitter: NativeLuaOutputEmitter = NativeLuaOutputEmitter.REJECTING,
 ) {
     private val stableSource = sourceUtf8.copyOf()
+    private val stableArguments = NativeLuaArgumentCodec.encode(arguments)
 
     init {
         require(stableSource.size.toLong() <= LuaRuntimeContract.MAX_SOURCE_BYTES) {
@@ -226,6 +230,89 @@ internal class NativeLuaExecutionRequest(
     }
 
     internal fun sourceSnapshot(): ByteArray = stableSource.copyOf()
+
+    internal fun argumentsSnapshot(): ByteArray = stableArguments.copyOf()
+}
+
+/**
+ * Process-private, versioned transport from the validated protocol tree to JNI.
+ *
+ * This is intentionally not a second public wire protocol. It prevents native code from
+ * reflecting over Kotlin protocol classes while retaining an independently bounded parser at
+ * the trust boundary. Integers and lengths use big-endian encoding.
+ */
+internal object NativeLuaArgumentCodec {
+    private const val MAGIC = 0x4136_4C41 // A6LA
+    private const val VERSION = 1
+
+    private const val NIL = 0
+    private const val FALSE = 1
+    private const val TRUE = 2
+    private const val INT64 = 3
+    private const val FLOAT64 = 4
+    private const val STRING = 5
+    private const val BYTES = 6
+    private const val ARRAY = 7
+    private const val MAP = 8
+
+    internal const val MAX_SNAPSHOT_BYTES =
+        LuaRuntimeContract.MAX_VALUE_DATA_BYTES + 17 * LuaRuntimeContract.MAX_VALUE_NODES + 16
+
+    fun encode(value: LuaValue): ByteArray {
+        LuaValueValidation.validate(value)
+        val bytes = ByteArrayOutputStream()
+        val output = DataOutputStream(bytes)
+        output.writeInt(MAGIC)
+        output.writeByte(VERSION)
+        writeValue(output, value)
+        output.flush()
+        return bytes.toByteArray().also { snapshot ->
+            require(snapshot.size <= MAX_SNAPSHOT_BYTES) {
+                "Lua argument snapshot exceeds its private native bound"
+            }
+        }
+    }
+
+    private fun writeValue(output: DataOutputStream, value: LuaValue) {
+        when (value) {
+            LuaValue.Nil -> output.writeByte(NIL)
+            is LuaValue.BooleanValue -> output.writeByte(if (value.value) TRUE else FALSE)
+            is LuaValue.Int64Value -> {
+                output.writeByte(INT64)
+                output.writeLong(value.value)
+            }
+            is LuaValue.Float64Value -> {
+                output.writeByte(FLOAT64)
+                output.writeDouble(value.value)
+            }
+            is LuaValue.StringValue -> {
+                output.writeByte(STRING)
+                writeBytes(output, encodeStrictUtf8(value.value, "Lua argument string"))
+            }
+            is LuaValue.BytesValue -> {
+                output.writeByte(BYTES)
+                writeBytes(output, value.toByteArray())
+            }
+            is LuaValue.ArrayValue -> {
+                output.writeByte(ARRAY)
+                output.writeInt(value.values.size)
+                value.values.forEach { child -> writeValue(output, child) }
+            }
+            is LuaValue.MapValue -> {
+                output.writeByte(MAP)
+                output.writeInt(value.values.size)
+                value.values.forEach { (key, child) ->
+                    writeBytes(output, encodeStrictUtf8(key, "Lua argument map key"))
+                    writeValue(output, child)
+                }
+            }
+        }
+    }
+
+    private fun writeBytes(output: DataOutputStream, value: ByteArray) {
+        output.writeInt(value.size)
+        output.write(value)
+    }
 }
 
 /** Called synchronously from the executing JNI thread; implementations must not block. */

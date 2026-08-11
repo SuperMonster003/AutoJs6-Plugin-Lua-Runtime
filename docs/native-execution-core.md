@@ -16,6 +16,7 @@ Provider pilot; this does not enable Provider discovery in ordinary builds.
 
 - a defensive snapshot of already bounded UTF-8 source bytes
 - a logical source label
+- a private, versioned snapshot of the already validated V1 argument tree
 - a Lua allocator limit
 - an execution timeout
 - a non-blocking cancellation probe
@@ -24,9 +25,9 @@ Provider pilot; this does not enable Provider discovery in ordinary builds.
 It does not receive an Android `Context`, file descriptor, Binder object,
 session controller, host capability broker, or arbitrary Java
 object. The caller owns the serial worker and terminal race. The default-off
-runner adapter accepts only `nil` and the host's empty-map representation of
-"no arguments"; it rejects every non-empty argument value until explicit Lua
-argument binding is implemented. Selecting the adapter does not load JNI; the
+runner validates the protocol value again, freezes it into a bounded
+process-private blob, and exposes the decoded execution-local value as
+`require("autojs").arguments`. Selecting the adapter does not load JNI; the
 library is loaded only after an admitted native execution reaches the native
 boundary; the provider switch may remain false for isolated native tests.
 
@@ -39,8 +40,8 @@ Each JNI call:
 3. opens only base, math, string, table, and UTF-8 libraries
 4. removes `dofile`, `load`, `loadfile`, `pcall`, `xpcall`, `getmetatable`,
    `setmetatable`, `print`, `warn`, and `string.dump`
-5. installs a restricted `require("autojs")` module exposing only
-   `console.log(string)` and `console.error(string)`
+5. installs a restricted `require("autojs")` module exposing controlled console
+   calls and the bounded argument snapshot
 6. loads the source through `luaL_loadbufferx(..., "t")`
 7. installs a count hook for cancellation and a monotonic deadline
 8. executes through `lua_pcall`
@@ -79,11 +80,31 @@ non-finite numbers, invalid UTF-8, and oversized strings fail closed. No result
 is presented as the protocol `LuaValue` until the runner adapter performs that
 explicit scalar mapping.
 
+## Bounded argument boundary
+
+The provider maps every admitted V1 argument kind: top-level nil, Boolean,
+signed 64-bit integer, finite double, UTF-8 text, bytes, dense arrays, and
+string-key maps. Arrays use Lua's 1-based integer keys. Text, bytes, and map
+keys are installed with length-aware Lua APIs, so embedded null bytes cannot
+truncate data or change a key. Empty arrays and maps both become empty Lua
+tables, and text/bytes both become Lua strings; those distinctions are not
+recoverable inside Lua.
+
+The public protocol validator first enforces depth, node, data, per-container,
+per-item, and map-key quotas and rejects nil inside containers. Kotlin then
+creates a defensive, versioned private snapshot. Native code independently
+checks its magic/version, every length and count, the same quotas, finite
+floating-point values, dense-container nil rules, and exact end-of-buffer before
+publishing the module. Native mapping occurs inside a protected call and every
+Lua table allocation remains charged to the execution allocator. The snapshot
+does not contain Java or Android objects and cannot be written back to the host.
+
 ## Known limits before enablement
 
-- The only admitted module is the built-in `autojs` console module. There is no
-  general module loader, host capability broker, argument mapping, or
-  table/array/map result mapping.
+- The only admitted module is the built-in `autojs` module. It contains
+  controlled console calls and the execution-local argument snapshot. There is
+  no general module loader, host capability broker, or table/array/map result
+  mapping.
 - Console output is synchronous and must be accepted by the session's existing
   sequence, credit, chunk, and total-byte limits; it never falls back to
   unrestricted Lua `print` or `warn`.
@@ -101,8 +122,9 @@ explicit scalar mapping.
 - Native crashes and Android process rebuild remain deferred Android gates. ABI
   packaging plus 16 KiB ELF/ZIP alignment pass the debug artifact gate.
 
-`NativeLuaRuntimeBoundaryTest` records the defensive snapshot, UTF-8, scalar
-mapping, console wire boundary, and result-limit expectations. The repository
-JVM gate also covers watchdog token, stop, finish, and scheduler-failure races.
+`NativeLuaRuntimeBoundaryTest` records defensive source and argument snapshots,
+UTF-8, scalar mapping, console wire boundaries, and result-limit expectations.
+The repository JVM gate also covers watchdog token, stop, finish, and
+scheduler-failure races.
 Focused Android tests cover native execution; the official Provider smoke is
 the cross-process happy-path gate.

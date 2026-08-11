@@ -1,8 +1,6 @@
 package io.github.supermonster003.autojs6.plugin.lua.runtime
 
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaOutputEmitter
-import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaRunnerException
-import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaRunnerFailureKind
 import org.autojs.plugin.lua.runtime.api.LuaOutputStream
 import org.autojs.plugin.lua.runtime.api.LuaRuntimeContract
 import org.autojs.plugin.lua.runtime.api.LuaValue
@@ -29,6 +27,36 @@ class NativeLuaRuntimeBoundaryTest {
     }
 
     @Test
+    fun requestOwnsAVersionedDefensiveArgumentSnapshot() {
+        val arguments = LuaValue.MapValue(
+            linkedMapOf(
+                "enabled" to LuaValue.BooleanValue(true),
+                "items" to LuaValue.ArrayValue(
+                    listOf(
+                        LuaValue.Int64Value(4L),
+                        LuaValue.StringValue("ready"),
+                    ),
+                ),
+                "raw" to LuaValue.BytesValue(byteArrayOf(0x00, 0xff.toByte())),
+            ),
+        )
+        val request = request("return 1".toByteArray(), arguments = arguments)
+
+        val firstSnapshot = request.argumentsSnapshot()
+        assertTrue(firstSnapshot.size <= NativeLuaArgumentCodec.MAX_SNAPSHOT_BYTES)
+        assertArrayEquals(
+            byteArrayOf(0x41, 0x36, 0x4c, 0x41, 0x01, 0x08),
+            firstSnapshot.copyOfRange(0, 6),
+        )
+
+        firstSnapshot.fill(0)
+        assertArrayEquals(
+            NativeLuaArgumentCodec.encode(arguments),
+            request.argumentsSnapshot(),
+        )
+    }
+
+    @Test
     fun requestRejectsMalformedUtf8AndUnsafeLimitsBeforeJni() {
         assertThrows(IllegalArgumentException::class.java) {
             request(byteArrayOf(0xc3.toByte(), 0x28))
@@ -41,6 +69,12 @@ class NativeLuaRuntimeBoundaryTest {
         }
         assertThrows(IllegalArgumentException::class.java) {
             request("return 1".toByteArray(), timeoutMillis = 0L)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            request(
+                "return 1".toByteArray(),
+                arguments = LuaValue.ArrayValue(listOf(LuaValue.Nil)),
+            )
         }
     }
 
@@ -84,7 +118,7 @@ class NativeLuaRuntimeBoundaryTest {
     }
 
     @Test
-    fun sourceOnlyRunnerMapsScalarsWithoutBroadeningArguments() {
+    fun sourceOnlyRunnerMapsScalarsAndKeepsOutputBounded() {
         assertEquals(LuaValue.Nil, NativeLuaExecutionValue.Nil.toProtocolValue())
         assertEquals(
             LuaValue.BooleanValue(true),
@@ -102,13 +136,6 @@ class NativeLuaRuntimeBoundaryTest {
             LuaValue.StringValue("Lua"),
             NativeLuaExecutionValue.StringValue("Lua").toProtocolValue(),
         )
-
-        requireSupportedArguments(LuaValue.Nil)
-        requireSupportedArguments(LuaValue.MapValue(emptyMap()))
-        val unsupported = assertThrows(LuaRunnerException::class.java) {
-            requireSupportedArguments(LuaValue.StringValue("not-bound"))
-        }
-        assertEquals(LuaRunnerFailureKind.UNSUPPORTED_ARGUMENTS, unsupported.kind)
 
         val emitted = mutableListOf<Pair<LuaOutputStream, String>>()
         val emitter = LuaOutputEmitter { stream, text ->
@@ -142,9 +169,11 @@ class NativeLuaRuntimeBoundaryTest {
         memoryLimitBytes: Long = LuaRuntimeContract.DEFAULT_MEMORY_BYTES,
         timeoutMillis: Long = LuaRuntimeContract.DEFAULT_TIMEOUT_MILLIS,
         cancelled: Boolean = false,
+        arguments: LuaValue = LuaValue.Nil,
     ) = NativeLuaExecutionRequest(
         sourceUtf8 = source,
         sourceName = sourceName,
+        arguments = arguments,
         memoryLimitBytes = memoryLimitBytes,
         timeoutMillis = timeoutMillis,
         cancellationProbe = BooleanSupplier { cancelled },

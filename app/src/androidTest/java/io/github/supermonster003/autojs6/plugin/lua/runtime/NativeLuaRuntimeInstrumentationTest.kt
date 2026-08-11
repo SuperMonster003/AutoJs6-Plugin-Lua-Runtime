@@ -95,6 +95,63 @@ class NativeLuaRuntimeInstrumentationTest {
     }
 
     @Test
+    fun nativeRunnerMapsV1ArgumentsIntoTheControlledAutoJsModule() {
+        assertEquals(
+            LuaValue.Int64Value(12L),
+            NativeLuaExecutionRunner.execute(
+                runnerRequest(
+                    source = "return require('autojs').arguments",
+                    arguments = LuaValue.Int64Value(12L),
+                ),
+            ),
+        )
+
+        val output = mutableListOf<Pair<LuaOutputStream, String>>()
+        val arguments = LuaValue.MapValue(
+            linkedMapOf(
+                "enabled" to LuaValue.BooleanValue(true),
+                "count" to LuaValue.Int64Value(7L),
+                "ratio" to LuaValue.Float64Value(1.5),
+                "text" to LuaValue.StringValue("A\u0000\ud83d\ude00"),
+                "raw" to LuaValue.BytesValue(byteArrayOf(0x00, 0xff.toByte())),
+                "items" to LuaValue.ArrayValue(
+                    listOf(
+                        LuaValue.Int64Value(4L),
+                        LuaValue.StringValue("ready"),
+                    ),
+                ),
+                "\u0000key" to LuaValue.StringValue("binary-key"),
+            ),
+        )
+        assertEquals(
+            LuaValue.Int64Value(11L),
+            NativeLuaExecutionRunner.execute(
+                runnerRequest(
+                    source = """
+                        local autojs = require('autojs')
+                        local a = autojs.arguments
+                        assert(type(a) == 'table' and a.enabled == true)
+                        assert(math.type(a.count) == 'integer' and a.count == 7)
+                        assert(math.type(a.ratio) == 'float' and a.ratio == 1.5)
+                        assert(#a.text == 6 and string.byte(a.text, 2) == 0)
+                        assert(#a.raw == 2 and string.byte(a.raw, 1) == 0 and string.byte(a.raw, 2) == 255)
+                        assert(a.items[1] == 4 and a.items[2] == 'ready' and a.items[3] == nil)
+                        assert(a[string.char(0) .. 'key'] == 'binary-key')
+                        autojs.console.log('Lua:' .. a.items[2])
+                        return a.items[1] + a.count
+                    """.trimIndent(),
+                    arguments = arguments,
+                    outputEmitter = LuaOutputEmitter { stream, text ->
+                        output += stream to text
+                        true
+                    },
+                ),
+            ),
+        )
+        assertEquals(listOf(LuaOutputStream.STDOUT to "Lua:ready"), output)
+    }
+
+    @Test
     fun syntaxAndRuntimeErrorsAreClassified() {
         assertNativeFailure(NativeLuaFailureKind.SYNTAX) { execute("return )") }
         assertNativeFailure(NativeLuaFailureKind.RUNTIME) { execute("error('boom')") }
@@ -137,22 +194,22 @@ class NativeLuaRuntimeInstrumentationTest {
     }
 
     @Test
-    fun unsupportedResultsAndArgumentsFailClosed() {
+    fun unsupportedResultsAndMalformedArgumentsFailClosed() {
         assertNativeFailure(NativeLuaFailureKind.UNSUPPORTED_RESULT) { execute("return {}") }
         assertNativeFailure(NativeLuaFailureKind.UNSUPPORTED_RESULT) { execute("return 1, 2") }
         assertNativeFailure(NativeLuaFailureKind.RESULT_LIMIT) {
             execute("return string.rep('x', 65537)")
         }
 
-        val unsupportedArguments = assertThrows(LuaRunnerException::class.java) {
+        val malformedArguments = assertThrows(LuaRunnerException::class.java) {
             NativeLuaExecutionRunner.execute(
                 runnerRequest(
                     source = "return 7",
-                    arguments = LuaValue.StringValue("not-bound"),
+                    arguments = LuaValue.ArrayValue(listOf(LuaValue.Nil)),
                 ),
             )
         }
-        assertEquals(LuaRunnerFailureKind.UNSUPPORTED_ARGUMENTS, unsupportedArguments.kind)
+        assertEquals(LuaRunnerFailureKind.UNSUPPORTED_ARGUMENTS, malformedArguments.kind)
     }
 
     private fun execute(

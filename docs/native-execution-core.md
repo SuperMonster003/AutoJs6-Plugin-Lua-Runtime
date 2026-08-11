@@ -1,13 +1,14 @@
 # Native execution core checkpoint
 
-Status: **COMPILED AND PACKAGED / PROVIDER DEFAULT-OFF / NOT DEVICE-EXECUTED**.
+Status: **COMPILED, PACKAGED, AND DEVICE-EXECUTED / PROVIDER DEFAULT-OFF**.
 
 The R3 native core is a blocking, process-local seam. Immutable protocol AARs
 and PUC Lua 5.4.8 are staged, and native-enabled/provider-disabled debug builds
 compile and package both admitted ABIs. The Binder service conditionally
 selects the native runner only when `LUA_NATIVE_ENABLED` is true; provider
-discovery remains independently default-off. No device execution or
-cross-process provider acceptance is claimed at this checkpoint.
+discovery remains independently default-off. Focused device evidence covers
+the native boundary, process recovery, and an explicitly enabled production
+Provider pilot; this does not enable Provider discovery in ordinary builds.
 
 ## Ownership boundary
 
@@ -18,9 +19,10 @@ cross-process provider acceptance is claimed at this checkpoint.
 - a Lua allocator limit
 - an execution timeout
 - a non-blocking cancellation probe
+- a synchronous, bounded stdout/stderr emitter owned by the session controller
 
 It does not receive an Android `Context`, file descriptor, Binder object,
-session controller, output callback, capability broker, or arbitrary Java
+session controller, host capability broker, or arbitrary Java
 object. The caller owns the serial worker and terminal race. The default-off
 runner adapter accepts only `nil` and the host's empty-map representation of
 "no arguments"; it rejects every non-empty argument value until explicit Lua
@@ -37,11 +39,13 @@ Each JNI call:
 3. opens only base, math, string, table, and UTF-8 libraries
 4. removes `dofile`, `load`, `loadfile`, `pcall`, `xpcall`, `getmetatable`,
    `setmetatable`, `print`, `warn`, and `string.dump`
-5. loads the source through `luaL_loadbufferx(..., "t")`
-6. installs a count hook for cancellation and a monotonic deadline
-7. executes through `lua_pcall`
-8. admits zero or one scalar result
-9. closes the state through deterministic RAII on every native return path
+5. installs a restricted `require("autojs")` module exposing only
+   `console.log(string)` and `console.error(string)`
+6. loads the source through `luaL_loadbufferx(..., "t")`
+7. installs a count hook for cancellation and a monotonic deadline
+8. executes through `lua_pcall`
+9. admits zero or one scalar result
+10. closes the state through deterministic RAII on every native return path
 
 The allocator rejects a resize before `realloc`, permanently denies new
 allocations if Lua ever reports an old size larger than the admitted live-byte
@@ -72,14 +76,17 @@ The native bridge currently admits only:
 
 Multiple returns, tables, functions, threads, userdata, light userdata,
 non-finite numbers, invalid UTF-8, and oversized strings fail closed. No result
-is presented as the protocol `LuaValue` until the unconnected runner adapter
-performs that explicit scalar mapping.
+is presented as the protocol `LuaValue` until the runner adapter performs that
+explicit scalar mapping.
 
 ## Known limits before enablement
 
-- There is no stdout/stderr implementation or output-credit integration.
-- There is no module loader, host capability broker, argument mapping, or
+- The only admitted module is the built-in `autojs` console module. There is no
+  general module loader, host capability broker, argument mapping, or
   table/array/map result mapping.
+- Console output is synchronous and must be accepted by the session's existing
+  sequence, credit, chunk, and total-byte limits; it never falls back to
+  unrestricted Lua `print` or `warn`.
 - There is no coroutine library in the source-only MVP.
 - Lua hooks cannot preempt source parsing, time spent inside one long native
   C-library operation, or native heap teardown. The bridge polls immediately
@@ -87,14 +94,15 @@ performs that explicit scalar mapping.
   bounds Lua-owned memory. Metatable removal prevents user finalizers from
   making teardown infinite. A token-bound process-level cleanup watchdog now
   fail-stops the dedicated process after the request deadline or stop request
-  plus a two-second grace, but kill/rebind/new-PID recovery remains an Android
-  enablement gate.
+  plus a two-second grace. Focused debug fault evidence covers kill, rebind,
+  new PID, and recovery; broader release validation remains deferred.
 - The cancellation probe executes synchronously on the Lua worker thread and
   must remain non-blocking.
 - Native crashes and Android process rebuild remain deferred Android gates. ABI
   packaging plus 16 KiB ELF/ZIP alignment pass the debug artifact gate.
 
 `NativeLuaRuntimeBoundaryTest` records the defensive snapshot, UTF-8, scalar
-mapping, and result-limit expectations. The repository JVM gate also covers
-watchdog token, stop, finish, and scheduler-failure races; device-native
-execution remains pending.
+mapping, console wire boundary, and result-limit expectations. The repository
+JVM gate also covers watchdog token, stop, finish, and scheduler-failure races.
+Focused Android tests cover native execution; the official Provider smoke is
+the cross-process happy-path gate.

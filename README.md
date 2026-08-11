@@ -6,7 +6,8 @@ dedicated `:lua_runtime` process.
 
 ## Current checkpoint
 
-This repository is an R3 source scaffold, not a production runtime:
+This repository contains a working, independently versioned runtime Provider
+whose production discovery remains default-off:
 
 - application ID: `io.github.supermonster003.autojs6.plugin.lua.runtime`
 - plugin / engine / variant: `lua-runtime` / `lua` / `puc-lua54`
@@ -18,12 +19,11 @@ This repository is an R3 source scaffold, not a production runtime:
 - both services accept an explicit component-only bind whose action is null
 - both services are default-disabled by a generated Boolean resource
 
-The Android project has not been compiled by Gradle. Only the Android-free
-execution subset has a direct Kotlin/JUnit diagnostic. The protocol AARs have
-not been generated or synchronized, PUC Lua sources have not been vendored, no
-Gradle wrapper has been generated, and no repository or release history has
-been initialized. There is no installable or runnable Lua provider claim at
-this checkpoint.
+The protocol AARs and PUC Lua sources are immutable local inputs, the Gradle
+wrapper is pinned, and focused JVM, native-device, process-recovery, and
+explicit production-Provider pilot evidence exists. Ordinary builds still
+keep native execution and Provider discovery disabled; no public release or
+default-enabled Provider claim is made at this checkpoint.
 
 ## Fail-closed build switches
 
@@ -65,7 +65,7 @@ The frozen upstream input is:
 - SHA-256
   `4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae`
 
-The archive has not been downloaded or extracted in this repository. See
+The verified archive has been staged into the immutable vendored source tree. See
 [vendor-lock.json](app/src/main/cpp/vendor/vendor-lock.json) and the
 [vendor intake note](app/src/main/cpp/vendor/lua-5.4.8/README.md).
 After intake, the repository verifier recomputes a canonical path/content
@@ -80,9 +80,9 @@ metatable access as well as `string.dump`. Coroutine support remains excluded
 until hook-inheritance tests.
 
 Removing these globals is defense in depth, not the binary-chunk gate. The
-future execution loader must call `luaL_loadbufferx(..., "t")` or an
-equivalent text-only API. No loader without an explicit text-only mode may be
-introduced, because `lundump.c` remains part of the Lua core.
+execution loader calls `luaL_loadbufferx(..., "t")`. No loader without an
+explicit text-only mode may be introduced, because `lundump.c` remains part of
+the Lua core.
 
 ## Execution boundary
 
@@ -93,32 +93,33 @@ worker, admits one active execution, bounds retained/unstarted sessions, and
 contains callback/terminal/close races. Native-enabled builds now select
 `NativeLuaExecutionRunner`, while native-disabled builds retain
 `DisabledLuaExecutionRunner`. Provider discovery remains an independent,
-default-off gate, so this is not yet a discoverable production provider.
+default-off gate. A controlled `require("autojs")` exposes only
+`console.log(string)` and `console.error(string)`; both use the existing
+sequence, credit, chunk, and total-output limits. General module loading,
+`print`, and `warn` remain unavailable.
 
 A process-wide watchdog is bound to each admitted execution token. It arms only
 immediately before worker dispatch, shortens its grace window on cancel, close,
 or callback death, and clears its token on normal finish. If the worker survives
 the end-to-end deadline or stop request plus the cleanup grace, the dedicated
-runtime process is poisoned and terminated. The Android kill/rebind/new-PID
-recovery path remains unverified and provider discovery therefore stays off.
+runtime process is poisoned and terminated. Focused Android evidence covers
+kill/rebind/new-PID recovery, while Provider discovery remains default-off.
 
-Before provider enablement, the implementation still needs:
+Before public Provider enablement, the implementation still needs:
 
-1. add native stdout/stderr credits, argument binding, and the host broker
-2. prove complete PFD/session accounting across real Binder processes
-3. prove cancellation, native crash, OOM, wedged-call, and process recovery
-4. prove provider-disabled merged-manifest behavior on Android
-5. pass install, release-signing, API-matrix, and recovery gates
+1. add explicit argument binding and the first host-broker capability
+2. complete the product-facing editor and persistent-entry experience
+3. create a signed Provider-enabled release candidate
+4. run the focused release compatibility and rollback sample
 
-The first Android-native gate is intentionally narrower: instrumentation may
-call `NativeLuaRuntime.execute()` with `native=true/provider=false` to verify
-scalar results, failures, hooks, and allocator recovery without discovering or
-binding either production service. Crash/wedge recovery remains a separate
-dedicated-process gate.
+Android-native instrumentation can call `NativeLuaRuntime.execute()` with
+`native=true/provider=false` to verify scalar results, controlled console
+output, failures, hooks, and allocator recovery without discovering either
+production service. A separate opt-in smoke exercises the production
+INFO/RUNTIME Binder path while keeping repository defaults disabled.
 
-The repository JVM suite now contains 38 tests, while the watchdog-focused
-Android-free diagnostic passes 20/20. These do not exercise Android process
-termination, Binder/PFD behavior, native code on a device, or discovery.
+The repository JVM suite contains 38 tests, while focused Android evidence is
+kept separate for native, Binder/PFD, process-recovery, and Provider paths.
 
 ## CI
 
@@ -143,12 +144,11 @@ pinned archive. Those provenance claims remain staging/build gates. Provider
 state must likewise be checked in the merged manifest or APK once Gradle work
 is permitted; source and CI-text checks are not runtime evidence.
 
-## Deferred validation
+## Remaining release validation
 
-Gradle, ADB, connected tasks, installation, and device work remain deferred
-while the protected soak is active. When that restriction is lifted, follow
-[ROADMAP.md](ROADMAP.md) and record static, Android/Binder, ABI, alignment, and
-release evidence separately.
+Follow the host repository's Lua roadmap for capability and product work.
+Release signing, a small API/ABI compatibility sample, and production rollback
+evidence remain separate from development smoke results.
 
 ## License
 

@@ -236,7 +236,7 @@ internal class LuaExecutionSessionController(
 
     fun observerDied(): Boolean = abandonObserver()
 
-    /** Reserved for a future runner output listener; current native MVP emits no output. */
+    /** Emits one already-bounded runner chunk through the session's credit-controlled callback. */
     fun emitOutput(stream: LuaOutputStream, text: String): Boolean {
         var output: LuaOutputChunk? = null
         var failed = false
@@ -273,8 +273,7 @@ internal class LuaExecutionSessionController(
             watchdog.stopRequestedQuietly()
             return false
         }
-        output?.let { value -> deliver { it.onOutput(value) } }
-        return output != null
+        return output?.let { value -> deliver { it.onOutput(value) } } ?: false
     }
 
     fun snapshot(): Snapshot = synchronized(lock) {
@@ -338,6 +337,7 @@ internal class LuaExecutionSessionController(
                         memoryLimitBytes = request.memoryByteLimit,
                         timeoutMillis = runnerTimeoutMillis,
                         cancellationProbe = LuaCancellationProbe(::isCancellationRequested),
+                        outputEmitter = LuaOutputEmitter(::emitOutput),
                     ),
                 )
             } catch (error: LuaRunnerException) {

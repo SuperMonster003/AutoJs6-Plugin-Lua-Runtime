@@ -1,12 +1,16 @@
 package io.github.supermonster003.autojs6.plugin.lua.runtime
 
+import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaOutputEmitter
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaRunnerException
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaRunnerFailureKind
+import org.autojs.plugin.lua.runtime.api.LuaOutputStream
 import org.autojs.plugin.lua.runtime.api.LuaRuntimeContract
 import org.autojs.plugin.lua.runtime.api.LuaValue
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.function.BooleanSupplier
 
@@ -105,6 +109,23 @@ class NativeLuaRuntimeBoundaryTest {
             requireSupportedArguments(LuaValue.StringValue("not-bound"))
         }
         assertEquals(LuaRunnerFailureKind.UNSUPPORTED_ARGUMENTS, unsupported.kind)
+
+        val emitted = mutableListOf<Pair<LuaOutputStream, String>>()
+        val emitter = LuaOutputEmitter { stream, text ->
+            emitted += stream to text
+            true
+        }
+        assertTrue(emitNativeOutput(emitter, LuaOutputStream.STDOUT.wireCode, "hello".toByteArray()))
+        assertEquals(listOf(LuaOutputStream.STDOUT to "hello"), emitted)
+        assertFalse(emitNativeOutput(emitter, Int.MAX_VALUE, "unknown".toByteArray()))
+        assertFalse(emitNativeOutput(emitter, LuaOutputStream.STDERR.wireCode, byteArrayOf(0xc3.toByte(), 0x28)))
+        assertFalse(
+            emitNativeOutput(
+                emitter,
+                LuaOutputStream.STDOUT.wireCode,
+                ByteArray(LuaRuntimeContract.MAX_OUTPUT_CHUNK_BYTES + 1),
+            ),
+        )
     }
 
     @Test

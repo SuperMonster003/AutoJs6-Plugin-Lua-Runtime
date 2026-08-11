@@ -7,11 +7,13 @@ import android.os.Build
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaCancellationProbe
+import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaOutputEmitter
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaRunnerException
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaRunnerFailureKind
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaRunnerRequest
 import io.github.supermonster003.autojs6.plugin.lua.runtime.service.LuaPluginInfoService
 import io.github.supermonster003.autojs6.plugin.lua.runtime.service.LuaRuntimeService
+import org.autojs.plugin.lua.runtime.api.LuaOutputStream
 import org.autojs.plugin.lua.runtime.api.LuaRuntimeContract
 import org.autojs.plugin.lua.runtime.api.LuaValue
 import org.junit.Assert.assertEquals
@@ -59,6 +61,37 @@ class NativeLuaRuntimeInstrumentationTest {
             LuaValue.Int64Value(7L),
             NativeLuaExecutionRunner.execute(runnerRequest("return 7")),
         )
+
+        val output = mutableListOf<Pair<LuaOutputStream, String>>()
+        assertEquals(
+            LuaValue.Int64Value(8L),
+            NativeLuaExecutionRunner.execute(
+                runnerRequest(
+                    source = """
+                        local autojs = require('autojs')
+                        autojs.console.log('hello')
+                        autojs.console.error('problem')
+                        return 8
+                    """.trimIndent(),
+                    outputEmitter = LuaOutputEmitter { stream, text ->
+                        output += stream to text
+                        true
+                    },
+                ),
+            ),
+        )
+        assertEquals(
+            listOf(
+                LuaOutputStream.STDOUT to "hello",
+                LuaOutputStream.STDERR to "problem",
+            ),
+            output,
+        )
+
+        val unknownModule = assertThrows(LuaRunnerException::class.java) {
+            NativeLuaExecutionRunner.execute(runnerRequest("return require('unknown')"))
+        }
+        assertEquals(LuaRunnerFailureKind.RUNTIME, unknownModule.kind)
     }
 
     @Test
@@ -140,6 +173,7 @@ class NativeLuaRuntimeInstrumentationTest {
     private fun runnerRequest(
         source: String,
         arguments: LuaValue = LuaValue.Nil,
+        outputEmitter: LuaOutputEmitter = LuaOutputEmitter.REJECTING,
     ) = LuaRunnerRequest(
         sourceUtf8 = source.toByteArray(),
         sourceName = "runner-instrumentation.lua",
@@ -147,6 +181,7 @@ class NativeLuaRuntimeInstrumentationTest {
         memoryLimitBytes = LuaRuntimeContract.DEFAULT_MEMORY_BYTES,
         timeoutMillis = LuaRuntimeContract.DEFAULT_TIMEOUT_MILLIS,
         cancellationProbe = LuaCancellationProbe { false },
+        outputEmitter = outputEmitter,
     )
 
     private fun assertNativeFailure(

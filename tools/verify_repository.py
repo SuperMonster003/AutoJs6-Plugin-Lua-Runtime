@@ -571,6 +571,10 @@ def verify_native_boundary() -> None:
         'remove_global(state, "print")': "Lua print can bypass output credits",
         'remove_global(state, "warn")': "Lua warnings can bypass output credits",
         'lua_setfield(state, -2, "dump")': "Lua string.dump is still exposed",
+        'int restricted_require(lua_State* state)': "The controlled require boundary is missing",
+        'std::memcmp(name, "autojs", 6U)': "The autojs module admission is not exact",
+        'lua_setfield(state, -2, "console")': "The controlled console module is missing",
+        'CallBooleanMethod(': "The native output bridge is missing",
     }
     for token, message in required_execution_tokens.items():
         require(token in native, message)
@@ -625,6 +629,8 @@ def verify_native_boundary() -> None:
         "internal object NativeLuaExecutionRunner : LuaExecutionRunner",
         "LuaRunnerFailureKind.UNSUPPORTED_ARGUMENTS",
         "fun NativeLuaExecutionValue.toProtocolValue(): LuaValue",
+        "internal fun interface NativeLuaOutputEmitter",
+        "fun emitNativeOutput(",
     ):
         require(token in kotlin_boundary, f"Native Kotlin execution boundary drift: {token}")
     execute_start = kotlin_boundary.index(
@@ -655,11 +661,12 @@ def verify_native_boundary() -> None:
 
     native_doc = (ROOT / "docs/native-execution-core.md").read_text("utf-8")
     require(
-        "COMPILED AND PACKAGED / PROVIDER DEFAULT-OFF / NOT DEVICE-EXECUTED" in native_doc,
+        "COMPILED, PACKAGED, AND DEVICE-EXECUTED / PROVIDER DEFAULT-OFF" in native_doc,
         "Native evidence boundary is missing",
     )
-    require("There is no stdout/stderr implementation" in native_doc, "Native output limitation is missing")
-    require("There is no module loader" in native_doc, "Native capability limitation is missing")
+    require("only admitted module is the built-in `autojs` console module" in native_doc, "Native module boundary is missing")
+    require("sequence, credit, chunk, and total-byte limits" in native_doc, "Native output boundary is missing")
+    require("There is no\n  general module loader" in native_doc, "Native capability limitation is missing")
     require("There is no coroutine library" in native_doc, "Native coroutine limitation is missing")
     require("infinite `__gc` or `__close` handler" in native_doc, "Native teardown limitation is missing")
     require("process-level cleanup watchdog" in native_doc, "Native cleanup watchdog gate is missing")

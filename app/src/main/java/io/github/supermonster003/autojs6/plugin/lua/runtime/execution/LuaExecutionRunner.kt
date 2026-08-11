@@ -1,5 +1,6 @@
 package io.github.supermonster003.autojs6.plugin.lua.runtime.execution
 
+import org.autojs.plugin.lua.runtime.api.LuaOutputStream
 import org.autojs.plugin.lua.runtime.api.LuaValue
 
 /**
@@ -19,6 +20,7 @@ internal class LuaRunnerRequest(
     val memoryLimitBytes: Long,
     val timeoutMillis: Long,
     val cancellationProbe: LuaCancellationProbe,
+    val outputEmitter: LuaOutputEmitter = LuaOutputEmitter.REJECTING,
 ) {
     private val sourceBytes = sourceUtf8.copyOf()
 
@@ -27,6 +29,15 @@ internal class LuaRunnerRequest(
 
 internal fun interface LuaCancellationProbe {
     fun isCancellationRequested(): Boolean
+}
+
+/** Synchronous, credit-controlled stdout/stderr bridge owned by the session controller. */
+internal fun interface LuaOutputEmitter {
+    fun emit(stream: LuaOutputStream, text: String): Boolean
+
+    companion object {
+        val REJECTING = LuaOutputEmitter { _, _ -> false }
+    }
 }
 
 internal enum class LuaRunnerFailureKind {

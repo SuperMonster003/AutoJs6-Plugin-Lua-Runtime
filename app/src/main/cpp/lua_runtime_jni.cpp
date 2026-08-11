@@ -23,6 +23,7 @@ namespace {
 
 constexpr jsize kMaxSourceBytes = 16 * 1024 * 1024;
 constexpr jsize kMaxSourceNameBytes = 1024;
+constexpr size_t kMaxOutputChunkBytes = 32 * 1024;
 constexpr size_t kMaxScalarStringBytes = 64 * 1024;
 constexpr jlong kMaxMemoryBytes = 256LL * 1024LL * 1024LL;
 constexpr jlong kMaxTimeoutMillis = 10LL * 60LL * 1000LL;
@@ -150,12 +151,15 @@ enum class TerminationReason {
     kCancelled,
     kDeadlineExceeded,
     kControlFailure,
+    kOutputRejected,
 };
 
 struct ExecutionControl {
     JNIEnv* environment;
     jobject cancellation_probe;
     jmethodID cancellation_method;
+    jobject output_emitter;
+    jmethodID output_method;
     std::chrono::steady_clock::time_point deadline;
     TerminationReason termination_reason;
 };
@@ -194,6 +198,99 @@ void execution_hook(lua_State* state, lua_Debug* /* debug */) {
     }
 }
 
+ExecutionControl* execution_control(lua_State* state) {
+    auto** slot = static_cast<ExecutionControl**>(lua_getextraspace(state));
+    return slot == nullptr ? nullptr : *slot;
+}
+
+int emit_autojs_console(lua_State* state, jint stream_wire_code) {
+    ExecutionControl* control = execution_control(state);
+    if (control == nullptr || lua_gettop(state) != 1 || lua_type(state, 1) != LUA_TSTRING) {
+        return luaL_error(state, "AutoJs console expects exactly one string");
+    }
+    if (!poll_execution_control(control)) {
+        return luaL_error(state, "AutoJs Lua execution interrupted");
+    }
+    size_t text_length = 0U;
+    const char* text = lua_tolstring(state, 1, &text_length);
+    if (text == nullptr || text_length == 0U || text_length > kMaxOutputChunkBytes) {
+        return luaL_error(state, "AutoJs console output is empty or exceeds its chunk limit");
+    }
+
+    jbyteArray bytes = control->environment->NewByteArray(static_cast<jsize>(text_length));
+    if (bytes == nullptr) {
+        if (control->environment->ExceptionCheck()) {
+            control->environment->ExceptionClear();
+        }
+        control->termination_reason = TerminationReason::kControlFailure;
+        return luaL_error(state, "AutoJs console bridge failed");
+    }
+    control->environment->SetByteArrayRegion(
+        bytes,
+        0,
+        static_cast<jsize>(text_length),
+        reinterpret_cast<const jbyte*>(text));
+    if (control->environment->ExceptionCheck()) {
+        control->environment->ExceptionClear();
+        control->environment->DeleteLocalRef(bytes);
+        control->termination_reason = TerminationReason::kControlFailure;
+        return luaL_error(state, "AutoJs console bridge failed");
+    }
+    const jboolean emitted = control->environment->CallBooleanMethod(
+        control->output_emitter,
+        control->output_method,
+        stream_wire_code,
+        bytes);
+    control->environment->DeleteLocalRef(bytes);
+    if (control->environment->ExceptionCheck()) {
+        control->environment->ExceptionClear();
+        control->termination_reason = TerminationReason::kControlFailure;
+        return luaL_error(state, "AutoJs console bridge failed");
+    }
+    if (emitted != JNI_TRUE) {
+        control->termination_reason = TerminationReason::kOutputRejected;
+        return luaL_error(state, "AutoJs console output was rejected");
+    }
+    return 0;
+}
+
+int autojs_console_log(lua_State* state) {
+    return emit_autojs_console(state, 1);
+}
+
+int autojs_console_error(lua_State* state) {
+    return emit_autojs_console(state, 2);
+}
+
+int restricted_require(lua_State* state) {
+    if (lua_gettop(state) != 1 || lua_type(state, 1) != LUA_TSTRING) {
+        return luaL_error(state, "require expects one admitted module name");
+    }
+    size_t name_length = 0U;
+    const char* name = lua_tolstring(state, 1, &name_length);
+    if (name == nullptr || name_length != 6U || std::memcmp(name, "autojs", 6U) != 0) {
+        return luaL_error(state, "Lua module is not admitted");
+    }
+    lua_pushvalue(state, lua_upvalueindex(1));
+    return 1;
+}
+
+int install_autojs_module(lua_State* state) {
+    lua_newtable(state);
+    lua_newtable(state);
+    lua_pushcfunction(state, autojs_console_log);
+    lua_setfield(state, -2, "log");
+    lua_pushcfunction(state, autojs_console_error);
+    lua_setfield(state, -2, "error");
+    lua_setfield(state, -2, "console");
+
+    lua_pushvalue(state, -1);
+    lua_pushcclosure(state, restricted_require, 1);
+    lua_setglobal(state, "require");
+    lua_pop(state, 1);
+    return 0;
+}
+
 bool throw_bridge_exception(JNIEnv* environment, const char* kind, const char* message) {
     jclass exception_class = environment->FindClass("java/lang/IllegalStateException");
     if (exception_class == nullptr) {
@@ -218,7 +315,9 @@ jobject fail_for_termination(JNIEnv* environment, TerminationReason reason) {
         case TerminationReason::kDeadlineExceeded:
             return fail(environment, "DEADLINE_EXCEEDED", "Lua execution exceeded its deadline");
         case TerminationReason::kControlFailure:
-            return fail(environment, "INTERNAL", "Lua cancellation probe failed");
+            return fail(environment, "INTERNAL", "Lua execution control bridge failed");
+        case TerminationReason::kOutputRejected:
+            return fail(environment, "RUNTIME", "Lua console output was rejected");
         case TerminationReason::kNone:
             return fail(environment, "INTERNAL", "Lua termination state is inconsistent");
     }
@@ -382,9 +481,11 @@ Java_io_github_supermonster003_autojs6_plugin_lua_runtime_NativeLuaRuntime_nativ
     jbyteArray source_name_utf8,
     jlong memory_limit_bytes,
     jlong timeout_millis,
-    jobject cancellation_probe) {
+    jobject cancellation_probe,
+    jobject output_emitter) {
     static_assert(LUA_EXTRASPACE >= sizeof(ExecutionControl*));
-    if (source == nullptr || source_name_utf8 == nullptr || cancellation_probe == nullptr) {
+    if (source == nullptr || source_name_utf8 == nullptr || cancellation_probe == nullptr ||
+        output_emitter == nullptr) {
         return fail(environment, "INTERNAL", "Native Lua execution input is null");
     }
     const jsize source_length = environment->GetArrayLength(source);
@@ -434,10 +535,28 @@ Java_io_github_supermonster003_autojs6_plugin_lua_runtime_NativeLuaRuntime_nativ
         return fail(environment, "INTERNAL", "Lua cancellation probe contract is unavailable");
     }
 
+    jclass output_emitter_class = environment->GetObjectClass(output_emitter);
+    if (output_emitter_class == nullptr) {
+        return nullptr;
+    }
+    jmethodID output_method = environment->GetMethodID(
+        output_emitter_class,
+        "emitUtf8",
+        "(I[B)Z");
+    environment->DeleteLocalRef(output_emitter_class);
+    if (output_method == nullptr) {
+        if (environment->ExceptionCheck()) {
+            environment->ExceptionClear();
+        }
+        return fail(environment, "INTERNAL", "Lua output emitter contract is unavailable");
+    }
+
     ExecutionControl control{
         environment,
         cancellation_probe,
         cancellation_method,
+        output_emitter,
+        output_method,
         std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_millis),
         TerminationReason::kNone,
     };
@@ -461,6 +580,18 @@ Java_io_github_supermonster003_autojs6_plugin_lua_runtime_NativeLuaRuntime_nativ
 
     lua_pushcfunction(state, open_safe_libraries);
     int status = lua_pcall(state, 0, 0, 0);
+    if (budget.accounting_failed) {
+        return fail_for_allocator_accounting(environment);
+    }
+    if (status != LUA_OK) {
+        return fail_for_lua_status(environment, status, false);
+    }
+    if (!poll_execution_control(&control)) {
+        return fail_for_termination(environment, control.termination_reason);
+    }
+
+    lua_pushcfunction(state, install_autojs_module);
+    status = lua_pcall(state, 0, 0, 0);
     if (budget.accounting_failed) {
         return fail_for_allocator_accounting(environment);
     }

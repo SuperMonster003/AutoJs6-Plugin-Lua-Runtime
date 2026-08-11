@@ -1,9 +1,11 @@
 package io.github.supermonster003.autojs6.plugin.lua.runtime
 
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaExecutionRunner
+import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaOutputEmitter
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaRunnerException
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaRunnerFailureKind
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaRunnerRequest
+import org.autojs.plugin.lua.runtime.api.LuaOutputStream
 import org.autojs.plugin.lua.runtime.api.LuaRuntimeContract
 import org.autojs.plugin.lua.runtime.api.LuaValue
 import java.nio.ByteBuffer
@@ -82,6 +84,7 @@ internal object NativeLuaRuntime {
                 memoryLimitBytes = request.memoryLimitBytes,
                 timeoutMillis = request.timeoutMillis,
                 cancellationProbe = request.cancellationProbe,
+                outputEmitter = request.outputEmitter,
             )
         } catch (failure: IllegalStateException) {
             throw decodeBridgeFailure(failure)
@@ -106,6 +109,7 @@ internal object NativeLuaRuntime {
         memoryLimitBytes: Long,
         timeoutMillis: Long,
         cancellationProbe: NativeLuaCancellationProbe,
+        outputEmitter: NativeLuaOutputEmitter,
     ): Any?
 
     private const val PROBE_MEMORY_LIMIT_BYTES = 1024L * 1024L
@@ -128,6 +132,9 @@ internal object NativeLuaExecutionRunner : LuaExecutionRunner {
                 timeoutMillis = request.timeoutMillis,
                 cancellationProbe = BooleanSupplier {
                     request.cancellationProbe.isCancellationRequested()
+                },
+                outputEmitter = NativeLuaOutputEmitter { streamWireCode, textUtf8 ->
+                    emitNativeOutput(request.outputEmitter, streamWireCode, textUtf8)
                 },
             )
         } catch (failure: IllegalArgumentException) {
@@ -193,6 +200,7 @@ internal class NativeLuaExecutionRequest(
     val memoryLimitBytes: Long,
     val timeoutMillis: Long,
     val cancellationProbe: NativeLuaCancellationProbe,
+    val outputEmitter: NativeLuaOutputEmitter = NativeLuaOutputEmitter.REJECTING,
 ) {
     private val stableSource = sourceUtf8.copyOf()
 
@@ -222,6 +230,30 @@ internal class NativeLuaExecutionRequest(
 
 /** Called synchronously from the executing JNI thread; implementations must not block. */
 internal typealias NativeLuaCancellationProbe = BooleanSupplier
+
+/** Called synchronously by JNI with a bounded UTF-8 byte snapshot. */
+internal fun interface NativeLuaOutputEmitter {
+    fun emitUtf8(streamWireCode: Int, textUtf8: ByteArray): Boolean
+
+    companion object {
+        val REJECTING = NativeLuaOutputEmitter { _, _ -> false }
+    }
+}
+
+internal fun emitNativeOutput(
+    outputEmitter: LuaOutputEmitter,
+    streamWireCode: Int,
+    textUtf8: ByteArray,
+): Boolean {
+    if (textUtf8.isEmpty() || textUtf8.size > LuaRuntimeContract.MAX_OUTPUT_CHUNK_BYTES) return false
+    val stream = LuaOutputStream.values().singleOrNull { it.wireCode == streamWireCode } ?: return false
+    val text = try {
+        decodeStrictUtf8(textUtf8, "Lua console output")
+    } catch (_: IllegalArgumentException) {
+        return false
+    }
+    return outputEmitter.emit(stream, text)
+}
 
 internal sealed interface NativeLuaExecutionValue {
     data object Nil : NativeLuaExecutionValue

@@ -139,13 +139,12 @@ class LuaExecutionSessionControllerTest {
     fun outputConsumesOneBoundedCredit() {
         val dispatcher = ManualDispatcher()
         val observer = RecordingObserver()
-        lateinit var controller: LuaExecutionSessionController
-        controller = controller(
+        val controller = controller(
             dispatcher = dispatcher,
             observer = observer,
-            runner = LuaExecutionRunner {
-                assertTrue(controller.emitOutput(LuaOutputStream.STDOUT, "hello"))
-                assertFalse(controller.emitOutput(LuaOutputStream.STDOUT, "without-credit"))
+            runner = LuaExecutionRunner { request ->
+                assertTrue(request.outputEmitter.emit(LuaOutputStream.STDOUT, "hello"))
+                assertFalse(request.outputEmitter.emit(LuaOutputStream.STDOUT, "without-credit"))
                 LuaValue.StringValue("late-result")
             },
         )

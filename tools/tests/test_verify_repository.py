@@ -104,7 +104,7 @@ def write_default_off_fixture(root: Path) -> None:
           :app:assembleDebug
           -Pautojs.lua.native.enabled=true
           -Pautojs.lua.provider.enabled=false
-      - run: ./tools/verify_debug_artifacts.ps1 -ExpectedTests 39
+      - run: ./tools/verify_debug_artifacts.ps1 -ExpectedTests 42
       - run: python tools/verify_repository.py --require-build-ready --github-output
 """,
     )
@@ -416,7 +416,7 @@ class InputWorkflowTest(unittest.TestCase):
             (
                 "debug artifact gate stale JVM count",
                 "tools/verify_debug_artifacts.ps1",
-                lambda text: text.replace("[int] $ExpectedTests = 39", "[int] $ExpectedTests = 30"),
+                lambda text: text.replace("[int] $ExpectedTests = 42", "[int] $ExpectedTests = 30"),
             ),
         )
         for label, relative, mutate in mutations:

@@ -10,6 +10,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <limits>
+#include <memory>
+#include <new>
 
 #if defined(AUTOJS_LUA_DEBUG_FAULT_HARNESS)
 #include <thread>
@@ -163,6 +165,7 @@ enum class TerminationReason {
     kDeadlineExceeded,
     kControlFailure,
     kOutputRejected,
+    kHostCallRejected,
 };
 
 struct ExecutionControl {
@@ -171,6 +174,9 @@ struct ExecutionControl {
     jmethodID cancellation_method;
     jobject output_emitter;
     jmethodID output_method;
+    jobject host_capability_bridge;
+    jmethodID device_info_method;
+    jmethodID host_failure_method;
     std::chrono::steady_clock::time_point deadline;
     TerminationReason termination_reason;
 };
@@ -487,6 +493,93 @@ int autojs_console_error(lua_State* state) {
     return emit_autojs_console(state, 2);
 }
 
+int push_host_result(lua_State* state) {
+    if (lua_gettop(state) != 1 || lua_type(state, 1) != LUA_TLIGHTUSERDATA) {
+        return luaL_error(state, "AutoJs host result input is unavailable");
+    }
+    const auto* view = static_cast<const NativeArgumentView*>(lua_touserdata(state, 1));
+    if (!push_native_arguments(state, view)) {
+        return luaL_error(state, "AutoJs host result input is invalid");
+    }
+    return 1;
+}
+
+int autojs_device_info(lua_State* state) {
+    ExecutionControl* control = execution_control(state);
+    if (control == nullptr || lua_gettop(state) != 0) {
+        return luaL_error(state, "AutoJs device.info expects no arguments");
+    }
+    if (!poll_execution_control(control)) {
+        return luaL_error(state, "AutoJs Lua execution interrupted");
+    }
+    auto* encoded = static_cast<jbyteArray>(control->environment->CallObjectMethod(
+        control->host_capability_bridge,
+        control->device_info_method));
+    if (control->environment->ExceptionCheck()) {
+        control->environment->ExceptionClear();
+        const jint failure_kind = control->environment->CallIntMethod(
+            control->host_capability_bridge,
+            control->host_failure_method);
+        if (control->environment->ExceptionCheck()) {
+            control->environment->ExceptionClear();
+            control->termination_reason = TerminationReason::kControlFailure;
+        } else if (failure_kind == 1) {
+            control->termination_reason = TerminationReason::kCancelled;
+        } else if (failure_kind == 2) {
+            control->termination_reason = TerminationReason::kDeadlineExceeded;
+        } else if (poll_execution_control(control)) {
+            control->termination_reason = TerminationReason::kHostCallRejected;
+        }
+        return luaL_error(state, "AutoJs device.info host call failed");
+    }
+    if (encoded == nullptr) {
+        control->termination_reason = TerminationReason::kControlFailure;
+        return luaL_error(state, "AutoJs device.info response is unavailable");
+    }
+    const jsize length = control->environment->GetArrayLength(encoded);
+    if (length < 6 || length > kMaxArgumentSnapshotBytes) {
+        control->environment->DeleteLocalRef(encoded);
+        control->termination_reason = TerminationReason::kControlFailure;
+        return luaL_error(state, "AutoJs device.info response exceeds its native limit");
+    }
+    auto bytes = std::unique_ptr<uint8_t[]>(new (std::nothrow) uint8_t[static_cast<size_t>(length)]);
+    if (bytes == nullptr) {
+        control->environment->DeleteLocalRef(encoded);
+        control->termination_reason = TerminationReason::kControlFailure;
+        return luaL_error(state, "AutoJs device.info response copy allocation failed");
+    }
+    control->environment->GetByteArrayRegion(
+        encoded,
+        0,
+        length,
+        reinterpret_cast<jbyte*>(bytes.get()));
+    control->environment->DeleteLocalRef(encoded);
+    if (control->environment->ExceptionCheck()) {
+        control->environment->ExceptionClear();
+        control->termination_reason = TerminationReason::kControlFailure;
+        return luaL_error(state, "AutoJs device.info response bytes are unavailable");
+    }
+    NativeArgumentView view{
+        bytes.get(),
+        static_cast<size_t>(length),
+    };
+    lua_pushcfunction(state, push_host_result);
+    lua_pushlightuserdata(state, &view);
+    const int status = lua_pcall(state, 1, 1, 0);
+    bytes.reset();
+    if (status != LUA_OK) {
+        if (status == LUA_ERRMEM) {
+            return luaL_error(state, "AutoJs device.info mapping exceeded the memory limit");
+        }
+        control->termination_reason = TerminationReason::kControlFailure;
+        return luaL_error(state, "AutoJs device.info response is invalid");
+    }
+    if (!poll_execution_control(control)) {
+        return luaL_error(state, "AutoJs Lua execution interrupted");
+    }
+    return 1;
+}
+
 int restricted_require(lua_State* state) {
     if (lua_gettop(state) != 1 || lua_type(state, 1) != LUA_TSTRING) {
         return luaL_error(state, "require expects one admitted module name");
@@ -512,6 +605,11 @@ int install_autojs_module(lua_State* state) {
     lua_pushcfunction(state, autojs_console_error);
     lua_setfield(state, -2, "error");
     lua_setfield(state, -2, "console");
+
+    lua_newtable(state);
+    lua_pushcfunction(state, autojs_device_info);
+    lua_setfield(state, -2, "info");
+    lua_setfield(state, -2, "device");
 
     if (!push_native_arguments(state, arguments)) {
         return luaL_error(state, "AutoJs argument bridge input is invalid");
@@ -552,6 +650,8 @@ jobject fail_for_termination(JNIEnv* environment, TerminationReason reason) {
             return fail(environment, "INTERNAL", "Lua execution control bridge failed");
         case TerminationReason::kOutputRejected:
             return fail(environment, "RUNTIME", "Lua console output was rejected");
+        case TerminationReason::kHostCallRejected:
+            return fail(environment, "HOST_CAPABILITY", "Lua device.info host call was rejected");
         case TerminationReason::kNone:
             return fail(environment, "INTERNAL", "Lua termination state is inconsistent");
     }
@@ -717,10 +817,11 @@ Java_io_github_supermonster003_autojs6_plugin_lua_runtime_NativeLuaRuntime_nativ
     jlong memory_limit_bytes,
     jlong timeout_millis,
     jobject cancellation_probe,
-    jobject output_emitter) {
+    jobject output_emitter,
+    jobject host_capability_bridge) {
     static_assert(LUA_EXTRASPACE >= sizeof(ExecutionControl*));
     if (source == nullptr || source_name_utf8 == nullptr || arguments == nullptr ||
-        cancellation_probe == nullptr || output_emitter == nullptr) {
+        cancellation_probe == nullptr || output_emitter == nullptr || host_capability_bridge == nullptr) {
         return fail(environment, "INTERNAL", "Native Lua execution input is null");
     }
     const jsize source_length = environment->GetArrayLength(source);
@@ -790,12 +891,43 @@ Java_io_github_supermonster003_autojs6_plugin_lua_runtime_NativeLuaRuntime_nativ
         return fail(environment, "INTERNAL", "Lua output emitter contract is unavailable");
     }
 
+
+    jclass host_capability_class = environment->GetObjectClass(host_capability_bridge);
+    if (host_capability_class == nullptr) {
+        return nullptr;
+    }
+    jmethodID device_info_method = environment->GetMethodID(
+        host_capability_class,
+        "invokeDeviceInfo",
+        "()[B");
+    if (device_info_method == nullptr) {
+        if (environment->ExceptionCheck()) {
+            environment->ExceptionClear();
+        }
+        environment->DeleteLocalRef(host_capability_class);
+        return fail(environment, "INTERNAL", "Lua device.info bridge contract is unavailable");
+    }
+    jmethodID host_failure_method = environment->GetMethodID(
+        host_capability_class,
+        "takeFailureKind",
+        "()I");
+    environment->DeleteLocalRef(host_capability_class);
+    if (host_failure_method == nullptr) {
+        if (environment->ExceptionCheck()) {
+            environment->ExceptionClear();
+        }
+        return fail(environment, "INTERNAL", "Lua device.info failure bridge contract is unavailable");
+    }
+
     ExecutionControl control{
         environment,
         cancellation_probe,
         cancellation_method,
         output_emitter,
         output_method,
+        host_capability_bridge,
+        device_info_method,
+        host_failure_method,
         std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_millis),
         TerminationReason::kNone,
     };

@@ -1,6 +1,9 @@
 package io.github.supermonster003.autojs6.plugin.lua.runtime
 
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaOutputEmitter
+import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaCancellationProbe
+import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaHostCapabilityInvoker
+import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaRunnerRequest
 import org.autojs.plugin.lua.runtime.api.LuaOutputStream
 import org.autojs.plugin.lua.runtime.api.LuaRuntimeContract
 import org.autojs.plugin.lua.runtime.api.LuaValue
@@ -163,6 +166,46 @@ class NativeLuaRuntimeBoundaryTest {
         assertEquals(NativeLuaFailureKind.CANCELLED, cancelled.kind)
     }
 
+    @Test
+    fun deviceInfoBridgeUsesOneFixedCapabilityAndExactEmptyArguments() {
+        val expected = deviceInfo()
+        var observedCapability: String? = null
+        var observedArguments: LuaValue? = null
+        val runnerRequest = LuaRunnerRequest(
+            sourceUtf8 = "return 1".toByteArray(),
+            sourceName = "device-info.lua",
+            arguments = LuaValue.Nil,
+            memoryLimitBytes = LuaRuntimeContract.DEFAULT_MEMORY_BYTES,
+            timeoutMillis = LuaRuntimeContract.DEFAULT_TIMEOUT_MILLIS,
+            cancellationProbe = LuaCancellationProbe { false },
+            hostCapabilityInvoker = LuaHostCapabilityInvoker { capability, arguments, _, _ ->
+                observedCapability = capability
+                observedArguments = arguments
+                expected
+            },
+        )
+
+        val encoded = NativeLuaHostCapabilityBridge(runnerRequest).invokeDeviceInfo()
+
+        assertEquals("device.info", observedCapability)
+        assertEquals(emptyMap<String, LuaValue>(), (observedArguments as LuaValue.MapValue).values)
+        assertArrayEquals(NativeLuaArgumentCodec.encode(expected), encoded)
+    }
+
+    @Test
+    fun deviceInfoBridgeRejectsShapeExpansionBeforeJni() {
+        val wrongKey = LuaValue.MapValue(deviceInfo().values + ("serial" to LuaValue.StringValue("secret")))
+        assertThrows(IllegalArgumentException::class.java) {
+            NativeLuaHostCapabilityBridge.validateDeviceInfo(wrongKey)
+        }
+        val wrongDevice = LuaValue.MapValue(
+            deviceInfo().values + ("device" to LuaValue.Int64Value(1L)),
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            NativeLuaHostCapabilityBridge.validateDeviceInfo(wrongDevice)
+        }
+    }
+
     private fun request(
         source: ByteArray,
         sourceName: String = "native-boundary.lua",
@@ -177,5 +220,16 @@ class NativeLuaRuntimeBoundaryTest {
         memoryLimitBytes = memoryLimitBytes,
         timeoutMillis = timeoutMillis,
         cancellationProbe = BooleanSupplier { cancelled },
+    )
+
+    private fun deviceInfo() = LuaValue.MapValue(
+        linkedMapOf(
+            "brand" to LuaValue.StringValue("AutoJs"),
+            "manufacturer" to LuaValue.StringValue("AutoJs"),
+            "model" to LuaValue.StringValue("Test"),
+            "device" to LuaValue.StringValue("test_device"),
+            "product" to LuaValue.StringValue("test_product"),
+            "sdkInt" to LuaValue.Int64Value(36L),
+        ),
     )
 }

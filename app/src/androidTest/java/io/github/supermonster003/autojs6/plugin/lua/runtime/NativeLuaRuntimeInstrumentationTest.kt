@@ -8,6 +8,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaCancellationProbe
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaOutputEmitter
+import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaHostCapabilityInvoker
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaRunnerException
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaRunnerFailureKind
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaRunnerRequest
@@ -152,6 +153,34 @@ class NativeLuaRuntimeInstrumentationTest {
     }
 
     @Test
+    fun nativeRunnerMapsTheFixedDeviceInfoCapability() {
+        var calls = 0
+        val value = NativeLuaExecutionRunner.execute(
+            runnerRequest(
+                source = """
+                    local info = require('autojs').device.info()
+                    assert(info.brand == 'AutoJs')
+                    assert(info.manufacturer == 'AutoJs')
+                    assert(info.model == 'NativeTest')
+                    assert(info.device == 'native_test')
+                    assert(info.product == 'native_product')
+                    assert(info.sdkInt == 36)
+                    return info.manufacturer .. '|' .. info.model .. '|' .. info.sdkInt
+                """.trimIndent(),
+                hostCapabilityInvoker = LuaHostCapabilityInvoker { capability, arguments, _, _ ->
+                    assertEquals("device.info", capability)
+                    assertEquals(emptyMap<String, LuaValue>(), (arguments as LuaValue.MapValue).values)
+                    calls += 1
+                    deviceInfo()
+                },
+            ),
+        )
+
+        assertEquals(LuaValue.StringValue("AutoJs|NativeTest|36"), value)
+        assertEquals(1, calls)
+    }
+
+    @Test
     fun syntaxAndRuntimeErrorsAreClassified() {
         assertNativeFailure(NativeLuaFailureKind.SYNTAX) { execute("return )") }
         assertNativeFailure(NativeLuaFailureKind.RUNTIME) { execute("error('boom')") }
@@ -231,6 +260,7 @@ class NativeLuaRuntimeInstrumentationTest {
         source: String,
         arguments: LuaValue = LuaValue.Nil,
         outputEmitter: LuaOutputEmitter = LuaOutputEmitter.REJECTING,
+        hostCapabilityInvoker: LuaHostCapabilityInvoker = LuaHostCapabilityInvoker.REJECTING,
     ) = LuaRunnerRequest(
         sourceUtf8 = source.toByteArray(),
         sourceName = "runner-instrumentation.lua",
@@ -239,6 +269,18 @@ class NativeLuaRuntimeInstrumentationTest {
         timeoutMillis = LuaRuntimeContract.DEFAULT_TIMEOUT_MILLIS,
         cancellationProbe = LuaCancellationProbe { false },
         outputEmitter = outputEmitter,
+        hostCapabilityInvoker = hostCapabilityInvoker,
+    )
+
+    private fun deviceInfo() = LuaValue.MapValue(
+        linkedMapOf(
+            "brand" to LuaValue.StringValue("AutoJs"),
+            "manufacturer" to LuaValue.StringValue("AutoJs"),
+            "model" to LuaValue.StringValue("NativeTest"),
+            "device" to LuaValue.StringValue("native_test"),
+            "product" to LuaValue.StringValue("native_product"),
+            "sdkInt" to LuaValue.Int64Value(36L),
+        ),
     )
 
     private fun assertNativeFailure(

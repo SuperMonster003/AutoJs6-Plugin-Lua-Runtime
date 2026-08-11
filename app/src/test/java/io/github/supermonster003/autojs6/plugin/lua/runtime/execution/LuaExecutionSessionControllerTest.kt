@@ -453,6 +453,29 @@ class LuaExecutionSessionControllerTest {
         assertEquals(LuaExecutionErrorCode.BUSY, observer.lastError?.code)
     }
 
+    @Test
+    fun hostCapabilityRunnerFailureKeepsItsExecutionCodeAndPhase() {
+        val dispatcher = ManualDispatcher()
+        val observer = RecordingObserver()
+        val controller = controller(
+            dispatcher = dispatcher,
+            observer = observer,
+            runner = LuaExecutionRunner {
+                throw LuaRunnerException(
+                    LuaRunnerFailureKind.HOST_CAPABILITY,
+                    "sanitized host failure",
+                )
+            },
+        )
+
+        assertTrue(controller.start())
+        dispatcher.runAccepted()
+
+        assertEquals(listOf("started", "failed"), observer.events)
+        assertEquals(LuaExecutionErrorCode.HOST_CAPABILITY_FAILED, observer.lastError?.code)
+        assertEquals(LuaExecutionFailurePhase.HOST_CALL, observer.lastError?.phase)
+    }
+
     private fun controller(
         dispatcher: LuaExecutionDispatcher,
         observer: RecordingObserver,

@@ -121,7 +121,7 @@ output, failures, hooks, and allocator recovery without discovering either
 production service. A separate opt-in smoke exercises the production
 INFO/RUNTIME Binder path while keeping repository defaults disabled.
 
-The repository JVM suite contains 39 tests, while focused Android evidence is
+The repository JVM suite contains 42 tests, while focused Android evidence is
 kept separate for native, Binder/PFD, process-recovery, and Provider paths.
 
 ## CI

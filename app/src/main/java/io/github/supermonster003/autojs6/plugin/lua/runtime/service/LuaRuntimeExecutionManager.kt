@@ -142,6 +142,13 @@ internal class LuaRuntimeExecutionManager(
         onFinished: () -> Unit,
     ): RemoteLuaExecutionSession {
         val observer = BinderLuaExecutionObserver(callback, hostBroker)
+        val hostCapabilityInvoker = BinderLuaHostCapabilityInvoker(
+            broker = hostBroker,
+            executionId = request.requestId,
+            allowedCapabilities = request.requiredCapabilities,
+            ownerUid = ownerUid,
+            callerVerifier = callerVerifier,
+        )
         lateinit var remote: RemoteLuaExecutionSession
         val controller = LuaExecutionSessionController(
             request = request,
@@ -151,10 +158,12 @@ internal class LuaRuntimeExecutionManager(
             dispatcher = ProcessExecutionResources.worker,
             watchdog = watchdogLease,
             observer = observer,
+            hostCapabilityInvoker = hostCapabilityInvoker,
             initialFailure = initialFailure,
             createdNanos = createdNanos,
             onFinished = {
                 sessions.remove(remote)
+                hostCapabilityInvoker.close()
                 retainedLease.close()
                 onFinished()
             },

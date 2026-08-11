@@ -21,9 +21,11 @@ Provider pilot; this does not enable Provider discovery in ordinary builds.
 - an execution timeout
 - a non-blocking cancellation probe
 - a synchronous, bounded stdout/stderr emitter owned by the session controller
+- a process-local, fixed-shape `device.info` adapter; the native side cannot
+  choose a capability name or pass arbitrary arguments
 
 It does not receive an Android `Context`, file descriptor, Binder object,
-session controller, host capability broker, or arbitrary Java
+session controller, Binder interface, Android `Context`, or arbitrary Java
 object. The caller owns the serial worker and terminal race. The default-off
 runner validates the protocol value again, freezes it into a bounded
 process-private blob, and exposes the decoded execution-local value as
@@ -41,7 +43,7 @@ Each JNI call:
 4. removes `dofile`, `load`, `loadfile`, `pcall`, `xpcall`, `getmetatable`,
    `setmetatable`, `print`, `warn`, and `string.dump`
 5. installs a restricted `require("autojs")` module exposing controlled console
-   calls and the bounded argument snapshot
+   calls, the bounded argument snapshot, and the fixed `device.info()` call
 6. loads the source through `luaL_loadbufferx(..., "t")`
 7. installs a count hook for cancellation and a monotonic deadline
 8. executes through `lua_pcall`
@@ -102,9 +104,15 @@ does not contain Java or Android objects and cannot be written back to the host.
 ## Known limits before enablement
 
 - The only admitted module is the built-in `autojs` module. It contains
-  controlled console calls and the execution-local argument snapshot. There is
-  no general module loader, host capability broker, or table/array/map result
+  controlled console calls, the execution-local argument snapshot, and one
+  fixed-shape `device.info()` bridge. There is no general module loader, general
+  host capability broker, Java bridge, or table/array/map execution result
   mapping.
+- `device.info()` always emits one empty-map request for the exact
+  `device.info` capability and accepts only the six-field bounded map documented
+  by M3.3. Binder dispatch is never retried. Its worker-side wait polls cancel
+  and deadline, and callback UID, execution ID, call ID, terminal uniqueness,
+  and zero descriptors are validated before the response reaches JNI.
 - Console output is synchronous and must be accepted by the session's existing
   sequence, credit, chunk, and total-byte limits; it never falls back to
   unrestricted Lua `print` or `warn`.

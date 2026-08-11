@@ -51,6 +51,7 @@ internal class LuaExecutionSessionController(
     private val dispatcher: LuaExecutionDispatcher,
     private val watchdog: LuaExecutionWatchdogLease,
     private val observer: LuaExecutionObserver,
+    private val hostCapabilityInvoker: LuaHostCapabilityInvoker = LuaHostCapabilityInvoker.REJECTING,
     private val initialFailure: LuaExecutionError? = null,
     private val clock: LuaMonotonicClock = LuaMonotonicClock(System::nanoTime),
     private val createdNanos: Long = clock.nanoTime(),
@@ -338,6 +339,7 @@ internal class LuaExecutionSessionController(
                         timeoutMillis = runnerTimeoutMillis,
                         cancellationProbe = LuaCancellationProbe(::isCancellationRequested),
                         outputEmitter = LuaOutputEmitter(::emitOutput),
+                        hostCapabilityInvoker = hostCapabilityInvoker,
                     ),
                 )
             } catch (error: LuaRunnerException) {
@@ -603,6 +605,11 @@ internal class LuaExecutionSessionController(
             LuaExecutionErrorCode.INTERNAL,
             LuaExecutionFailurePhase.CLEANUP,
             "Lua cancellation did not have an owning request",
+        )
+        LuaRunnerFailureKind.HOST_CAPABILITY -> executionError(
+            LuaExecutionErrorCode.HOST_CAPABILITY_FAILED,
+            LuaExecutionFailurePhase.HOST_CALL,
+            "Lua host capability call failed",
         )
         LuaRunnerFailureKind.INTERNAL -> executionError(
             LuaExecutionErrorCode.INTERNAL,

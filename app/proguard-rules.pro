@@ -4,3 +4,7 @@
 
 # JNI resolves this callback by its Java method name and descriptor.
 -keep interface io.github.supermonster003.autojs6.plugin.lua.runtime.NativeLuaOutputEmitter { *; }
+-keepclassmembers class io.github.supermonster003.autojs6.plugin.lua.runtime.NativeLuaHostCapabilityBridge {
+    byte[] invokeDeviceInfo();
+    int takeFailureKind();
+}

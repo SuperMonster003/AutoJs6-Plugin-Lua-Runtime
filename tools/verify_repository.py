@@ -395,7 +395,7 @@ def verify_default_off() -> None:
         and "gradle-version:" not in ci,
         "CI must execute the repository-owned Gradle wrapper",
     )
-    require(ci.count("-ExpectedTests 39") == 1, "CI JVM test count drift")
+    require(ci.count("-ExpectedTests 42") == 1, "CI JVM test count drift")
     service = (ROOT / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaRuntimeService.kt").read_text("utf-8")
     require(
         "override fun onBind(intent: Intent?): IBinder = binder" in service,
@@ -500,7 +500,7 @@ def verify_input_workflows() -> None:
         artifact_gate,
         (
             "status --porcelain --untracked-files=all",
-            "[int] $ExpectedTests = 39",
+            "[int] $ExpectedTests = 42",
             "rev-list --count HEAD",
             "VERSION_BUILD must equal the positive commit count",
             "app/build/test-results/testDebugUnitTest",
@@ -625,6 +625,13 @@ def verify_native_boundary() -> None:
         ROOT
         / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/NativeLuaRuntime.kt"
     ).read_text("utf-8")
+    proguard_rules = (ROOT / "app/proguard-rules.pro").read_text("utf-8")
+    require(
+        "NativeLuaHostCapabilityBridge" in proguard_rules
+        and "byte[] invokeDeviceInfo();" in proguard_rules
+        and "int takeFailureKind();" in proguard_rules,
+        "R8 can rename the JNI-reflected device.info bridge member",
+    )
     for token in (
         "fun execute(request: NativeLuaExecutionRequest): NativeLuaExecutionValue",
         "internal typealias NativeLuaCancellationProbe = BooleanSupplier",

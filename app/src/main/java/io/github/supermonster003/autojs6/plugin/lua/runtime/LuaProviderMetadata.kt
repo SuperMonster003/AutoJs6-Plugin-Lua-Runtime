@@ -39,7 +39,7 @@ internal object LuaProviderMetadata {
             languageVersion = NativeLuaRuntime.languageVersion(),
             processAbi = processAbi(),
             supportedAbis = supportedAbis,
-            capabilities = emptyList(),
+            capabilities = listOf(NativeLuaHostCapabilityBridge.DEVICE_INFO_CAPABILITY),
             limits = LuaRuntimeLimits(
                 maxSourceBytes = LuaRuntimeContract.MAX_SOURCE_BYTES,
                 maxMemoryBytes = LuaRuntimeContract.MAX_MEMORY_BYTES,

@@ -91,6 +91,7 @@ internal object NativeLuaRuntime {
                 timeoutMillis = request.timeoutMillis,
                 cancellationProbe = request.cancellationProbe,
                 outputEmitter = request.outputEmitter,
+                hostCapabilityBridge = request.hostCapabilityBridge,
             )
         } catch (failure: IllegalStateException) {
             throw decodeBridgeFailure(failure)
@@ -117,6 +118,7 @@ internal object NativeLuaRuntime {
         timeoutMillis: Long,
         cancellationProbe: NativeLuaCancellationProbe,
         outputEmitter: NativeLuaOutputEmitter,
+        hostCapabilityBridge: NativeLuaHostCapabilityBridge,
     ): Any?
 
     private const val PROBE_MEMORY_LIMIT_BYTES = 1024L * 1024L
@@ -143,6 +145,7 @@ internal object NativeLuaExecutionRunner : LuaExecutionRunner {
                 outputEmitter = NativeLuaOutputEmitter { streamWireCode, textUtf8 ->
                     emitNativeOutput(request.outputEmitter, streamWireCode, textUtf8)
                 },
+                hostCapabilityBridge = NativeLuaHostCapabilityBridge(request),
             )
         } catch (failure: LuaContractException) {
             throw LuaRunnerException(
@@ -193,6 +196,7 @@ private fun NativeLuaFailureKind.toRunnerFailureKind(): LuaRunnerFailureKind = w
     NativeLuaFailureKind.DEADLINE_EXCEEDED -> LuaRunnerFailureKind.DEADLINE_EXCEEDED
     NativeLuaFailureKind.RESULT_LIMIT -> LuaRunnerFailureKind.RESULT_LIMIT
     NativeLuaFailureKind.UNSUPPORTED_RESULT -> LuaRunnerFailureKind.UNSUPPORTED_RESULT
+    NativeLuaFailureKind.HOST_CAPABILITY -> LuaRunnerFailureKind.HOST_CAPABILITY
     NativeLuaFailureKind.INTERNAL -> LuaRunnerFailureKind.INTERNAL
 }
 
@@ -204,6 +208,7 @@ internal class NativeLuaExecutionRequest(
     val timeoutMillis: Long,
     val cancellationProbe: NativeLuaCancellationProbe,
     val outputEmitter: NativeLuaOutputEmitter = NativeLuaOutputEmitter.REJECTING,
+    val hostCapabilityBridge: NativeLuaHostCapabilityBridge = NativeLuaHostCapabilityBridge.REJECTING,
 ) {
     private val stableSource = sourceUtf8.copyOf()
     private val stableArguments = NativeLuaArgumentCodec.encode(arguments)
@@ -232,6 +237,93 @@ internal class NativeLuaExecutionRequest(
     internal fun sourceSnapshot(): ByteArray = stableSource.copyOf()
 
     internal fun argumentsSnapshot(): ByteArray = stableArguments.copyOf()
+}
+
+/** Fixed-shape JNI bridge for the sole M3.3 capability. No capability name crosses JNI. */
+internal class NativeLuaHostCapabilityBridge private constructor(
+    private val request: LuaRunnerRequest?,
+    private val deadlineNanos: Long,
+) {
+    private val lastFailure = java.util.concurrent.atomic.AtomicInteger(HOST_FAILURE_NONE)
+    constructor(request: LuaRunnerRequest) : this(
+        request = request,
+        deadlineNanos = deadlineAfter(request.timeoutMillis),
+    )
+
+    @Suppress("unused") // Called by JNI with an exact private method contract.
+    fun invokeDeviceInfo(): ByteArray {
+        lastFailure.set(HOST_FAILURE_NONE)
+        val activeRequest = request ?: run {
+            lastFailure.set(HOST_FAILURE_REJECTED)
+            throw IllegalStateException("Lua device information capability is unavailable")
+        }
+        val remainingNanos = deadlineNanos - System.nanoTime()
+        if (remainingNanos <= 0L) {
+            lastFailure.set(HOST_FAILURE_DEADLINE)
+            throw IllegalStateException("Lua device information capability exceeded its deadline")
+        }
+        return try {
+            val value = activeRequest.hostCapabilityInvoker.invoke(
+                capability = DEVICE_INFO_CAPABILITY,
+                arguments = LuaValue.MapValue(emptyMap()),
+                timeoutMillis = ((remainingNanos + NANOS_PER_MILLI - 1L) / NANOS_PER_MILLI).coerceAtLeast(1L),
+                cancellationProbe = activeRequest.cancellationProbe,
+            )
+            validateDeviceInfo(value)
+            NativeLuaArgumentCodec.encode(value)
+        } catch (failure: io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaHostCapabilityException) {
+            lastFailure.set(
+                when (failure.kind) {
+                    io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaHostCapabilityFailureKind.CANCELLED ->
+                        HOST_FAILURE_CANCELLED
+                    io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaHostCapabilityFailureKind.DEADLINE_EXCEEDED ->
+                        HOST_FAILURE_DEADLINE
+                    else -> HOST_FAILURE_REJECTED
+                },
+            )
+            throw failure
+        } catch (failure: Throwable) {
+            lastFailure.set(HOST_FAILURE_REJECTED)
+            throw failure
+        }
+    }
+
+    @Suppress("unused") // Read by JNI immediately after a failed invokeDeviceInfo call.
+    fun takeFailureKind(): Int = lastFailure.getAndSet(HOST_FAILURE_NONE)
+
+    companion object {
+        const val DEVICE_INFO_CAPABILITY = "device.info"
+        val REJECTING = NativeLuaHostCapabilityBridge(null, 0L)
+        private const val NANOS_PER_MILLI = 1_000_000L
+        private const val HOST_FAILURE_NONE = 0
+        private const val HOST_FAILURE_CANCELLED = 1
+        private const val HOST_FAILURE_DEADLINE = 2
+        private const val HOST_FAILURE_REJECTED = 3
+
+        private val STRING_KEYS = setOf("brand", "manufacturer", "model", "device", "product")
+        private val ALL_KEYS = STRING_KEYS + "sdkInt"
+
+        internal fun validateDeviceInfo(value: LuaValue) {
+            LuaValueValidation.validate(value)
+            val fields = (value as? LuaValue.MapValue)?.values
+                ?: throw IllegalArgumentException("device.info must return a map")
+            require(fields.keys == ALL_KEYS) { "device.info returned unexpected fields" }
+            STRING_KEYS.forEach { key ->
+                require(fields[key] is LuaValue.StringValue) { "device.info field $key must be a string" }
+            }
+            val sdkInt = fields["sdkInt"] as? LuaValue.Int64Value
+                ?: throw IllegalArgumentException("device.info field sdkInt must be an integer")
+            require(sdkInt.value in 1L..Int.MAX_VALUE.toLong()) {
+                "device.info field sdkInt is outside the Android SDK range"
+            }
+        }
+
+        private fun deadlineAfter(timeoutMillis: Long): Long {
+            val now = System.nanoTime()
+            val duration = timeoutMillis.coerceAtMost(Long.MAX_VALUE / NANOS_PER_MILLI) * NANOS_PER_MILLI
+            return if (Long.MAX_VALUE - now < duration) Long.MAX_VALUE else now + duration
+        }
+    }
 }
 
 /**
@@ -358,6 +450,7 @@ internal enum class NativeLuaFailureKind {
     DEADLINE_EXCEEDED,
     RESULT_LIMIT,
     UNSUPPORTED_RESULT,
+    HOST_CAPABILITY,
     INTERNAL,
 }
 

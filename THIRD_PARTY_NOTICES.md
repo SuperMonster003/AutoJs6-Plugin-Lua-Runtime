@@ -2,10 +2,10 @@
 
 ## PUC Lua 5.4.8
 
-The planned native runtime is PUC Lua 5.4.8, distributed under the MIT
-License. No Lua source is vendored at the current checkpoint. When it is
-imported, the source archive, digest, extraction record, and upstream license
-must match the frozen vendor lock.
+The native runtime uses PUC Lua 5.4.8, distributed under the MIT License. Its
+source tree is vendored under `app/src/main/cpp/vendor/lua-5.4.8` and is bound
+to the archive digest, extraction metadata, source inventory, and tree digest
+recorded by the frozen vendor lock.
 
 Upstream: https://www.lua.org/
 

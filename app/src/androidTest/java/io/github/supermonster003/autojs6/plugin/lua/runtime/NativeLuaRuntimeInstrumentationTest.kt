@@ -25,6 +25,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.function.BooleanSupplier
+import java.security.MessageDigest
 
 @RunWith(AndroidJUnit4::class)
 class NativeLuaRuntimeInstrumentationTest {
@@ -178,6 +179,72 @@ class NativeLuaRuntimeInstrumentationTest {
 
         assertEquals(LuaValue.StringValue("AutoJs|NativeTest|36"), value)
         assertEquals(1, calls)
+    }
+
+    @Test
+    fun nativeRunnerLoadsFrozenModulesOnceAndRejectsDependencyCycles() {
+        val calls = linkedMapOf<String, Int>()
+        val invoker = LuaHostCapabilityInvoker { capability, arguments, _, _ ->
+            assertEquals("module.snapshot.v1", capability)
+            val name = ((arguments as LuaValue.MapValue).values["name"] as LuaValue.StringValue).value
+            calls[name] = calls.getOrDefault(name, 0) + 1
+            val source = when (name) {
+                "helper" -> "return { value = 41 }"
+                "nothing" -> "return nil"
+                "disabled" -> "return false"
+                "cycle" -> "return require('cycle')"
+                else -> null
+            }
+            if (source == null) {
+                LuaValue.MapValue(mapOf("found" to LuaValue.BooleanValue(false)))
+            } else {
+                LuaValue.MapValue(
+                    mapOf(
+                        "found" to LuaValue.BooleanValue(true),
+                        "source" to LuaValue.BytesValue(source.toByteArray()),
+                        "sha256" to LuaValue.BytesValue(
+                            MessageDigest.getInstance("SHA-256").digest(source.toByteArray()),
+                        ),
+                    ),
+                )
+            }
+        }
+
+        assertEquals(
+            LuaValue.Int64Value(41L),
+            NativeLuaExecutionRunner.execute(
+                runnerRequest(
+                    source = """
+                        local first = require('helper')
+                        local second = require('helper')
+                        assert(first == second)
+                        assert(require('nothing') == true)
+                        assert(require('nothing') == true)
+                        assert(require('disabled') == false)
+                        assert(require('disabled') == false)
+                        return first.value
+                    """.trimIndent(),
+                    hostCapabilityInvoker = invoker,
+                ),
+            ),
+        )
+        assertEquals(mapOf("helper" to 1, "nothing" to 1, "disabled" to 1), calls)
+
+        val cycle = assertThrows(LuaRunnerException::class.java) {
+            NativeLuaExecutionRunner.execute(
+                runnerRequest("return require('cycle')", hostCapabilityInvoker = invoker),
+            )
+        }
+        assertEquals(LuaRunnerFailureKind.RUNTIME, cycle.kind)
+        assertEquals(1, calls["cycle"])
+
+        val missing = assertThrows(LuaRunnerException::class.java) {
+            NativeLuaExecutionRunner.execute(
+                runnerRequest("return require('missing')", hostCapabilityInvoker = invoker),
+            )
+        }
+        assertEquals(LuaRunnerFailureKind.RUNTIME, missing.kind)
+        assertEquals(1, calls["missing"])
     }
 
     @Test

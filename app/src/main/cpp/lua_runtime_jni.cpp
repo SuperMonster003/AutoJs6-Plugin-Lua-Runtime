@@ -29,6 +29,8 @@ constexpr jsize kMaxSourceBytes = 16 * 1024 * 1024;
 constexpr jsize kMaxSourceNameBytes = 1024;
 constexpr size_t kMaxOutputChunkBytes = 32 * 1024;
 constexpr size_t kMaxScalarStringBytes = 64 * 1024;
+constexpr size_t kMaxModuleNameBytes = 64;
+constexpr jsize kMaxModuleSourceBytes = 64 * 1024;
 constexpr jsize kMaxArgumentSnapshotBytes = 256 * 1024 + 17 * 4096 + 16;
 constexpr size_t kMaxArgumentDepth = 32;
 constexpr size_t kMaxArgumentNodes = 4096;
@@ -176,6 +178,7 @@ struct ExecutionControl {
     jmethodID output_method;
     jobject host_capability_bridge;
     jmethodID device_info_method;
+    jmethodID load_module_method;
     jmethodID host_failure_method;
     std::chrono::steady_clock::time_point deadline;
     TerminationReason termination_reason;
@@ -504,6 +507,70 @@ int push_host_result(lua_State* state) {
     return 1;
 }
 
+void record_host_call_failure(ExecutionControl* control) {
+    const jint failure_kind = control->environment->CallIntMethod(
+        control->host_capability_bridge,
+        control->host_failure_method);
+    if (control->environment->ExceptionCheck()) {
+        control->environment->ExceptionClear();
+        control->termination_reason = TerminationReason::kControlFailure;
+    } else if (failure_kind == 1) {
+        control->termination_reason = TerminationReason::kCancelled;
+    } else if (failure_kind == 2) {
+        control->termination_reason = TerminationReason::kDeadlineExceeded;
+    } else if (poll_execution_control(control)) {
+        control->termination_reason = TerminationReason::kHostCallRejected;
+    }
+}
+
+enum class ProtectedHostMappingResult {
+    kOk,
+    kCopyAllocationFailed,
+    kCopyUnavailable,
+    kMemoryLimit,
+    kInvalid,
+};
+
+// Owns the copied JVM payload while the decoder runs under lua_pcall. This helper never raises a
+// Lua error: its unique_ptr is always destroyed before the calling Lua C function may longjmp.
+// The caller places push_host_result on the stack before entering this ownership scope.
+ProtectedHostMappingResult copy_and_map_host_result(
+    lua_State* state,
+    ExecutionControl* control,
+    jbyteArray encoded,
+    jsize length) {
+    auto bytes = std::unique_ptr<uint8_t[]>(
+        new (std::nothrow) uint8_t[static_cast<size_t>(length)]);
+    if (bytes == nullptr) {
+        control->environment->DeleteLocalRef(encoded);
+        return ProtectedHostMappingResult::kCopyAllocationFailed;
+    }
+    control->environment->GetByteArrayRegion(
+        encoded,
+        0,
+        length,
+        reinterpret_cast<jbyte*>(bytes.get()));
+    control->environment->DeleteLocalRef(encoded);
+    if (control->environment->ExceptionCheck()) {
+        control->environment->ExceptionClear();
+        return ProtectedHostMappingResult::kCopyUnavailable;
+    }
+    NativeArgumentView view{
+        bytes.get(),
+        static_cast<size_t>(length),
+    };
+    // A Lua C function starts with LUA_MINSTACK free slots. This non-allocating light-userdata
+    // push cannot grow the stack, and all decoding/allocation that follows is protected by pcall.
+    lua_pushlightuserdata(state, &view);
+    const int status = lua_pcall(state, 1, 1, 0);
+    if (status == LUA_OK) {
+        return ProtectedHostMappingResult::kOk;
+    }
+    return status == LUA_ERRMEM
+        ? ProtectedHostMappingResult::kMemoryLimit
+        : ProtectedHostMappingResult::kInvalid;
+}
+
 int autojs_device_info(lua_State* state) {
     ExecutionControl* control = execution_control(state);
     if (control == nullptr || lua_gettop(state) != 0) {
@@ -517,19 +584,7 @@ int autojs_device_info(lua_State* state) {
         control->device_info_method));
     if (control->environment->ExceptionCheck()) {
         control->environment->ExceptionClear();
-        const jint failure_kind = control->environment->CallIntMethod(
-            control->host_capability_bridge,
-            control->host_failure_method);
-        if (control->environment->ExceptionCheck()) {
-            control->environment->ExceptionClear();
-            control->termination_reason = TerminationReason::kControlFailure;
-        } else if (failure_kind == 1) {
-            control->termination_reason = TerminationReason::kCancelled;
-        } else if (failure_kind == 2) {
-            control->termination_reason = TerminationReason::kDeadlineExceeded;
-        } else if (poll_execution_control(control)) {
-            control->termination_reason = TerminationReason::kHostCallRejected;
-        }
+        record_host_call_failure(control);
         return luaL_error(state, "AutoJs device.info host call failed");
     }
     if (encoded == nullptr) {
@@ -542,42 +597,139 @@ int autojs_device_info(lua_State* state) {
         control->termination_reason = TerminationReason::kControlFailure;
         return luaL_error(state, "AutoJs device.info response exceeds its native limit");
     }
-    auto bytes = std::unique_ptr<uint8_t[]>(new (std::nothrow) uint8_t[static_cast<size_t>(length)]);
-    if (bytes == nullptr) {
-        control->environment->DeleteLocalRef(encoded);
-        control->termination_reason = TerminationReason::kControlFailure;
-        return luaL_error(state, "AutoJs device.info response copy allocation failed");
-    }
-    control->environment->GetByteArrayRegion(
-        encoded,
-        0,
-        length,
-        reinterpret_cast<jbyte*>(bytes.get()));
-    control->environment->DeleteLocalRef(encoded);
-    if (control->environment->ExceptionCheck()) {
-        control->environment->ExceptionClear();
-        control->termination_reason = TerminationReason::kControlFailure;
-        return luaL_error(state, "AutoJs device.info response bytes are unavailable");
-    }
-    NativeArgumentView view{
-        bytes.get(),
-        static_cast<size_t>(length),
-    };
     lua_pushcfunction(state, push_host_result);
-    lua_pushlightuserdata(state, &view);
-    const int status = lua_pcall(state, 1, 1, 0);
-    bytes.reset();
-    if (status != LUA_OK) {
-        if (status == LUA_ERRMEM) {
+    const ProtectedHostMappingResult mapping =
+        copy_and_map_host_result(state, control, encoded, length);
+    switch (mapping) {
+        case ProtectedHostMappingResult::kOk:
+            break;
+        case ProtectedHostMappingResult::kCopyAllocationFailed:
+            control->termination_reason = TerminationReason::kControlFailure;
+            return luaL_error(state, "AutoJs device.info response copy allocation failed");
+        case ProtectedHostMappingResult::kCopyUnavailable:
+            control->termination_reason = TerminationReason::kControlFailure;
+            return luaL_error(state, "AutoJs device.info response bytes are unavailable");
+        case ProtectedHostMappingResult::kMemoryLimit:
             return luaL_error(state, "AutoJs device.info mapping exceeded the memory limit");
-        }
-        control->termination_reason = TerminationReason::kControlFailure;
-        return luaL_error(state, "AutoJs device.info response is invalid");
+        case ProtectedHostMappingResult::kInvalid:
+            control->termination_reason = TerminationReason::kControlFailure;
+            return luaL_error(state, "AutoJs device.info response is invalid");
     }
     if (!poll_execution_control(control)) {
         return luaL_error(state, "AutoJs Lua execution interrupted");
     }
     return 1;
+}
+
+bool is_flat_ascii_module_name(const char* name, size_t length) {
+    if (name == nullptr || length == 0U || length > kMaxModuleNameBytes) {
+        return false;
+    }
+    const auto first = static_cast<unsigned char>(name[0]);
+    if (!((first >= 'A' && first <= 'Z') || (first >= 'a' && first <= 'z') || first == '_')) {
+        return false;
+    }
+    for (size_t index = 1U; index < length; ++index) {
+        const auto character = static_cast<unsigned char>(name[index]);
+        if (!((character >= 'A' && character <= 'Z') ||
+              (character >= 'a' && character <= 'z') ||
+              (character >= '0' && character <= '9') || character == '_')) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void clear_module_loading(lua_State* state) {
+    lua_pushvalue(state, lua_upvalueindex(3));
+    lua_pushvalue(state, 1);
+    lua_pushnil(state);
+    lua_rawset(state, -3);
+    lua_pop(state, 1);
+}
+
+struct NativeModuleView {
+    const char* source;
+    size_t source_size;
+    const char* chunk_name;
+};
+
+int push_module_chunk(lua_State* state) {
+    if (lua_gettop(state) != 1 || lua_type(state, 1) != LUA_TLIGHTUSERDATA) {
+        return luaL_error(state, "Lua module source input is unavailable");
+    }
+    const auto* module = static_cast<const NativeModuleView*>(lua_touserdata(state, 1));
+    if (module == nullptr || module->source == nullptr || module->chunk_name == nullptr) {
+        return luaL_error(state, "Lua module source input is invalid");
+    }
+    const int module_load_status = luaL_loadbufferx(
+        state,
+        module->source,
+        module->source_size,
+        module->chunk_name,
+        "t");
+    if (module_load_status != LUA_OK) {
+        return lua_error(state);
+    }
+    return 1;
+}
+
+enum class ProtectedModuleLoadResult {
+    kOk,
+    kCopyAllocationFailed,
+    kCopyUnavailable,
+    kInterrupted,
+    kLuaError,
+};
+
+// Copies one frozen module and invokes its text-only loader under lua_pcall. No Lua error is
+// raised from this ownership scope, so the source buffer is deterministically destroyed before
+// restricted_require propagates a loader error with lua_error/luaL_error.
+// The caller places push_module_chunk on the stack before entering this helper.
+ProtectedModuleLoadResult copy_and_load_module(
+    lua_State* state,
+    ExecutionControl* control,
+    jbyteArray source_bytes,
+    jsize source_length,
+    const char* name,
+    size_t name_length) {
+    const size_t copy_length = source_length == 0 ? 1U : static_cast<size_t>(source_length);
+    auto source_copy = std::unique_ptr<char[]>(new (std::nothrow) char[copy_length]);
+    if (source_copy == nullptr) {
+        control->environment->DeleteLocalRef(source_bytes);
+        return ProtectedModuleLoadResult::kCopyAllocationFailed;
+    }
+    if (source_length > 0) {
+        control->environment->GetByteArrayRegion(
+            source_bytes,
+            0,
+            source_length,
+            reinterpret_cast<jbyte*>(source_copy.get()));
+    }
+    control->environment->DeleteLocalRef(source_bytes);
+    if (control->environment->ExceptionCheck()) {
+        control->environment->ExceptionClear();
+        return ProtectedModuleLoadResult::kCopyUnavailable;
+    }
+    if (!poll_execution_control(control)) {
+        return ProtectedModuleLoadResult::kInterrupted;
+    }
+
+    char chunk_name[kMaxModuleNameBytes + 2]{};
+    chunk_name[0] = '=';
+    std::memcpy(chunk_name + 1, name, name_length);
+    chunk_name[name_length + 1] = '\0';
+    NativeModuleView module_view{
+        source_copy.get(),
+        static_cast<size_t>(source_length),
+        chunk_name,
+    };
+    // The light-userdata push uses an already guaranteed LUA_MINSTACK slot; the text loader and
+    // all allocations are inside the protected call.
+    lua_pushlightuserdata(state, &module_view);
+    return lua_pcall(state, 1, 1, 0) == LUA_OK
+        ? ProtectedModuleLoadResult::kOk
+        : ProtectedModuleLoadResult::kLuaError;
 }
 
 int restricted_require(lua_State* state) {
@@ -586,10 +738,141 @@ int restricted_require(lua_State* state) {
     }
     size_t name_length = 0U;
     const char* name = lua_tolstring(state, 1, &name_length);
-    if (name == nullptr || name_length != 6U || std::memcmp(name, "autojs", 6U) != 0) {
-        return luaL_error(state, "Lua module is not admitted");
+    if (name != nullptr && name_length == 6U && std::memcmp(name, "autojs", 6U) == 0) {
+        lua_pushvalue(state, lua_upvalueindex(1));
+        return 1;
     }
-    lua_pushvalue(state, lua_upvalueindex(1));
+    if (!is_flat_ascii_module_name(name, name_length)) {
+        return luaL_error(state, "Lua module name is not admitted");
+    }
+
+    // The first result is retained exactly, including false and table identity. A nil result is
+    // normalized to true below, matching Lua's require convention while keeping nil available as
+    // the cache-miss sentinel.
+    lua_pushvalue(state, lua_upvalueindex(2));
+    lua_pushvalue(state, 1);
+    lua_rawget(state, -2);
+    if (!lua_isnil(state, -1)) {
+        return 1;
+    }
+    lua_pop(state, 2);
+
+    lua_pushvalue(state, lua_upvalueindex(3));
+    lua_pushvalue(state, 1);
+    lua_rawget(state, -2);
+    const bool already_loading = lua_toboolean(state, -1) != 0;
+    lua_pop(state, 2);
+    if (already_loading) {
+        return luaL_error(state, "Lua module snapshot dependency cycle rejected");
+    }
+    lua_pushvalue(state, lua_upvalueindex(3));
+    lua_pushvalue(state, 1);
+    lua_pushboolean(state, 1);
+    lua_rawset(state, -3);
+    lua_pop(state, 1);
+
+    ExecutionControl* control = execution_control(state);
+    if (control == nullptr || !poll_execution_control(control)) {
+        clear_module_loading(state);
+        return luaL_error(state, "AutoJs Lua execution interrupted");
+    }
+
+    jbyteArray name_bytes = control->environment->NewByteArray(static_cast<jsize>(name_length));
+    if (name_bytes == nullptr) {
+        if (control->environment->ExceptionCheck()) {
+            control->environment->ExceptionClear();
+        }
+        control->termination_reason = TerminationReason::kControlFailure;
+        clear_module_loading(state);
+        return luaL_error(state, "Lua module snapshot bridge failed");
+    }
+    control->environment->SetByteArrayRegion(
+        name_bytes,
+        0,
+        static_cast<jsize>(name_length),
+        reinterpret_cast<const jbyte*>(name));
+    if (control->environment->ExceptionCheck()) {
+        control->environment->ExceptionClear();
+        control->environment->DeleteLocalRef(name_bytes);
+        control->termination_reason = TerminationReason::kControlFailure;
+        clear_module_loading(state);
+        return luaL_error(state, "Lua module snapshot bridge failed");
+    }
+    auto* source_bytes = static_cast<jbyteArray>(control->environment->CallObjectMethod(
+        control->host_capability_bridge,
+        control->load_module_method,
+        name_bytes));
+    control->environment->DeleteLocalRef(name_bytes);
+    if (control->environment->ExceptionCheck()) {
+        control->environment->ExceptionClear();
+        record_host_call_failure(control);
+        clear_module_loading(state);
+        return luaL_error(state, "Lua module snapshot host call failed");
+    }
+    if (source_bytes == nullptr) {
+        if (!poll_execution_control(control)) {
+            clear_module_loading(state);
+            return luaL_error(state, "AutoJs Lua execution interrupted");
+        }
+        clear_module_loading(state);
+        return luaL_error(state, "Lua module snapshot is unavailable");
+    }
+
+    const jsize source_length = control->environment->GetArrayLength(source_bytes);
+    if (source_length < 0 || source_length > kMaxModuleSourceBytes) {
+        control->environment->DeleteLocalRef(source_bytes);
+        control->termination_reason = TerminationReason::kControlFailure;
+        clear_module_loading(state);
+        return luaL_error(state, "Lua module snapshot exceeds its native limit");
+    }
+    lua_pushcfunction(state, push_module_chunk);
+    const ProtectedModuleLoadResult module_load = copy_and_load_module(
+        state,
+        control,
+        source_bytes,
+        source_length,
+        name,
+        name_length);
+    switch (module_load) {
+        case ProtectedModuleLoadResult::kOk:
+            break;
+        case ProtectedModuleLoadResult::kCopyAllocationFailed:
+            control->termination_reason = TerminationReason::kControlFailure;
+            clear_module_loading(state);
+            return luaL_error(state, "Lua module snapshot copy allocation failed");
+        case ProtectedModuleLoadResult::kCopyUnavailable:
+            control->termination_reason = TerminationReason::kControlFailure;
+            clear_module_loading(state);
+            return luaL_error(state, "Lua module snapshot bytes are unavailable");
+        case ProtectedModuleLoadResult::kInterrupted:
+            clear_module_loading(state);
+            return luaL_error(state, "AutoJs Lua execution interrupted");
+        case ProtectedModuleLoadResult::kLuaError:
+            clear_module_loading(state);
+            return lua_error(state);
+    }
+
+    const int status = lua_pcall(state, 0, 1, 0);
+    clear_module_loading(state);
+    if (control->termination_reason != TerminationReason::kNone) {
+        return luaL_error(state, "AutoJs Lua execution interrupted");
+    }
+    if (status != LUA_OK) {
+        return lua_error(state);
+    }
+    if (!poll_execution_control(control)) {
+        return luaL_error(state, "AutoJs Lua execution interrupted");
+    }
+    if (lua_isnil(state, -1)) {
+        lua_pop(state, 1);
+        lua_pushboolean(state, 1);
+    }
+
+    lua_pushvalue(state, lua_upvalueindex(2));
+    lua_pushvalue(state, 1);
+    lua_pushvalue(state, 2);
+    lua_rawset(state, -3);
+    lua_pop(state, 1);
     return 1;
 }
 
@@ -617,7 +900,9 @@ int install_autojs_module(lua_State* state) {
     lua_setfield(state, -2, "arguments");
 
     lua_pushvalue(state, -1);
-    lua_pushcclosure(state, restricted_require, 1);
+    lua_newtable(state);
+    lua_newtable(state);
+    lua_pushcclosure(state, restricted_require, 3);
     lua_setglobal(state, "require");
     lua_pop(state, 1);
     return 0;
@@ -651,7 +936,7 @@ jobject fail_for_termination(JNIEnv* environment, TerminationReason reason) {
         case TerminationReason::kOutputRejected:
             return fail(environment, "RUNTIME", "Lua console output was rejected");
         case TerminationReason::kHostCallRejected:
-            return fail(environment, "HOST_CAPABILITY", "Lua device.info host call was rejected");
+            return fail(environment, "HOST_CAPABILITY", "Lua host capability call was rejected");
         case TerminationReason::kNone:
             return fail(environment, "INTERNAL", "Lua termination state is inconsistent");
     }
@@ -907,6 +1192,17 @@ Java_io_github_supermonster003_autojs6_plugin_lua_runtime_NativeLuaRuntime_nativ
         environment->DeleteLocalRef(host_capability_class);
         return fail(environment, "INTERNAL", "Lua device.info bridge contract is unavailable");
     }
+    jmethodID load_module_method = environment->GetMethodID(
+        host_capability_class,
+        "loadModule",
+        "([B)[B");
+    if (load_module_method == nullptr) {
+        if (environment->ExceptionCheck()) {
+            environment->ExceptionClear();
+        }
+        environment->DeleteLocalRef(host_capability_class);
+        return fail(environment, "INTERNAL", "Lua module snapshot bridge contract is unavailable");
+    }
     jmethodID host_failure_method = environment->GetMethodID(
         host_capability_class,
         "takeFailureKind",
@@ -927,6 +1223,7 @@ Java_io_github_supermonster003_autojs6_plugin_lua_runtime_NativeLuaRuntime_nativ
         output_method,
         host_capability_bridge,
         device_info_method,
+        load_module_method,
         host_failure_method,
         std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_millis),
         TerminationReason::kNone,

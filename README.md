@@ -93,12 +93,14 @@ worker, admits one active execution, bounds retained/unstarted sessions, and
 contains callback/terminal/close races. Native-enabled builds now select
 `NativeLuaExecutionRunner`, while native-disabled builds retain
 `DisabledLuaExecutionRunner`. Provider discovery remains an independent,
-default-off gate. A controlled `require("autojs")` exposes only
+default-off gate. A controlled `require("autojs")` exposes
 `console.log(string)`, `console.error(string)`, and an execution-local
 `arguments` snapshot. The snapshot maps the complete bounded V1 value model to
 Lua scalars, 1-based dense arrays, and string-key tables; strings and bytes use
 binary-safe Lua strings. Console calls retain the existing sequence, credit,
-chunk, and total-output limits. General module loading, `print`, and `warn`
+chunk, and total-output limits. Flat ASCII module names may additionally resolve
+through the fixed `module.snapshot.v1` capability to execution-local UTF-8 text
+snapshots. Path/package search, binary or dynamic C modules, `print`, and `warn`
 remain unavailable.
 
 A process-wide watchdog is bound to each admitted execution token. It arms only
@@ -110,10 +112,9 @@ kill/rebind/new-PID recovery, while Provider discovery remains default-off.
 
 Before public Provider enablement, the implementation still needs:
 
-1. add the first host-broker capability
-2. complete the product-facing editor and persistent-entry experience
-3. create a signed Provider-enabled release candidate
-4. run the focused release compatibility and rollback sample
+1. complete the product-facing editor and persistent-entry experience
+2. create a signed Provider-enabled release candidate
+3. run the focused release compatibility and rollback sample
 
 Android-native instrumentation can call `NativeLuaRuntime.execute()` with
 `native=true/provider=false` to verify scalar results, controlled console
@@ -121,7 +122,7 @@ output, failures, hooks, and allocator recovery without discovering either
 production service. A separate opt-in smoke exercises the production
 INFO/RUNTIME Binder path while keeping repository defaults disabled.
 
-The repository JVM suite contains 42 tests, while focused Android evidence is
+The repository JVM suite contains 43 tests, while focused Android evidence is
 kept separate for native, Binder/PFD, process-recovery, and Provider paths.
 
 ## CI

@@ -16,6 +16,7 @@ import java.nio.ByteBuffer
 import java.nio.CharBuffer
 import java.nio.charset.CharacterCodingException
 import java.nio.charset.CodingErrorAction
+import java.security.MessageDigest
 import java.util.function.BooleanSupplier
 
 /**
@@ -239,7 +240,7 @@ internal class NativeLuaExecutionRequest(
     internal fun argumentsSnapshot(): ByteArray = stableArguments.copyOf()
 }
 
-/** Fixed-shape JNI bridge for the sole M3.3 capability. No capability name crosses JNI. */
+/** Fixed-shape JNI bridge for the admitted host capabilities. No capability name crosses JNI. */
 internal class NativeLuaHostCapabilityBridge private constructor(
     private val request: LuaRunnerRequest?,
     private val deadlineNanos: Long,
@@ -252,25 +253,53 @@ internal class NativeLuaHostCapabilityBridge private constructor(
 
     @Suppress("unused") // Called by JNI with an exact private method contract.
     fun invokeDeviceInfo(): ByteArray {
+        val value = invokeHostCapability(
+            label = "device information",
+            capability = DEVICE_INFO_CAPABILITY,
+            arguments = LuaValue.MapValue(emptyMap()),
+        )
+        validateDeviceInfo(value)
+        return NativeLuaArgumentCodec.encode(value)
+    }
+
+    @Suppress("unused") // Called by JNI with an exact private method contract.
+    fun loadModule(nameUtf8: ByteArray): ByteArray? {
+        val moduleName = decodeStrictUtf8(nameUtf8, "Lua module name")
+        require(MODULE_NAME_PATTERN.matches(moduleName)) {
+            "Lua module name is outside the flat ASCII allowlist"
+        }
+        val value = invokeHostCapability(
+            label = "module snapshot",
+            capability = MODULE_SNAPSHOT_CAPABILITY,
+            arguments = LuaValue.MapValue(
+                mapOf(MODULE_NAME_KEY to LuaValue.StringValue(moduleName)),
+            ),
+        )
+        return validateModuleSnapshot(value)
+    }
+
+    private fun invokeHostCapability(
+        label: String,
+        capability: String,
+        arguments: LuaValue.MapValue,
+    ): LuaValue {
         lastFailure.set(HOST_FAILURE_NONE)
         val activeRequest = request ?: run {
             lastFailure.set(HOST_FAILURE_REJECTED)
-            throw IllegalStateException("Lua device information capability is unavailable")
+            throw IllegalStateException("Lua $label capability is unavailable")
         }
         val remainingNanos = deadlineNanos - System.nanoTime()
         if (remainingNanos <= 0L) {
             lastFailure.set(HOST_FAILURE_DEADLINE)
-            throw IllegalStateException("Lua device information capability exceeded its deadline")
+            throw IllegalStateException("Lua $label capability exceeded its deadline")
         }
         return try {
-            val value = activeRequest.hostCapabilityInvoker.invoke(
-                capability = DEVICE_INFO_CAPABILITY,
-                arguments = LuaValue.MapValue(emptyMap()),
+            activeRequest.hostCapabilityInvoker.invoke(
+                capability = capability,
+                arguments = arguments,
                 timeoutMillis = ((remainingNanos + NANOS_PER_MILLI - 1L) / NANOS_PER_MILLI).coerceAtLeast(1L),
                 cancellationProbe = activeRequest.cancellationProbe,
             )
-            validateDeviceInfo(value)
-            NativeLuaArgumentCodec.encode(value)
         } catch (failure: io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaHostCapabilityException) {
             lastFailure.set(
                 when (failure.kind) {
@@ -293,6 +322,7 @@ internal class NativeLuaHostCapabilityBridge private constructor(
 
     companion object {
         const val DEVICE_INFO_CAPABILITY = "device.info"
+        const val MODULE_SNAPSHOT_CAPABILITY = "module.snapshot.v1"
         val REJECTING = NativeLuaHostCapabilityBridge(null, 0L)
         private const val NANOS_PER_MILLI = 1_000_000L
         private const val HOST_FAILURE_NONE = 0
@@ -302,6 +332,12 @@ internal class NativeLuaHostCapabilityBridge private constructor(
 
         private val STRING_KEYS = setOf("brand", "manufacturer", "model", "device", "product")
         private val ALL_KEYS = STRING_KEYS + "sdkInt"
+        private const val MODULE_NAME_KEY = "name"
+        private const val MODULE_FOUND_KEY = "found"
+        private const val MODULE_SOURCE_KEY = "source"
+        private const val MODULE_SHA256_KEY = "sha256"
+        private const val MAX_MODULE_SOURCE_BYTES = 64 * 1024
+        private val MODULE_NAME_PATTERN = Regex("[A-Za-z_][A-Za-z0-9_]{0,63}")
 
         internal fun validateDeviceInfo(value: LuaValue) {
             LuaValueValidation.validate(value)
@@ -318,11 +354,45 @@ internal class NativeLuaHostCapabilityBridge private constructor(
             }
         }
 
+        internal fun validateModuleSnapshot(value: LuaValue): ByteArray? {
+            LuaValueValidation.validate(value)
+            val fields = (value as? LuaValue.MapValue)?.values
+                ?: throw IllegalArgumentException("module.snapshot.v1 must return a map")
+            val found = fields[MODULE_FOUND_KEY] as? LuaValue.BooleanValue
+                ?: throw IllegalArgumentException("module.snapshot.v1 field found must be a boolean")
+            if (!found.value) {
+                require(fields.keys == setOf(MODULE_FOUND_KEY)) {
+                    "A missing module snapshot returned unexpected fields"
+                }
+                return null
+            }
+            require(fields.keys == setOf(MODULE_FOUND_KEY, MODULE_SOURCE_KEY, MODULE_SHA256_KEY)) {
+                "A found module snapshot returned unexpected fields"
+            }
+            val source = (fields[MODULE_SOURCE_KEY] as? LuaValue.BytesValue)?.toByteArray()
+                ?: throw IllegalArgumentException("module.snapshot.v1 field source must be bytes")
+            require(source.size <= MAX_MODULE_SOURCE_BYTES) {
+                "Lua module snapshot exceeds its byte limit"
+            }
+            requireStrictUtf8(source, "Lua module snapshot")
+            val expectedDigest = (fields[MODULE_SHA256_KEY] as? LuaValue.BytesValue)?.toByteArray()
+                ?: throw IllegalArgumentException("module.snapshot.v1 field sha256 must be bytes")
+            require(expectedDigest.size == SHA256_BYTES) {
+                "Lua module snapshot SHA-256 has the wrong length"
+            }
+            require(MessageDigest.isEqual(expectedDigest, MessageDigest.getInstance("SHA-256").digest(source))) {
+                "Lua module snapshot SHA-256 mismatch"
+            }
+            return source
+        }
+
         private fun deadlineAfter(timeoutMillis: Long): Long {
             val now = System.nanoTime()
             val duration = timeoutMillis.coerceAtMost(Long.MAX_VALUE / NANOS_PER_MILLI) * NANOS_PER_MILLI
             return if (Long.MAX_VALUE - now < duration) Long.MAX_VALUE else now + duration
         }
+
+        private const val SHA256_BYTES = 32
     }
 }
 

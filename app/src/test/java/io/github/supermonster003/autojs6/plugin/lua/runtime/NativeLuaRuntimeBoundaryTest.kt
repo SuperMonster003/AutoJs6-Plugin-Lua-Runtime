@@ -13,6 +13,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.security.MessageDigest
 import java.util.function.BooleanSupplier
 
 class NativeLuaRuntimeBoundaryTest {
@@ -204,6 +205,66 @@ class NativeLuaRuntimeBoundaryTest {
         assertThrows(IllegalArgumentException::class.java) {
             NativeLuaHostCapabilityBridge.validateDeviceInfo(wrongDevice)
         }
+    }
+
+    @Test
+    fun moduleSnapshotBridgeUsesOneFixedCapabilityAndRejectsInvalidPayloads() {
+        val observedNames = mutableListOf<String>()
+        val runnerRequest = LuaRunnerRequest(
+            sourceUtf8 = "return 1".toByteArray(),
+            sourceName = "module-snapshot.lua",
+            arguments = LuaValue.Nil,
+            memoryLimitBytes = LuaRuntimeContract.DEFAULT_MEMORY_BYTES,
+            timeoutMillis = LuaRuntimeContract.DEFAULT_TIMEOUT_MILLIS,
+            cancellationProbe = LuaCancellationProbe { false },
+            hostCapabilityInvoker = LuaHostCapabilityInvoker { capability, arguments, _, _ ->
+                assertEquals("module.snapshot.v1", capability)
+                val name = ((arguments as LuaValue.MapValue).values["name"] as LuaValue.StringValue).value
+                observedNames += name
+                when (name) {
+                    "helper" -> LuaValue.MapValue(
+                        mapOf(
+                            "found" to LuaValue.BooleanValue(true),
+                            "source" to LuaValue.BytesValue("return 7".toByteArray()),
+                            "sha256" to LuaValue.BytesValue(
+                                MessageDigest.getInstance("SHA-256").digest("return 7".toByteArray()),
+                            ),
+                        ),
+                    )
+                    "missing" -> LuaValue.MapValue(
+                        mapOf("found" to LuaValue.BooleanValue(false)),
+                    )
+                    "bad" -> LuaValue.MapValue(
+                        mapOf(
+                            "found" to LuaValue.BooleanValue(true),
+                            "source" to LuaValue.BytesValue(byteArrayOf(0xc3.toByte(), 0x28)),
+                            "sha256" to LuaValue.BytesValue(ByteArray(32)),
+                        ),
+                    )
+                    else -> LuaValue.MapValue(
+                        mapOf(
+                            "found" to LuaValue.BooleanValue(true),
+                            "source" to LuaValue.BytesValue("return 8".toByteArray()),
+                            "sha256" to LuaValue.BytesValue(ByteArray(32)),
+                        ),
+                    )
+                }
+            },
+        )
+        val bridge = NativeLuaHostCapabilityBridge(runnerRequest)
+
+        assertArrayEquals("return 7".toByteArray(), bridge.loadModule("helper".toByteArray()))
+        assertEquals(null, bridge.loadModule("missing".toByteArray()))
+        assertThrows(IllegalArgumentException::class.java) {
+            bridge.loadModule("bad".toByteArray())
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            bridge.loadModule("digest".toByteArray())
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            bridge.loadModule("nested.name".toByteArray())
+        }
+        assertEquals(listOf("helper", "missing", "bad", "digest"), observedNames)
     }
 
     private fun request(

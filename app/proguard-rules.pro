@@ -6,5 +6,6 @@
 -keep interface io.github.supermonster003.autojs6.plugin.lua.runtime.NativeLuaOutputEmitter { *; }
 -keepclassmembers class io.github.supermonster003.autojs6.plugin.lua.runtime.NativeLuaHostCapabilityBridge {
     byte[] invokeDeviceInfo();
+    byte[] loadModule(byte[]);
     int takeFailureKind();
 }

@@ -395,7 +395,7 @@ def verify_default_off() -> None:
         and "gradle-version:" not in ci,
         "CI must execute the repository-owned Gradle wrapper",
     )
-    require(ci.count("-ExpectedTests 42") == 1, "CI JVM test count drift")
+    require(ci.count("-ExpectedTests 43") == 1, "CI JVM test count drift")
     service = (ROOT / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaRuntimeService.kt").read_text("utf-8")
     require(
         "override fun onBind(intent: Intent?): IBinder = binder" in service,
@@ -500,7 +500,7 @@ def verify_input_workflows() -> None:
         artifact_gate,
         (
             "status --porcelain --untracked-files=all",
-            "[int] $ExpectedTests = 42",
+            "[int] $ExpectedTests = 43",
             "rev-list --count HEAD",
             "VERSION_BUILD must equal the positive commit count",
             "app/build/test-results/testDebugUnitTest",
@@ -573,6 +573,11 @@ def verify_native_boundary() -> None:
         'lua_setfield(state, -2, "dump")': "Lua string.dump is still exposed",
         'int restricted_require(lua_State* state)': "The controlled require boundary is missing",
         'std::memcmp(name, "autojs", 6U)': "The autojs module admission is not exact",
+        'is_flat_ascii_module_name(': "The frozen module name allowlist is missing",
+        'control->load_module_method': "The fixed module snapshot JNI call is missing",
+        'module->chunk_name,\n        "t")': "Frozen modules are not pinned to text-only mode",
+        'Lua module snapshot dependency cycle rejected': "Frozen module cycles do not fail closed",
+        'lua_pushvalue(state, lua_upvalueindex(2))': "The execution-local module cache is missing",
         'lua_setfield(state, -2, "console")': "The controlled console module is missing",
         'lua_setfield(state, -2, "arguments")': "The bounded argument snapshot is missing",
         "push_native_argument_value(": "The native argument decoder is missing",
@@ -583,6 +588,24 @@ def verify_native_boundary() -> None:
     }
     for token, message in required_execution_tokens.items():
         require(token in native, message)
+    host_copy_start = native.index("ProtectedHostMappingResult copy_and_map_host_result(")
+    host_copy_end = native.index("int autojs_device_info(lua_State* state)", host_copy_start)
+    host_copy_boundary = native[host_copy_start:host_copy_end]
+    require(
+        "std::unique_ptr" in host_copy_boundary
+        and "lua_error(" not in host_copy_boundary
+        and "luaL_error(" not in host_copy_boundary,
+        "Device-info payload ownership can cross a Lua longjmp",
+    )
+    module_copy_start = native.index("ProtectedModuleLoadResult copy_and_load_module(")
+    module_copy_end = native.index("int restricted_require(lua_State* state)", module_copy_start)
+    module_copy_boundary = native[module_copy_start:module_copy_end]
+    require(
+        "std::unique_ptr" in module_copy_boundary
+        and "lua_error(" not in module_copy_boundary
+        and "luaL_error(" not in module_copy_boundary,
+        "Module payload ownership can cross a Lua longjmp",
+    )
     load_at = native.index("status = luaL_loadbufferx(")
     hook_at = native.index("lua_sethook(state, execution_hook, LUA_MASKCOUNT")
     protected_call_at = native.index("status = lua_pcall(state, 0, LUA_MULTRET, 0)")
@@ -629,8 +652,9 @@ def verify_native_boundary() -> None:
     require(
         "NativeLuaHostCapabilityBridge" in proguard_rules
         and "byte[] invokeDeviceInfo();" in proguard_rules
+        and "byte[] loadModule(byte[]);" in proguard_rules
         and "int takeFailureKind();" in proguard_rules,
-        "R8 can rename the JNI-reflected device.info bridge member",
+        "R8 can rename a JNI-reflected host capability bridge member",
     )
     for token in (
         "fun execute(request: NativeLuaExecutionRequest): NativeLuaExecutionValue",
@@ -646,8 +670,20 @@ def verify_native_boundary() -> None:
         "fun NativeLuaExecutionValue.toProtocolValue(): LuaValue",
         "internal fun interface NativeLuaOutputEmitter",
         "fun emitNativeOutput(",
+        "fun loadModule(nameUtf8: ByteArray): ByteArray?",
+        'const val MODULE_SNAPSHOT_CAPABILITY = "module.snapshot.v1"',
+        "internal fun validateModuleSnapshot(value: LuaValue): ByteArray?",
+        'MessageDigest.getInstance("SHA-256").digest(source)',
     ):
         require(token in kotlin_boundary, f"Native Kotlin execution boundary drift: {token}")
+    provider_metadata = (
+        ROOT
+        / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/LuaProviderMetadata.kt"
+    ).read_text("utf-8")
+    require(
+        "NativeLuaHostCapabilityBridge.MODULE_SNAPSHOT_CAPABILITY" in provider_metadata,
+        "Provider metadata does not advertise the frozen module capability",
+    )
     execute_start = kotlin_boundary.index(
         "fun execute(request: NativeLuaExecutionRequest): NativeLuaExecutionValue",
     )
@@ -679,10 +715,10 @@ def verify_native_boundary() -> None:
         "COMPILED, PACKAGED, AND DEVICE-EXECUTED / PROVIDER DEFAULT-OFF" in native_doc,
         "Native evidence boundary is missing",
     )
-    require("only admitted module is the built-in `autojs` module" in native_doc, "Native module boundary is missing")
+    require("flat ASCII names" in native_doc, "Native module boundary is missing")
     require("## Bounded argument boundary" in native_doc, "Native argument boundary is missing")
     require("sequence, credit, chunk, and total-byte limits" in native_doc, "Native output boundary is missing")
-    require("no general module loader" in native_doc, "Native capability limitation is missing")
+    require("There is no general module loader" in native_doc, "Native capability limitation is missing")
     require("There is no coroutine library" in native_doc, "Native coroutine limitation is missing")
     require("infinite `__gc` or `__close` handler" in native_doc, "Native teardown limitation is missing")
     require("process-level cleanup watchdog" in native_doc, "Native cleanup watchdog gate is missing")
@@ -804,6 +840,7 @@ def verify_native_android_test_boundary() -> None:
             "providerRemainsDisabledDuringNativeTests",
             "nativeCoreAndRunnerReturnV1Scalars",
             "nativeRunnerMapsV1ArgumentsIntoTheControlledAutoJsModule",
+            "nativeRunnerLoadsFrozenModulesOnceAndRejectsDependencyCycles",
             "syntaxAndRuntimeErrorsAreClassified",
             "infiniteLoopIsCancelledByHook",
             "infiniteLoopHonoursDeadline",

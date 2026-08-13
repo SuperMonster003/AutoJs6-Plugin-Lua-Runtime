@@ -23,6 +23,8 @@ Provider pilot; this does not enable Provider discovery in ordinary builds.
 - a synchronous, bounded stdout/stderr emitter owned by the session controller
 - a process-local, fixed-shape `device.info` adapter; the native side cannot
   choose a capability name or pass arbitrary arguments
+- a process-local `module.snapshot.v1` adapter that accepts only one flat ASCII
+  module name and returns at most one frozen 64 KiB UTF-8 text snapshot
 
 It does not receive an Android `Context`, file descriptor, Binder object,
 session controller, Binder interface, Android `Context`, or arbitrary Java
@@ -42,9 +44,10 @@ Each JNI call:
 3. opens only base, math, string, table, and UTF-8 libraries
 4. removes `dofile`, `load`, `loadfile`, `pcall`, `xpcall`, `getmetatable`,
    `setmetatable`, `print`, `warn`, and `string.dump`
-5. installs a restricted `require("autojs")` module exposing controlled console
-   calls, the bounded argument snapshot, and the fixed `device.info()` call
-6. loads the source through `luaL_loadbufferx(..., "t")`
+5. installs a restricted `require` exposing `autojs` plus execution-local frozen
+   modules loaded only through the fixed module snapshot capability
+6. loads the main source and every admitted module through
+   `luaL_loadbufferx(..., "t")`
 7. installs a count hook for cancellation and a monotonic deadline
 8. executes through `lua_pcall`
 9. admits zero or one scalar result
@@ -103,11 +106,16 @@ does not contain Java or Android objects and cannot be written back to the host.
 
 ## Known limits before enablement
 
-- The only admitted module is the built-in `autojs` module. It contains
-  controlled console calls, the execution-local argument snapshot, and one
-  fixed-shape `device.info()` bridge. There is no general module loader, general
-  host capability broker, Java bridge, or table/array/map execution result
-  mapping.
+- The admitted modules are the built-in `autojs` module and flat ASCII names
+  resolved by `module.snapshot.v1`. There is no general module loader: no path,
+  URI, package search, binary chunk, dynamic C module, or Java bridge crosses
+  the native boundary. Each text snapshot is bounded to 64 KiB, loaded in text
+  mode, cached per execution (including `false` and nil-as-true), and a loading
+  cycle fails closed.
+- `module.snapshot.v1` sends exactly `{name=string}` and accepts only
+  `{found=false}` or `{found=true, source=bytes, sha256=bytes}`. Kotlin repeats
+  the UTF-8 and byte-limit validation and recomputes the 32-byte SHA-256 before
+  JNI; Binder dispatch is never retried.
 - `device.info()` always emits one empty-map request for the exact
   `device.info` capability and accepts only the six-field bounded map documented
   by M3.3. Binder dispatch is never retried. Its worker-side wait polls cancel

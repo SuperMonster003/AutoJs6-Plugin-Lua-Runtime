@@ -52,4 +52,4 @@ jobs:
         run: >-
           ./tools/verify_debug_artifacts.ps1
           -BuildToolsVersion 36.0.0
-          -ExpectedTests 42
+          -ExpectedTests 43

@@ -84,7 +84,7 @@ R3-C source evidence on 2026-08-10:
 
 - The repository-owned Gradle 9.6.1 wrapper compiles Kotlin/Java/JNI and both
   admitted ABIs with native enabled and provider disabled. The current focused
-  JVM gate contains 39 tests, including token/stop/finish/scheduler watchdog
+  JVM gate contains 43 tests, including token/stop/finish/scheduler watchdog
   races.
 - The service now selects `NativeLuaExecutionRunner` only when
   `BuildConfig.LUA_NATIVE_ENABLED` is true. Both exported services remain
@@ -126,11 +126,11 @@ The checkable local artifact gate is:
     -SdkRoot 'E:\.android\sdk' `
     -BuildToolsVersion '37.0.0' `
     -NdkVersion '28.2.13676358' `
-    -ExpectedTests 39
+    -ExpectedTests 43
 ```
 
 It requires a clean revision whose positive `VERSION_BUILD` equals its commit
-count, 39/39 JVM tests, exactly three debug APK outputs, a single common signer,
+count, 43/43 JVM tests, exactly three debug APK outputs, a single common signer,
 the exact split/universal ABI inventories, 16 KiB ZIP and ELF LOAD alignment,
 and packaged `native=true/provider=false` gates. It does not run Gradle, ADB,
 Binder, native execution, install, process recovery, or release signing.

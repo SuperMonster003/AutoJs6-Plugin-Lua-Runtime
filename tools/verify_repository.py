@@ -322,6 +322,7 @@ def parse_default_off_flags(properties: str) -> dict[str, str]:
         "autojs.lua.native.enabled",
         "autojs.lua.provider.enabled",
         "autojs.lua.faultHarness.enabled",
+        "autojs.lua.releaseCandidate.enabled",
     }
     parsed_flags: dict[str, str] = {}
     reference_counts = {key: 0 for key in required_flags}
@@ -387,6 +388,10 @@ def verify_default_off() -> None:
         "CI must not enable the device-only native fault harness",
     )
     require(
+        ci_gradle_property_values(ci, "autojs.lua.releaseCandidate.enabled") == [],
+        "CI must not enable signed release-candidate mode",
+    )
+    require(
         ci.count("python tools/verify_repository.py --require-build-ready --github-output") == 1,
         "CI must fail closed when immutable inputs regress",
     )
@@ -418,6 +423,21 @@ def verify_input_workflows() -> None:
     require(
         "kotlinOptions" not in app_build,
         "AGP 9 build must not use the legacy android.kotlinOptions DSL",
+    )
+    require_tokens(
+        app_build,
+        (
+            'flag("autojs.lua.releaseCandidate.enabled")',
+            '"autojs.lua.release.signingPropertiesFile"',
+            '"autojs.lua.release.signingStoreFile"',
+            '"External release signing paths must be absolute"',
+            'tasks.register("requireReleaseCandidate")',
+            '"Release candidates require native=true, provider=true, and faultHarness=false"',
+            '"Release candidates require a version name such as 0.1.0-rc.1"',
+            'dependsOn("requireReleaseCandidate")',
+            'task.name.startsWith("package")',
+        ),
+        "Explicit signed release-candidate gate",
     )
 
     attributes_lines = (ROOT / ".gitattributes").read_text("utf-8").splitlines()
@@ -514,6 +534,34 @@ def verify_input_workflows() -> None:
             "DEBUG_ARTIFACT_GATE_PASS",
         ),
         "Debug artifact gate",
+    )
+    release_artifact_gate = (
+        ROOT / "tools/verify_release_candidate_artifacts.ps1"
+    ).read_text("utf-8")
+    require_tokens(
+        release_artifact_gate,
+        (
+            "InvocationStartedAtUtc",
+            "SigningPropertiesFile",
+            "SigningStoreFile",
+            "keytoolCommand.Source -exportcert -rfc",
+            "-storepass:env $passwordEnvironmentName",
+            "status --porcelain --untracked-files=all",
+            "VERSION_BUILD must equal the positive commit count",
+            "app/build/outputs/apk/release",
+            "zipalign -c -P 16 4",
+            "apksigner verify --verbose --print-certs",
+            "Release APK must have exactly one signer",
+            "LUA_NATIVE_ENABLED = true;",
+            "LUA_PROVIDER_ENABLED = true;",
+            "LUA_FAULT_HARNESS_ENABLED = false;",
+            "$faultHarnessResourcePresent = $resourceText.Contains('lua_runtime_fault_harness_enabled')",
+            "Packaged release fault harness resource is not false",
+            "SIGNED_RELEASE_CANDIDATE_ARTIFACT_GATE_PASS",
+            "deviceVerified = $false",
+            "runtimeVerified = $false",
+        ),
+        "Signed release-candidate artifact gate",
     )
     archive_verifier = (ROOT / "tools/verify_lua_archive.ps1").read_text("utf-8")
     require_tokens(

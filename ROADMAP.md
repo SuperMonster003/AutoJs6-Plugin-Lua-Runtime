@@ -116,6 +116,8 @@ R3-C source evidence on 2026-08-10:
   post-failure reuse while INFO/RUNTIME remain disabled.
 - [ ] Run cross-package Binder/PFD conformance and hostile lifecycle cases.
 - [ ] Enable provider discovery only after all previous gates pass.
+- [x] Add a default-off signed-release-candidate gate that consumes external
+  signing properties and a keystore by absolute path without copying secrets.
 - [ ] Create signed release artifacts and a clean, independently versioned
   release history.
 

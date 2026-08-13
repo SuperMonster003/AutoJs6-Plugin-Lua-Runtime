@@ -1,3 +1,4 @@
+import java.io.File
 import java.util.Properties
 
 plugins {
@@ -15,6 +16,7 @@ fun flag(name: String) = providers.gradleProperty(name)
 val luaNativeEnabled = flag("autojs.lua.native.enabled")
 val luaProviderEnabled = flag("autojs.lua.provider.enabled")
 val luaFaultHarnessEnabled = flag("autojs.lua.faultHarness.enabled")
+val luaReleaseCandidateEnabled = flag("autojs.lua.releaseCandidate.enabled")
 val supportedAbis = setOf("arm64-v8a", "x86_64")
 val protocolArtifacts = listOf(
     rootProject.file("protocol/common-plugin-api.aar"),
@@ -30,6 +32,93 @@ if (luaFaultHarnessEnabled.get() && (!luaNativeEnabled.get() || luaProviderEnabl
         "The debug Lua fault harness requires native=true and provider=false",
     )
 }
+if (luaReleaseCandidateEnabled.get() &&
+    (!luaNativeEnabled.get() || !luaProviderEnabled.get() || luaFaultHarnessEnabled.get())
+) {
+    throw GradleException(
+        "A Lua release candidate requires native=true, provider=true, and faultHarness=false",
+    )
+}
+
+data class ReleaseSigningMaterial(
+    val storeFile: File,
+    val storePassword: String,
+    val keyAlias: String,
+    val keyPassword: String,
+)
+
+fun nonBlankSigningValue(properties: Properties, key: String): String =
+    properties.getProperty(key)?.trim()?.takeIf(String::isNotEmpty)
+        ?: throw GradleException("External release signing properties are missing '$key'")
+
+fun loadReleaseSigningMaterial(): ReleaseSigningMaterial? {
+    val propertiesPath = providers.gradleProperty(
+        "autojs.lua.release.signingPropertiesFile",
+    ).orNull?.trim()?.takeIf(String::isNotEmpty)
+    val externalStorePath = providers.gradleProperty(
+        "autojs.lua.release.signingStoreFile",
+    ).orNull?.trim()?.takeIf(String::isNotEmpty)
+    val externalRequested = propertiesPath != null || externalStorePath != null
+
+    val environmentValues = listOf(
+        providers.environmentVariable("AUTOJS_LUA_RELEASE_STORE_FILE").orNull,
+        providers.environmentVariable("AUTOJS_LUA_RELEASE_STORE_PASSWORD").orNull,
+        providers.environmentVariable("AUTOJS_LUA_RELEASE_KEY_ALIAS").orNull,
+        providers.environmentVariable("AUTOJS_LUA_RELEASE_KEY_PASSWORD").orNull,
+    )
+    val environmentRequested = environmentValues.any { !it.isNullOrBlank() }
+
+    if (externalRequested && environmentRequested) {
+        throw GradleException(
+            "Choose either external release signing files or AUTOJS_LUA_RELEASE_* variables, not both",
+        )
+    }
+    if (externalRequested) {
+        if (!luaReleaseCandidateEnabled.get()) {
+            throw GradleException(
+                "External release signing files require -Pautojs.lua.releaseCandidate.enabled=true",
+            )
+        }
+        val signingPropertiesFile = File(
+            propertiesPath ?: throw GradleException(
+                "External signing requires -Pautojs.lua.release.signingPropertiesFile=<absolute path>",
+            ),
+        )
+        val signingStoreFile = File(
+            externalStorePath ?: throw GradleException(
+                "External signing requires -Pautojs.lua.release.signingStoreFile=<absolute path>",
+            ),
+        )
+        if (!signingPropertiesFile.isAbsolute || !signingStoreFile.isAbsolute) {
+            throw GradleException("External release signing paths must be absolute")
+        }
+        if (!signingPropertiesFile.isFile || !signingStoreFile.isFile) {
+            throw GradleException("External release signing files are unavailable or not regular files")
+        }
+        val signingProperties = Properties().apply {
+            signingPropertiesFile.inputStream().use { stream -> load(stream) }
+        }
+        return ReleaseSigningMaterial(
+            storeFile = signingStoreFile.canonicalFile,
+            storePassword = nonBlankSigningValue(signingProperties, "storePassword"),
+            keyAlias = nonBlankSigningValue(signingProperties, "keyAlias"),
+            keyPassword = nonBlankSigningValue(signingProperties, "keyPassword"),
+        )
+    }
+
+    if (!environmentRequested) return null
+    if (environmentValues.any { it.isNullOrBlank() }) {
+        throw GradleException("All four AUTOJS_LUA_RELEASE_* variables must be provided together")
+    }
+    return ReleaseSigningMaterial(
+        storeFile = rootProject.file(checkNotNull(environmentValues[0])).canonicalFile,
+        storePassword = checkNotNull(environmentValues[1]),
+        keyAlias = checkNotNull(environmentValues[2]),
+        keyPassword = checkNotNull(environmentValues[3]),
+    )
+}
+
+val releaseSigningMaterial = loadReleaseSigningMaterial()
 
 android {
     namespace = "io.github.supermonster003.autojs6.plugin.lua.runtime"
@@ -79,16 +168,12 @@ android {
     }
 
     signingConfigs {
-        val storePath = providers.environmentVariable("AUTOJS_LUA_RELEASE_STORE_FILE").orNull
-        val storePasswordValue = providers.environmentVariable("AUTOJS_LUA_RELEASE_STORE_PASSWORD").orNull
-        val keyAliasValue = providers.environmentVariable("AUTOJS_LUA_RELEASE_KEY_ALIAS").orNull
-        val keyPasswordValue = providers.environmentVariable("AUTOJS_LUA_RELEASE_KEY_PASSWORD").orNull
-        if (listOf(storePath, storePasswordValue, keyAliasValue, keyPasswordValue).all { it != null }) {
+        releaseSigningMaterial?.let { material ->
             create("release") {
-                storeFile = rootProject.file(checkNotNull(storePath))
-                storePassword = storePasswordValue
-                keyAlias = keyAliasValue
-                keyPassword = keyPasswordValue
+                storeFile = material.storeFile
+                storePassword = material.storePassword
+                keyAlias = material.keyAlias
+                keyPassword = material.keyPassword
             }
         }
     }
@@ -195,17 +280,32 @@ tasks.matching { task ->
     dependsOn("verifyPinnedInputs")
 }
 
-tasks.register("requireReleaseSigning") {
+tasks.register("requireReleaseCandidate") {
     group = "verification"
     doLast {
+        check(luaReleaseCandidateEnabled.get()) {
+            "Release assembly requires -Pautojs.lua.releaseCandidate.enabled=true"
+        }
+        check(luaNativeEnabled.get() && luaProviderEnabled.get() && !luaFaultHarnessEnabled.get()) {
+            "Release candidates require native=true, provider=true, and faultHarness=false"
+        }
+        check(
+            versionProperties.getProperty("VERSION_NAME")
+                .matches(Regex("^[0-9]+\\.[0-9]+\\.[0-9]+-rc\\.[0-9]+$")),
+        ) {
+            "Release candidates require a version name such as 0.1.0-rc.1"
+        }
         check(android.signingConfigs.findByName("release") != null) {
-            "Release signing requires the four AUTOJS_LUA_RELEASE_* environment variables"
+            "Release signing requires either both external signing-file properties or all four AUTOJS_LUA_RELEASE_* variables"
         }
     }
 }
 
 tasks.matching { task ->
-    task.name.contains("Release") && (task.name.startsWith("assemble") || task.name.startsWith("bundle"))
+    task.name.contains("Release") &&
+        (task.name.startsWith("assemble") ||
+            task.name.startsWith("bundle") ||
+            task.name.startsWith("package"))
 }.configureEach {
-    dependsOn("requireReleaseSigning")
+    dependsOn("requireReleaseCandidate")
 }

@@ -154,6 +154,49 @@ Follow the host repository's Lua roadmap for capability and product work.
 Release signing, a small API/ABI compatibility sample, and production rollback
 evidence remain separate from development smoke results.
 
+Signed release assembly is deliberately opt-in. An external signing properties
+file and keystore can be consumed without copying either into this repository:
+
+```powershell
+$releaseArgs = @(
+    ':app:testDebugUnitTest'
+    ':app:assembleRelease'
+    '-Pautojs.lua.native.enabled=true'
+    '-Pautojs.lua.provider.enabled=true'
+    '-Pautojs.lua.faultHarness.enabled=false'
+    '-Pautojs.lua.releaseCandidate.enabled=true'
+    '-Pautojs.lua.release.signingPropertiesFile=<absolute sign.properties path>'
+    '-Pautojs.lua.release.signingStoreFile=<absolute JKS path>'
+    '--no-daemon'
+    '--console=plain'
+)
+.\gradlew.bat @releaseArgs
+```
+
+Only the signing paths are command-line inputs; the alias and passwords are read
+inside the Gradle process. Both paths must be absolute regular files. The legacy
+four-variable `AUTOJS_LUA_RELEASE_*` contract remains supported, but it cannot be
+mixed with the external-file form. Repository defaults, development CI, and
+ordinary debug builds keep native execution, Provider discovery, and release
+candidate mode disabled.
+
+After one clean canonical invocation containing `:app:testDebugUnitTest` and
+`:app:assembleRelease`, verify the fresh artifacts against the same external
+signing certificate without placing a password on the command line:
+
+```powershell
+.\tools\verify_release_candidate_artifacts.ps1 `
+    -InvocationStartedAtUtc '<UTC start of that Gradle invocation>' `
+    -SigningPropertiesFile '<absolute sign.properties path>' `
+    -SigningStoreFile '<absolute JKS path>' `
+    -SdkRoot '<Android SDK root>'
+```
+
+The verifier derives the expected certificate digest through `keytool` using a
+process-scoped password environment variable, then clears it. Its result is
+signed-packaging-only evidence: it deliberately reports device and runtime
+verification as false.
+
 ## License
 
 Repository code is distributed under the MIT License. PUC Lua is also

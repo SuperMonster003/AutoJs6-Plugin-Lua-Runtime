@@ -92,7 +92,8 @@ def write_default_off_fixture(root: Path) -> None:
     write_text(
         root / "gradle.properties",
         "autojs.lua.native.enabled=false\nautojs.lua.provider.enabled=false\n"
-        "autojs.lua.faultHarness.enabled=false\n",
+        "autojs.lua.faultHarness.enabled=false\n"
+        "autojs.lua.releaseCandidate.enabled=false\n",
     )
     write_text(
         root / ".github/workflows/ci.yml",
@@ -271,16 +272,24 @@ class DefaultOffTest(unittest.TestCase):
     def test_duplicate_or_enabled_default_is_rejected(self) -> None:
         invalid = (
             "autojs.lua.native.enabled=false\nautojs.lua.provider.enabled=true\n"
-            "autojs.lua.faultHarness.enabled=false\n",
+            "autojs.lua.faultHarness.enabled=false\n"
+            "autojs.lua.releaseCandidate.enabled=false\n",
             "autojs.lua.native.enabled=false\nautojs.lua.provider.enabled=false\n"
-            "autojs.lua.provider.enabled=false\nautojs.lua.faultHarness.enabled=false\n",
+            "autojs.lua.provider.enabled=false\nautojs.lua.faultHarness.enabled=false\n"
+            "autojs.lua.releaseCandidate.enabled=false\n",
             "autojs.lua.native.enabled=false\\\nautojs.lua.provider.enabled=false\n"
-            "autojs.lua.faultHarness.enabled=false\n",
+            "autojs.lua.faultHarness.enabled=false\n"
+            "autojs.lua.releaseCandidate.enabled=false\n",
             "autojs.lua.native.enabled=false\nautojs.lua.provider.enabled=false\n"
             "autojs.lua.faultHarness.enabled=false\n"
+            "autojs.lua.releaseCandidate.enabled=false\n"
             "systemProp.org.gradle.project.autojs.lua.provider.enabled=true\n",
             "autojs.lua.native.enabled=false\nautojs.lua.provider.enabled=false\n"
-            "autojs.lua.faultHarness.enabled=true\n",
+            "autojs.lua.faultHarness.enabled=true\n"
+            "autojs.lua.releaseCandidate.enabled=false\n",
+            "autojs.lua.native.enabled=false\nautojs.lua.provider.enabled=false\n"
+            "autojs.lua.faultHarness.enabled=false\n"
+            "autojs.lua.releaseCandidate.enabled=true\n",
         )
         for properties in invalid:
             with self.subTest(properties=properties):
@@ -292,6 +301,7 @@ class DefaultOffTest(unittest.TestCase):
             "      - run: gradle :app:tasks -Pautojs.lua.provider.enabled=true\n",
             "    env:\n      ORG_GRADLE_PROJECT_autojs.lua.provider.enabled: true\n",
             "      - run: gradle :app:tasks -Pautojs.lua.faultHarness.enabled=true\n",
+            "      - run: gradle :app:tasks -Pautojs.lua.releaseCandidate.enabled=true\n",
         )
         for addition in additions:
             with self.subTest(addition=addition), tempfile.TemporaryDirectory() as directory:
@@ -328,6 +338,7 @@ class InputWorkflowTest(unittest.TestCase):
         "tools/stage_protocol_artifacts.ps1",
         "tools/stage_lua_source.ps1",
         "tools/verify_debug_artifacts.ps1",
+        "tools/verify_release_candidate_artifacts.ps1",
         "tools/verify_lua_archive.ps1",
     )
 
@@ -417,6 +428,15 @@ class InputWorkflowTest(unittest.TestCase):
                 "debug artifact gate stale JVM count",
                 "tools/verify_debug_artifacts.ps1",
                 lambda text: text.replace("[int] $ExpectedTests = 43", "[int] $ExpectedTests = 30"),
+            ),
+            (
+                "release artifact gate drops signer certificate derivation",
+                "tools/verify_release_candidate_artifacts.ps1",
+                lambda text: text.replace(
+                    "keytoolCommand.Source -exportcert -rfc",
+                    "keytoolCommand.Source -list -rfc",
+                    1,
+                ),
             ),
         )
         for label, relative, mutate in mutations:

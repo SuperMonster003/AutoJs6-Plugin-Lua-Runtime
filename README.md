@@ -110,11 +110,11 @@ the end-to-end deadline or stop request plus the cleanup grace, the dedicated
 runtime process is poisoned and terminated. Focused Android evidence covers
 kill/rebind/new-PID recovery, while Provider discovery remains default-off.
 
-Before public Provider enablement, the implementation still needs:
-
-1. complete the product-facing editor and persistent-entry experience
-2. create a signed Provider-enabled release candidate
-3. run the focused release compatibility and rollback sample
+The host-side editor and persistent-entry preview, a signed Provider-enabled
+`0.1.0-rc.1` candidate, and the focused API 24/31/37 compatibility and rollback
+sample are complete in their named historical revisions. Those results remain
+artifact-specific evidence: they do not publish the Provider, promote ordinary
+build defaults, or prove a production soak.
 
 Android-native instrumentation can call `NativeLuaRuntime.execute()` with
 `native=true/provider=false` to verify scalar results, controlled console
@@ -148,11 +148,14 @@ pinned archive. Those provenance claims remain staging/build gates. Provider
 state must likewise be checked in the merged manifest or APK once Gradle work
 is permitted; source and CI-text checks are not runtime evidence.
 
-## Remaining release validation
+## Release validation
 
-Follow the host repository's Lua roadmap for capability and product work.
-Release signing, a small API/ABI compatibility sample, and production rollback
-evidence remain separate from development smoke results.
+Follow the host repository's Lua roadmap and dated evidence for the completed
+local release candidate. The frozen signed artifacts belong to plugin revision
+`0497d5061171421e655e0256ef5a1fe1566c5a23` only; later source or protocol-input
+commits require a fresh build and must not inherit that revision's device or
+signing evidence. A public tag, remote publication, release upload, and
+production soak remain out of scope.
 
 Signed release assembly is deliberately opt-in. An external signing properties
 file and keystore can be consumed without copying either into this repository:

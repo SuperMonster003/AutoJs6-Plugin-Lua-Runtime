@@ -98,9 +98,9 @@ R3-C source evidence on 2026-08-10:
   revokes both timers before the active token can be replaced, so an old timer
   cannot terminate a later session. This is source/JVM evidence until Android
   proves Binder death, a new PID, and a successful post-recovery execution.
-- PFD accounting remains unchecked until generated AIDL and cross-process
-  Android evidence prove every ownership path. A wedged native runner still
-  requires dedicated-process termination and recovery evidence. The retained
+- The named cross-process fixture records balanced logical PFD ownership for
+  its covered cases, but OS-level FD-leak accounting and several hostile paths
+  remain unchecked. The retained
   cap's third create currently fails synchronously instead of returning a typed
   BUSY session, very small request deadlines may expire before an oneway start
   is received, and a blocking non-regular source FD still needs hostile Android
@@ -111,15 +111,24 @@ R3-C source evidence on 2026-08-10:
 - [x] Run focused JVM and static App compilation.
 - [x] Assemble arm64-v8a, x86_64, and universal debug artifacts.
 - [x] Verify packaged ABIs, 16 KiB ELF segments, and APK ZIP alignment.
-- [ ] Run the provider-disabled native instrumentation gate for scalar results,
+- [x] Run the provider-disabled native instrumentation gate for scalar results,
   error classification, hook cancellation/deadline, Lua allocator OOM, and
   post-failure reuse while INFO/RUNTIME remain disabled.
-- [ ] Run cross-package Binder/PFD conformance and hostile lifecycle cases.
-- [ ] Enable provider discovery only after all previous gates pass.
+- [x] Run the named partial cross-package Binder/PFD conformance and hostile
+  lifecycle matrix; keep the untested cases below explicit.
+- [x] Exercise Provider discovery only in explicit smoke and release-candidate
+  builds; keep repository and ordinary development defaults disabled.
 - [x] Add a default-off signed-release-candidate gate that consumes external
   signing properties and a keystore by absolute path without copying secrets.
-- [ ] Create signed release artifacts and a clean, independently versioned
-  release history.
+- [x] Create the signed `0.1.0-rc.1` artifacts from independent revision
+  `0497d5061171421e655e0256ef5a1fe1566c5a23` and retain their exact evidence.
+
+The completed local gates do not establish public release or production
+readiness. Remaining gaps include OS-level FD-leak evidence, a typed BUSY result
+for the retained-session cap, the tiny-deadline/oneway-start race, blocking
+non-regular source containment, broader update/uninstall and peer-death cases,
+and a production soak. Any post-RC source or protocol-input change requires a
+new candidate identity and fresh evidence.
 
 The checkable local artifact gate is:
 

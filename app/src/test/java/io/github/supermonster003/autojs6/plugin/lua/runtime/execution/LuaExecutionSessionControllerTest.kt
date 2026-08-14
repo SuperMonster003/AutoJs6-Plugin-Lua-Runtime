@@ -476,6 +476,31 @@ class LuaExecutionSessionControllerTest {
         assertEquals(LuaExecutionFailurePhase.HOST_CALL, observer.lastError?.phase)
     }
 
+    @Test
+    fun runtimeRunnerFailurePreservesDiagnosticMessage() {
+        val dispatcher = ManualDispatcher()
+        val observer = RecordingObserver()
+        val diagnostics = "attempt to call a nil value (global 'print')"
+        val controller = controller(
+            dispatcher = dispatcher,
+            observer = observer,
+            runner = LuaExecutionRunner {
+                throw LuaRunnerException(
+                    LuaRunnerFailureKind.RUNTIME,
+                    diagnostics,
+                )
+            },
+        )
+
+        assertTrue(controller.start())
+        dispatcher.runAccepted()
+
+        assertEquals(listOf("started", "failed"), observer.events)
+        assertEquals(LuaExecutionErrorCode.RUNTIME_ERROR, observer.lastError?.code)
+        assertEquals(LuaExecutionFailurePhase.EXECUTION, observer.lastError?.phase)
+        assertEquals(diagnostics, observer.lastError?.message)
+    }
+
     private fun controller(
         dispatcher: LuaExecutionDispatcher,
         observer: RecordingObserver,

@@ -392,7 +392,7 @@ internal class LuaExecutionSessionController(
         if (remainingTimeoutMillis() <= 0L) {
             claimAndDeliverFailure(timeoutFailure(LuaExecutionFailurePhase.EXECUTION))
         } else {
-            claimAndDeliverFailure(runnerFailure(error.kind))
+            claimAndDeliverFailure(runnerFailure(error.kind, error.message))
         }
     }
 
@@ -400,7 +400,7 @@ internal class LuaExecutionSessionController(
         val result = LuaExecutionResult(request.requestId, value, elapsedMillis())
         val valid = runCatching { LuaRuntimeValidation.validateResult(result) }.isSuccess
         if (!valid) {
-            claimAndDeliverFailure(runnerFailure(LuaRunnerFailureKind.UNSUPPORTED_RESULT))
+            claimAndDeliverFailure(runnerFailure(LuaRunnerFailureKind.UNSUPPORTED_RESULT, null))
             return
         }
         if (claimTerminal()) {
@@ -565,16 +565,19 @@ internal class LuaExecutionSessionController(
         )
     }
 
-    private fun runnerFailure(kind: LuaRunnerFailureKind): LuaExecutionError = when (kind) {
+    private fun runnerFailure(
+        kind: LuaRunnerFailureKind,
+        detail: String?,
+    ): LuaExecutionError = when (kind) {
         LuaRunnerFailureKind.SYNTAX -> executionError(
             LuaExecutionErrorCode.SYNTAX_ERROR,
             LuaExecutionFailurePhase.LOAD,
-            "Lua source contains a syntax error",
+            detail?.takeUnless { it.isBlank() } ?: "Lua source contains a syntax error",
         )
         LuaRunnerFailureKind.RUNTIME -> executionError(
             LuaExecutionErrorCode.RUNTIME_ERROR,
             LuaExecutionFailurePhase.EXECUTION,
-            "Lua execution failed",
+            detail?.takeUnless { it.isBlank() } ?: "Lua execution failed",
         )
         LuaRunnerFailureKind.MEMORY_LIMIT -> executionError(
             LuaExecutionErrorCode.MEMORY_LIMIT,

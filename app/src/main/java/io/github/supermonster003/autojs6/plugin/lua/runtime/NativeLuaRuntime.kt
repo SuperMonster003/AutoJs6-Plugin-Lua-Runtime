@@ -167,7 +167,7 @@ internal object NativeLuaExecutionRunner : LuaExecutionRunner {
         } catch (failure: NativeLuaExecutionException) {
             throw LuaRunnerException(
                 failure.kind.toRunnerFailureKind(),
-                "Native Lua execution failed",
+                "Native Lua execution failed: ${failure.message.orEmpty().ifBlank { "unknown error" }}",
                 failure,
             )
         } catch (failure: Throwable) {

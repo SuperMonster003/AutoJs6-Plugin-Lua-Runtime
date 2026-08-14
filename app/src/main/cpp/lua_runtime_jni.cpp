@@ -12,6 +12,7 @@
 #include <limits>
 #include <memory>
 #include <new>
+#include <string>
 
 #if defined(AUTOJS_LUA_DEBUG_FAULT_HARNESS)
 #include <thread>
@@ -40,6 +41,7 @@ constexpr uint32_t kMaxArgumentStringOrBytes = 64 * 1024;
 constexpr uint32_t kMaxArgumentMapKeyBytes = 1024;
 constexpr uint32_t kArgumentMagic = 0x41364C41U;  // A6LA
 constexpr uint8_t kArgumentVersion = 1U;
+constexpr size_t kMaxFailureMessageBytes = 256U;
 constexpr jlong kMaxMemoryBytes = 256LL * 1024LL * 1024LL;
 constexpr jlong kMaxTimeoutMillis = 10LL * 60LL * 1000LL;
 constexpr int kHookInstructionCount = 10'000;
@@ -488,6 +490,47 @@ int emit_autojs_console(lua_State* state, jint stream_wire_code) {
     return 0;
 }
 
+int autojs_console_print(lua_State* state) {
+    const int top = lua_gettop(state);
+    ExecutionControl* control = execution_control(state);
+    if (control == nullptr) {
+        return luaL_error(state, "AutoJs print bridge is unavailable");
+    }
+    if (!poll_execution_control(control)) {
+        return luaL_error(state, "AutoJs Lua execution interrupted");
+    }
+
+    std::string output;
+    output.reserve(top > 0 ? std::min<size_t>(kMaxOutputChunkBytes, static_cast<size_t>(top * 16)) : 1);
+    for (int index = 1; index <= top; ++index) {
+        size_t text_length = 0U;
+        const char* text = luaL_tolstring(state, index, &text_length);
+        if (text == nullptr) {
+            return luaL_error(state, "AutoJs console print value is not string-convertible");
+        }
+        if (!output.empty()) {
+            if (output.size() >= kMaxOutputChunkBytes) {
+                return luaL_error(state, "AutoJs console output is too large");
+            }
+            output.push_back('\t');
+        }
+        if (text_length > 0U) {
+            if (output.size() + text_length >= kMaxOutputChunkBytes) {
+                return luaL_error(state, "AutoJs console output is too large");
+            }
+            output.append(text, text_length);
+        }
+        lua_pop(state, 1);
+    }
+    if (output.size() + 1U > kMaxOutputChunkBytes) {
+        return luaL_error(state, "AutoJs console output is too large");
+    }
+    output.push_back('\n');
+    lua_settop(state, 0);
+    lua_pushlstring(state, output.data(), output.size());
+    return emit_autojs_console(state, 1);
+}
+
 int autojs_console_log(lua_State* state) {
     return emit_autojs_console(state, 1);
 }
@@ -881,6 +924,10 @@ int install_autojs_module(lua_State* state) {
         return luaL_error(state, "AutoJs argument bridge input is unavailable");
     }
     const auto* arguments = static_cast<const NativeArgumentView*>(lua_touserdata(state, 1));
+    lua_pushcfunction(state, autojs_console_print);
+    lua_setglobal(state, "print");
+    lua_pushcfunction(state, autojs_console_error);
+    lua_setglobal(state, "warn");
     lua_newtable(state);
     lua_newtable(state);
     lua_pushcfunction(state, autojs_console_log);
@@ -925,6 +972,21 @@ jobject fail(JNIEnv* environment, const char* kind, const char* message) {
     return nullptr;
 }
 
+std::string lua_to_string_or_fallback(
+    lua_State* state,
+    int stack_index,
+    const char* fallback) {
+    size_t text_length = 0U;
+    const char* text = lua_tolstring(state, stack_index, &text_length);
+    if (text == nullptr || text_length == 0U) {
+        return std::string(fallback);
+    }
+    if (text_length > kMaxFailureMessageBytes) {
+        text_length = kMaxFailureMessageBytes;
+    }
+    return std::string(text, text_length);
+}
+
 jobject fail_for_termination(JNIEnv* environment, TerminationReason reason) {
     switch (reason) {
         case TerminationReason::kCancelled:
@@ -943,17 +1005,38 @@ jobject fail_for_termination(JNIEnv* environment, TerminationReason reason) {
     return fail(environment, "INTERNAL", "Lua termination state is unknown");
 }
 
-jobject fail_for_lua_status(JNIEnv* environment, int status, bool loading) {
+jobject fail_for_lua_status(JNIEnv* environment, int status, bool loading, lua_State* state) {
     if (status == LUA_ERRMEM) {
         return fail(environment, "MEMORY_LIMIT", "Lua memory limit was exceeded");
     }
+    const auto detail = state == nullptr
+        ? "Lua execution failed inside a protected call"
+        : lua_to_string_or_fallback(
+            state,
+            -1,
+            loading
+                ? "Lua source could not be parsed as a text chunk"
+                : "Lua execution failed inside a protected call",
+        );
     if (loading && status == LUA_ERRSYNTAX) {
-        return fail(environment, "SYNTAX", "Lua source could not be parsed as a text chunk");
+        return fail(
+            environment,
+            "SYNTAX",
+            ("Lua source could not be parsed as a text chunk: " + detail).c_str(),
+        );
     }
     if (loading) {
-        return fail(environment, "INTERNAL", "Lua text loader failed");
+        return fail(
+            environment,
+            "INTERNAL",
+            ("Lua text loader failed: " + detail).c_str(),
+        );
     }
-    return fail(environment, "RUNTIME", "Lua execution failed inside a protected call");
+    return fail(environment, "RUNTIME", detail.c_str());
+}
+
+jobject fail_for_lua_status(JNIEnv* environment, int status, bool loading) {
+    return fail_for_lua_status(environment, status, loading, nullptr);
 }
 
 jobject fail_for_allocator_accounting(JNIEnv* environment) {
@@ -1252,7 +1335,7 @@ Java_io_github_supermonster003_autojs6_plugin_lua_runtime_NativeLuaRuntime_nativ
         return fail_for_allocator_accounting(environment);
     }
     if (status != LUA_OK) {
-        return fail_for_lua_status(environment, status, false);
+        return fail_for_lua_status(environment, status, false, state);
     }
     if (!poll_execution_control(&control)) {
         return fail_for_termination(environment, control.termination_reason);
@@ -1314,7 +1397,7 @@ Java_io_github_supermonster003_autojs6_plugin_lua_runtime_NativeLuaRuntime_nativ
         return fail_for_termination(environment, control.termination_reason);
     }
     if (status != LUA_OK) {
-        return fail_for_lua_status(environment, status, true);
+        return fail_for_lua_status(environment, status, true, state);
     }
 
     lua_sethook(state, execution_hook, LUA_MASKCOUNT, kHookInstructionCount);
@@ -1330,7 +1413,7 @@ Java_io_github_supermonster003_autojs6_plugin_lua_runtime_NativeLuaRuntime_nativ
         return fail_for_termination(environment, control.termination_reason);
     }
     if (status != LUA_OK) {
-        return fail_for_lua_status(environment, status, false);
+        return fail_for_lua_status(environment, status, false, state);
     }
     jobject result = box_lua_result(environment, state);
     const bool result_failed = environment->ExceptionCheck();

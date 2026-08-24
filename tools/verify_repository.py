@@ -752,10 +752,16 @@ def verify_input_workflows() -> None:
             'tasks.register("requireReleaseCandidate")',
             '"Release candidates require native=true, provider=true, and faultHarness=false"',
             '"Release candidates require a version name such as 0.1.0-rc.1"',
+            'val releaseArtifactTaskNames = setOf(',
+            '"packageReleaseUniversalApk"',
+            "task.name in releaseArtifactTaskNames",
             'dependsOn("requireReleaseCandidate")',
-            'task.name.startsWith("package")',
         ),
         "Explicit signed release-candidate gate",
+    )
+    require(
+        '"packageReleaseResources"' not in app_build,
+        "Release resource intermediates must remain available to the unsigned exclusion audit",
     )
     runnable_provider = (ROOT / "tools/build_runnable_provider.ps1").read_text("utf-8")
     require_tokens(
@@ -1587,8 +1593,27 @@ def verify_fault_harness_boundary() -> None:
             'buildConfigField("boolean", "LUA_FAULT_HARNESS_ENABLED", "false")',
             'resValue("bool", "lua_runtime_fault_harness_enabled", "false")',
             '"-DAUTOJS_LUA_DEBUG_FAULT_HARNESS=OFF"',
+            "task.name in releaseArtifactTaskNames",
         ),
         "Explicit debug fault-harness build gate",
+    )
+    release_artifact_tasks_match = re.search(
+        r"val releaseArtifactTaskNames = setOf\((.*?)\)",
+        build,
+        re.DOTALL,
+    )
+    require(release_artifact_tasks_match is not None, "Release artifact task gate is missing")
+    release_artifact_tasks = set(re.findall(r'"([A-Za-z0-9]+)"', release_artifact_tasks_match.group(1)))
+    require(
+        release_artifact_tasks
+        == {
+            "assembleRelease",
+            "bundleRelease",
+            "packageRelease",
+            "packageReleaseBundle",
+            "packageReleaseUniversalApk",
+        },
+        "Release artifact task gate either misses an artifact or blocks audit intermediates",
     )
 
     debug_manifest_path = ROOT / "app/src/debug/AndroidManifest.xml"

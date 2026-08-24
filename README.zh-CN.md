@@ -285,6 +285,9 @@ $faultArgs = @(
     -SdkRoot '<Android SDK 根目录>'
 ```
 
+release-candidate 门禁仍绑定实际 APK/AAB 制品任务。这里只允许生成无签名的编译、
+manifest、资源与原生中间产物，以便排除审计读取它们，但不会创建 release package。
+
 所需成功回执为 `RELEASE_VARIANT_FAULT_HARNESS_EXCLUSION_PASS`：debug 必须包含
 两个显式隔离服务和两个 fault JNI symbol，而 release BuildConfig、merged
 manifest、编译类以及两个 ABI 的原生输出必须将它们排除。在一次性设备上，还需

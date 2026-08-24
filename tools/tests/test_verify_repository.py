@@ -1089,6 +1089,15 @@ class FaultHarnessBoundaryTest(unittest.TestCase):
                 ),
             ),
             (
+                "release audit intermediate",
+                "app/build.gradle.kts",
+                lambda text: text.replace(
+                    '"packageReleaseUniversalApk",',
+                    '"packageReleaseResources",',
+                    1,
+                ),
+            ),
+            (
                 "unguarded native entry",
                 "app/src/main/cpp/lua_runtime_jni.cpp",
                 lambda text: text.replace(

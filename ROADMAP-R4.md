@@ -250,6 +250,13 @@ capability 注册表、PFD/deadline、CI cache/retry、fault checklist 与 SSOT 
 `tools/verify_local.ps1` 实测输出 `LOCAL_OFFLINE_GATE_PASS tests=49 ...
 network=disabled`。
 
+R4-F fault audit 修正 (2026-08-25): release-candidate Gradle guard 从笼统匹配
+所有 `package*Release*` 任务收窄到实际 APK/AAB 产物任务；因此无签名的
+`compileReleaseKotlin`、`processReleaseMainManifest`、`externalNativeBuildRelease`
+与其 `packageReleaseResources` 中间依赖可以为物理排除审计生成证据，而
+`assembleRelease`、`bundleRelease`、release APK/split package 仍强制经过
+`requireReleaseCandidate`。敌意用例会拒绝把 audit intermediate 重新纳入产物门禁。
+
 ## 执行顺序建议
 
 1. **R4-0 全部完成后再动其他区块** (它们是当前门禁红/绿的直接决定项)。

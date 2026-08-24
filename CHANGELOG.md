@@ -43,6 +43,9 @@ not published availability.
 - Added hanging-pipe source fail-stop/rebind coverage plus an isolated Binder
   peer process for independent callback/broker death; both debug services remain
   physically excluded from release variants.
+- Narrowed the release-candidate Gradle guard to actual APK/AAB artifact tasks,
+  allowing unsigned release intermediates to be generated for the fault-harness
+  exclusion audit while every publishable package remains guarded.
 
 ## 0.1.0-rc.1 — historical local candidate
 

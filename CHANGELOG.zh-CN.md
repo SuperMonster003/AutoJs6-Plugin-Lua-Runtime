@@ -33,6 +33,8 @@
   callback 死亡和 broker 死亡路径均精确恢复到同一基线。
 - 增加悬挂 pipe 源的 fail-stop/rebind 覆盖，以及用于 callback/broker 独立死亡的
   隔离 Binder peer 进程；两个 debug 服务均继续从 release 变体中物理排除。
+- 将 release-candidate Gradle 门禁收窄到实际 APK/AAB 制品任务，允许 fault-harness
+  排除审计生成无签名 release 中间产物，同时继续保护所有可发布 package。
 
 ## 0.1.0-rc.1 — 历史本地候选版本
 

@@ -306,11 +306,13 @@ tasks.register("requireReleaseCandidate") {
     }
 }
 
-tasks.matching { task ->
-    task.name.contains("Release") &&
-        (task.name.startsWith("assemble") ||
-            task.name.startsWith("bundle") ||
-            task.name.startsWith("package"))
-}.configureEach {
+val releaseArtifactTaskNames = setOf(
+    "assembleRelease",
+    "bundleRelease",
+    "packageRelease",
+    "packageReleaseBundle",
+    "packageReleaseUniversalApk",
+)
+tasks.matching { task -> task.name in releaseArtifactTaskNames }.configureEach {
     dependsOn("requireReleaseCandidate")
 }

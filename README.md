@@ -321,6 +321,10 @@ $faultArgs = @(
     -SdkRoot '<Android SDK root>'
 ```
 
+The release-candidate guard remains attached to actual APK/AAB artifact tasks.
+Only unsigned compile, manifest, resource, and native intermediates are admitted
+here so the exclusion audit can inspect them without creating a release package.
+
 The required success receipt is
 `RELEASE_VARIANT_FAULT_HARNESS_EXCLUSION_PASS`: debug must contain the two
 explicit isolated services and both fault JNI symbols, while release

@@ -164,8 +164,11 @@ was added. See [console-levels-decision.md](console-levels-decision.md).
   bounds Lua-owned memory. Metatable removal prevents user finalizers from
   making teardown infinite. A token-bound process-level cleanup watchdog now
   fail-stops the dedicated process after the request deadline or stop request
-  plus a two-second grace. Focused debug fault evidence covers kill, rebind,
-  new PID, and recovery; broader release validation remains deferred.
+  plus a two-second grace. Focused debug fault evidence now covers native
+  crash/wedge, a source pipe whose writer remains open, kill/rebind/new-PID
+  recovery, independent callback and broker process death, and exact return to
+  a warmed `/proc/self/fd` baseline after success, source failure, cancellation,
+  and peer-death batches. Broader release validation remains deferred.
 - The cancellation probe executes synchronously on the Lua worker thread and
   must remain non-blocking.
 - Native crashes and Android process rebuild remain deferred Android gates. ABI

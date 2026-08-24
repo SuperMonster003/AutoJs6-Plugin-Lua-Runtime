@@ -115,7 +115,7 @@ if (-not (Test-Path -LiteralPath $releaseManifest -PathType Leaf)) {
 Assert-CurrentInvocationOutput $releaseManifest
 $releaseManifestText = Get-Content -LiteralPath $releaseManifest -Raw
 if (
-    $releaseManifestText.Contains('LuaRuntimeFaultService') -or
+    $releaseManifestText.Contains('LuaRuntimeFault') -or
     $releaseManifestText.Contains('lua_runtime_fault_harness_enabled')
 ) {
     throw "Fault harness entered the release main merged manifest: $releaseManifest"
@@ -149,6 +149,25 @@ if (
     $faultIntentFilters.Count -ne 0
 ) {
     throw "Debug merged fault service isolation drift: $debugManifest"
+}
+$faultPeerServices = @($debugManifestDocument.manifest.application.service | Where-Object {
+    $_.GetAttribute('name', $androidNamespace) -in @(
+        '.debug.LuaRuntimeFaultPeerService',
+        'io.github.supermonster003.autojs6.plugin.lua.runtime.debug.LuaRuntimeFaultPeerService'
+    )
+})
+if ($faultPeerServices.Count -ne 1) {
+    throw "Debug merged fault peer service inventory drift: $debugManifest"
+}
+$faultPeerService = $faultPeerServices[0]
+$faultPeerIntentFilters = @($faultPeerService.SelectNodes('./intent-filter'))
+if (
+    $faultPeerService.GetAttribute('enabled', $androidNamespace) -ne '@bool/lua_runtime_fault_harness_enabled' -or
+    $faultPeerService.GetAttribute('exported', $androidNamespace) -ne 'false' -or
+    $faultPeerService.GetAttribute('process', $androidNamespace) -ne ':lua_fault_peer' -or
+    $faultPeerIntentFilters.Count -ne 0
+) {
+    throw "Debug merged fault peer service isolation drift: $debugManifest"
 }
 
 $releaseCompiledClasses = @(
@@ -261,6 +280,9 @@ $debugManifest = @(& $aapt dump xmltree $debugApk AndroidManifest.xml)
 if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect the packaged debug manifest' }
 if (@($debugManifest | Select-String 'LuaRuntimeFaultService').Count -ne 1) {
     throw 'Debug APK does not contain exactly one fault service'
+}
+if (@($debugManifest | Select-String 'LuaRuntimeFaultPeerService').Count -ne 1) {
+    throw 'Debug APK does not contain exactly one fault peer service'
 }
 
 $temporaryRoot = Join-Path ([IO.Path]::GetTempPath()) (

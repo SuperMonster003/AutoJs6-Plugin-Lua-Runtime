@@ -1596,18 +1596,24 @@ def verify_fault_harness_boundary() -> None:
     debug_application = debug_manifest.find("application")
     require(debug_application is not None, "Debug fault manifest has no application node")
     debug_services = debug_application.findall("service")
-    require(len(debug_services) == 1, "Debug fault service inventory drift")
-    service = debug_services[0]
-    require(
-        service.get(ANDROID + "name") == ".debug.LuaRuntimeFaultService"
-        and service.get(ANDROID + "enabled") == "@bool/lua_runtime_fault_harness_enabled"
-        and service.get(ANDROID + "exported") == "false"
-        and service.get(ANDROID + "process") == ":lua_runtime"
-        and not service.findall("intent-filter"),
-        "Debug fault service isolation or explicit-only binding drift",
-    )
+    expected_fault_services = {
+        ".debug.LuaRuntimeFaultService": ":lua_runtime",
+        ".debug.LuaRuntimeFaultPeerService": ":lua_fault_peer",
+    }
+    require(len(debug_services) == len(expected_fault_services), "Debug fault service inventory drift")
+    services_by_name = {service.get(ANDROID + "name"): service for service in debug_services}
+    require(set(services_by_name) == set(expected_fault_services), "Debug fault service names drift")
+    for name, process in expected_fault_services.items():
+        service = services_by_name[name]
+        require(
+            service.get(ANDROID + "enabled") == "@bool/lua_runtime_fault_harness_enabled"
+            and service.get(ANDROID + "exported") == "false"
+            and service.get(ANDROID + "process") == process
+            and not service.findall("intent-filter"),
+            f"Debug fault service isolation or explicit-only binding drift: {name}",
+        )
     main_manifest = (ROOT / "app/src/main/AndroidManifest.xml").read_text("utf-8")
-    require("LuaRuntimeFaultService" not in main_manifest, "Fault service entered the main manifest")
+    require("LuaRuntimeFault" not in main_manifest, "Fault service entered the main manifest")
     release_root = ROOT / "app/src/release"
     if release_root.exists():
         release_text = "\n".join(
@@ -1635,6 +1641,8 @@ def verify_fault_harness_boundary() -> None:
             "else -> NativeLuaExecutionRunner.execute(request)",
             "LuaRuntimeFaultProcessEpoch.nonce",
             "Application.getProcessName()",
+            "TRANSACTION_OPEN_FD_COUNT",
+            'File("/proc/self/fd").list()',
         ),
         "Fault harness production-session route",
     )
@@ -1645,6 +1653,27 @@ def verify_fault_harness_boundary() -> None:
         "NativeLuaRuntime.execute(",
     ):
         require(bypass not in service_text, f"Fault harness bypasses the production session route: {bypass}")
+
+    peer_service_text = (
+        ROOT
+        / "app/src/debug/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/LuaRuntimeFaultPeerService.kt"
+    ).read_text("utf-8")
+    require_tokens(
+        peer_service_text,
+        (
+            "check(BuildConfig.DEBUG && BuildConfig.LUA_FAULT_HARNESS_ENABLED)",
+            "check(BuildConfig.LUA_NATIVE_ENABLED && !BuildConfig.LUA_PROVIDER_ENABLED)",
+            "object : ILuaExecutionCallback.Stub()",
+            "object : ILuaHostCapabilityBroker.Stub()",
+            "Binder.getCallingUid() == Process.myUid()",
+            "writeStrongBinder(callback)",
+            "writeStrongBinder(broker)",
+            "mainHandler.post { Process.killProcess(Process.myPid()) }",
+            "TRANSACTION_SNAPSHOT",
+            "TRANSACTION_KILL",
+        ),
+        "Debug-only independent Binder peer",
+    )
 
     native_wrapper = (
         ROOT
@@ -1693,6 +1722,8 @@ def verify_fault_harness_boundary() -> None:
         (
             "nativeCrashCausesBinderDeathAndRecoversInANewProcess",
             "nativeWedgeIsKilledByWatchdogAndRecoversInANewProcess",
+            "osFileDescriptorsReturnToBaselineAcrossTerminalAndPeerDeathPaths",
+            "hangingPipeSourceIsFailStoppedAndRecoversInANewProcess",
             "assertFalse(BuildConfig.LUA_PROVIDER_ENABLED)",
             "assertProductionProvidersDisabled(context)",
             'assertNotEquals("The fault harness did not enter a remote process", Process.myPid()',
@@ -1710,8 +1741,19 @@ def verify_fault_harness_boundary() -> None:
             "assertCompletedOnce()",
             'assertNotEquals("The Lua runtime process nonce did not change"',
             "assertEquals(7L, executeReturnSeven(context, recovered.client.provider()))",
+            "ParcelFileDescriptor.createPipe()",
+            "pipe[1].close()",
+            "BLOCKED_SOURCE_MAX_ELAPSED_MILLIS",
+            "openFileDescriptorCount()",
+            "FD_BATCH_REPETITIONS",
+            "executeDigestMismatch(context, provider)",
+            "executeCancellation(context, provider)",
+            "PeerRole.CALLBACK",
+            "PeerRole.BROKER",
+            "peer.client.killProcess()",
+            "awaitOpenFileDescriptorCount(runtime.client, fdBaseline)",
         ),
-        "Native fault recovery instrumentation",
+        "Native fault, FD, blocked-source, and peer-death instrumentation",
     )
 
     artifact_gate = (ROOT / "tools/verify_fault_harness_artifacts.ps1").read_text("utf-8")
@@ -1729,6 +1771,9 @@ def verify_fault_harness_boundary() -> None:
             "x86_64",
             "NativeLuaFaults_nativeCrash",
             "NativeLuaFaults_nativeWedge",
+            "LuaRuntimeFaultPeerService",
+            ".Contains('LuaRuntimeFault')",
+            "':lua_fault_peer'",
             "RELEASE_VARIANT_FAULT_HARNESS_EXCLUSION_PASS",
         ),
         "Release fault-harness physical exclusion gate",

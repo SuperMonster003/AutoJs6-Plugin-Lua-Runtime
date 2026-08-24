@@ -1025,6 +1025,7 @@ class FaultHarnessBoundaryTest(unittest.TestCase):
         "app/src/main/cpp/lua_runtime_jni.cpp",
         "app/src/debug/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/NativeLuaFaults.kt",
         "app/src/debug/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/LuaRuntimeFaultService.kt",
+        "app/src/debug/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/LuaRuntimeFaultPeerService.kt",
         "app/src/androidTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/LuaRuntimeFaultRecoveryInstrumentationTest.kt",
         "tools/verify_fault_harness_artifacts.ps1",
     )
@@ -1053,6 +1054,39 @@ class FaultHarnessBoundaryTest(unittest.TestCase):
                 "manager bypass",
                 "app/src/debug/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/LuaRuntimeFaultService.kt",
                 lambda text: text.replace("executionManager.create(", "bypass.create(", 1),
+            ),
+            (
+                "peer process isolation",
+                "app/src/debug/AndroidManifest.xml",
+                lambda text: text.replace(
+                    'android:process=":lua_fault_peer"',
+                    'android:process=":lua_runtime"',
+                    1,
+                ),
+            ),
+            (
+                "peer kill control",
+                "app/src/debug/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/LuaRuntimeFaultPeerService.kt",
+                lambda text: text.replace(
+                    "mainHandler.post { Process.killProcess(Process.myPid()) }",
+                    "Unit",
+                    1,
+                ),
+            ),
+            (
+                "blocked pipe evidence",
+                "app/src/androidTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/"
+                "LuaRuntimeFaultRecoveryInstrumentationTest.kt",
+                lambda text: text.replace("ParcelFileDescriptor.createPipe()", "emptyArray()", 1),
+            ),
+            (
+                "release peer exclusion",
+                "tools/verify_fault_harness_artifacts.ps1",
+                lambda text: text.replace(
+                    ".Contains('LuaRuntimeFault')",
+                    ".Contains('LuaRuntimeFaultService')",
+                    1,
+                ),
             ),
             (
                 "unguarded native entry",

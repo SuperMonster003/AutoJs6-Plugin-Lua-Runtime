@@ -37,6 +37,12 @@ not published availability.
 - Specified a design-only, non-advertised `storage.kv.v1` contract with stable
   script-principal isolation, bounded keys/values/operations, atomic Host-side
   persistence, explicit clear semantics, and no Provider mutation retries.
+- Added debug-only remote `/proc/self/fd` accounting and proved exact baseline
+  recovery across batched success, digest-failure, cancellation, callback-death,
+  and broker-death paths.
+- Added hanging-pipe source fail-stop/rebind coverage plus an isolated Binder
+  peer process for independent callback/broker death; both debug services remain
+  physically excluded from release variants.
 
 ## 0.1.0-rc.1 — historical local candidate
 

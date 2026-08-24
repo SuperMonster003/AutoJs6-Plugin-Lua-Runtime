@@ -322,13 +322,15 @@ $faultArgs = @(
 ```
 
 The required success receipt is
-`RELEASE_VARIANT_FAULT_HARNESS_EXCLUSION_PASS`: debug must contain the isolated
-service and both fault JNI symbols, while release BuildConfig, merged manifest,
-compiled classes, and both ABI native outputs must exclude them. On a disposable
-device, separately run `LuaRuntimeFaultRecoveryInstrumentationTest` with
-`native=true`, `provider=false`, and `faultHarness=true`; its crash/wedge,
-Binder-death, new-PID, and post-recovery execution assertions are device evidence
-and are not implied by the artifact receipt.
+`RELEASE_VARIANT_FAULT_HARNESS_EXCLUSION_PASS`: debug must contain the two
+explicit isolated services and both fault JNI symbols, while release
+BuildConfig, merged manifest, compiled classes, and both ABI native outputs must
+exclude them. On a disposable device, separately run
+`LuaRuntimeFaultRecoveryInstrumentationTest` with `native=true`,
+`provider=false`, and `faultHarness=true`; its crash/wedge and blocked-pipe
+fail-stop, exact remote `/proc/self/fd` baseline, independent callback/broker
+death, new-PID, and post-recovery execution assertions are device evidence and
+are not implied by the artifact receipt.
 
 ## License
 

@@ -60,7 +60,7 @@ APK/ABI、16 KiB ZIP/ELF 对齐、签名与 packaged gates。
   完成判据: 新增 JVM 账目测试 (计数进/出严格配平); 现有
   `LuaRuntimeExecutionManager` 的 `finally { source?.close() }` 与
   `LuaParcelFileExecutionSource` 双重关闭路径均有断言。
-- [ ] **OS 级 FD 泄漏证据**。在 androidTest 中于批量执行前后对比
+- [x] **OS 级 FD 泄漏证据**。在 androidTest 中于批量执行前后对比
   `/proc/self/fd` 计数 (含故意失败、取消、回调死亡各路径)。
   完成判据: 仪器测试断言 FD 计数回落到基线; 用例并入故障恢复矩阵。
 - [x] **极小 deadline 与 oneway start 竞争**。R3 记录: 极小请求超时可能在
@@ -68,7 +68,7 @@ APK/ABI、16 KiB ZIP/ELF 对齐、签名与 packaged gates。
   `expireIfNotStarted` 的 TIMEOUT 终态, 不得出现无终态会话)。
   完成判据: JVM 测试固定 1ms deadline + 延迟 start, 断言唯一终态与
   watchdog 租约释放。
-- [ ] **阻塞型非常规源 FD 的敌意遏制**。宿主传入 pipe/socket 等阻塞 FD 时,
+- [x] **阻塞型非常规源 FD 的敌意遏制**。宿主传入 pipe/socket 等阻塞 FD 时,
   读取阶段必须受 deadline/watchdog 约束而非无限阻塞。
   完成判据: androidTest 用 pipe 写端悬挂构造阻塞读, 断言在 deadline +
   宽限期内进程被 fail-stop 或会话进入 TIMEOUT 终态。
@@ -86,7 +86,17 @@ R4-A 本地账目/竞争证据 (2026-08-24): JVM 套件新增四条 PFD 逻辑�
 Host callback payload 与 V1 零返回 payload，所有分类进/出严格配平；Android
 测试另直接断言非法 Host payload 的真实 PFD 已关闭。1ms deadline + 延迟
 `start()` 固定产生唯一 `TIMEOUT/QUEUE` 终态，并释放未派发的 watchdog 与
-start lease。OS 级 FD、阻塞 pipe 与更广对端死亡仍由下方未勾选项承接。
+start lease。更广对端死亡仍由下方未勾选项承接。
+
+R4-A 设备 FD/阻塞源证据 (2026-08-25): debug-only fault control Binder 在真实
+`:lua_runtime` 进程读取 `/proc/self/fd`；热身后固定基线，随后 4 轮成功执行与
+digest 失败、主动取消、callback 独立进程死亡、broker 独立进程死亡均清理到
+完全相同的 OS FD 数量，且两类 peer 死亡不会替换或误杀健康 runtime。另以
+`ParcelFileDescriptor.createPipe()` 保持写端悬挂，证明 source validation 阶段
+阻塞读会被已派发 watchdog 在 deadline + 2 秒 cleanup grace 后 fail-stop；重绑
+获得新 PID/nonce，并再次成功执行 `return 7`。完整 fault instrumentation 4/4
+已在 API 37 x86_64 `emulator-5554` 通过。更广矩阵中的 callback/broker 独立死亡
+已有证据；宿主 update/uninstall 仍待真实宿主生命周期批次，因此该项保持未勾选。
 
 R4-A 本地化证据 (2026-08-24): `localization/locales.json` 声明恰好十个语言
 槽位，当前仅 `en`/`zh-CN` 为 `humanReviewed` active source；其余八个 planned

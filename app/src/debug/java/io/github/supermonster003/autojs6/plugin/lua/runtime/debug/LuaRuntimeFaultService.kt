@@ -93,6 +93,12 @@ class LuaRuntimeFaultService : Service() {
                         writeStrongBinder(runtimeProvider)
                     }
                 }
+                LuaRuntimeFaultProtocol.TRANSACTION_OPEN_FD_COUNT -> {
+                    checkNotNull(reply).apply {
+                        writeNoException()
+                        writeInt(openFileDescriptorCount())
+                    }
+                }
             }
             return true
         }
@@ -175,6 +181,10 @@ class LuaRuntimeFaultService : Service() {
             ?: error("The debug Lua fault process is running on an unpackaged ABI")
     }
 
+    private fun openFileDescriptorCount(): Int = checkNotNull(File("/proc/self/fd").list()) {
+        "The debug Lua runtime could not inspect /proc/self/fd"
+    }.size
+
     @Suppress("DEPRECATION")
     private fun currentProcessName(): String = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
         Application.getProcessName()
@@ -223,8 +233,9 @@ object LuaRuntimeFaultProtocol {
         "io.github.supermonster003.autojs6.plugin.lua.runtime.debug.LuaRuntimeFaultService"
     const val TRANSACTION_IDENTITY = IBinder.FIRST_CALL_TRANSACTION
     const val TRANSACTION_PROVIDER = IBinder.FIRST_CALL_TRANSACTION + 1
+    const val TRANSACTION_OPEN_FD_COUNT = IBinder.FIRST_CALL_TRANSACTION + 2
     const val FIRST_TRANSACTION = TRANSACTION_IDENTITY
-    const val LAST_TRANSACTION = TRANSACTION_PROVIDER
+    const val LAST_TRANSACTION = TRANSACTION_OPEN_FD_COUNT
 }
 
 private val FAULT_CRASH_SOURCE = "-- AUTOJS_DEBUG_NATIVE_CRASH".toByteArray(Charsets.UTF_8)

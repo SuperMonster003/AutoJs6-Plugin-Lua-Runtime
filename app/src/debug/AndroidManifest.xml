@@ -7,6 +7,11 @@
             android:enabled="@bool/lua_runtime_fault_harness_enabled"
             android:exported="false"
             android:process=":lua_runtime" />
+        <service
+            android:name=".debug.LuaRuntimeFaultPeerService"
+            android:enabled="@bool/lua_runtime_fault_harness_enabled"
+            android:exported="false"
+            android:process=":lua_fault_peer" />
     </application>
 
 </manifest>

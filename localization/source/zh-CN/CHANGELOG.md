@@ -25,6 +25,10 @@
   并从 `DENIED` 稳定映射为 `HOST_CAPABILITY`。
 - 形成仅设计且不广告的 `storage.kv.v1` 契约，固定稳定脚本 principal 隔离、有界
   键/值/操作、Host 侧原子持久化、显式清除语义，以及 Provider 不重试 mutation。
+- 增加仅限 debug 的远端 `/proc/self/fd` 记账，证明批量成功、digest 失败、取消、
+  callback 死亡和 broker 死亡路径均精确恢复到同一基线。
+- 增加悬挂 pipe 源的 fail-stop/rebind 覆盖，以及用于 callback/broker 独立死亡的
+  隔离 Binder peer 进程；两个 debug 服务均继续从 release 变体中物理排除。
 
 ## 0.1.0-rc.1 — 历史本地候选版本
 

@@ -282,11 +282,12 @@ $faultArgs = @(
 ```
 
 所需成功回执为 `RELEASE_VARIANT_FAULT_HARNESS_EXCLUSION_PASS`：debug 必须包含
-隔离服务和两个 fault JNI symbol，而 release BuildConfig、merged manifest、
-编译类以及两个 ABI 的原生输出必须将它们排除。在一次性设备上，还需单独以
-`native=true`、`provider=false`、`faultHarness=true` 运行
-`LuaRuntimeFaultRecoveryInstrumentationTest`；其中的 crash/wedge、Binder
-死亡、新 PID 与恢复后执行断言才是设备证据，不能由制品回执替代。
+两个显式隔离服务和两个 fault JNI symbol，而 release BuildConfig、merged
+manifest、编译类以及两个 ABI 的原生输出必须将它们排除。在一次性设备上，还需
+单独以 `native=true`、`provider=false`、`faultHarness=true` 运行
+`LuaRuntimeFaultRecoveryInstrumentationTest`；其中的 crash/wedge 与阻塞 pipe
+fail-stop、远端 `/proc/self/fd` 精确基线、callback/broker 独立死亡、新 PID 与
+恢复后执行断言才是设备证据，不能由制品回执替代。
 
 ## 许可证
 

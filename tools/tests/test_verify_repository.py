@@ -268,6 +268,7 @@ class R4DesignRecordTest(unittest.TestCase):
         "docs/safe-standard-library-subset.md",
         "docs/module-snapshot-v2.md",
         "docs/console-levels-decision.md",
+        "docs/storage-kv-v1.md",
         "protocol/protocol-artifacts.lock.json",
         "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/LuaProviderMetadata.kt",
     )
@@ -313,7 +314,7 @@ class R4DesignRecordTest(unittest.TestCase):
             ),
             (
                 "frozen protocol identity",
-                self.FILES[5],
+                self.FILES[6],
                 lambda text: text.replace(
                     "3b7378758c5a4f68e8680a78cf2c541c23628489",
                     "1111111111111111111111111111111111111111",
@@ -347,6 +348,20 @@ class R4DesignRecordTest(unittest.TestCase):
                 "console stream inventory",
                 self.FILES[4],
                 lambda text: text.replace("exactly `STDOUT` and `STDERR`", "additional local streams", 1),
+            ),
+            (
+                "storage principal isolation",
+                self.FILES[5],
+                lambda text: text.replace(
+                    "single Host-wide or Provider-wide namespace is forbidden",
+                    "a single shared namespace is allowed",
+                    1,
+                ),
+            ),
+            (
+                "storage mutation retry",
+                self.FILES[5],
+                lambda text: text.replace("Provider never retries", "Provider retries mutations", 1),
             ),
         )
         for label, relative, mutate in mutations:

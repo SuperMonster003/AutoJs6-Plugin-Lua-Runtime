@@ -152,10 +152,10 @@ R4-B 工具/模块证据 (2026-08-24):
   长度上限, 频率限制 (每执行 N 次), Binder 单次派发不重试。
   完成判据: 与 `device.info` 相同规格的 fixed-shape 桥 + 校验器 +
   仪器冒烟; capability 出现在 `LuaProviderMetadata.capabilities`。
-- [ ] **`storage` 键值能力草案 (`storage.kv.v1`)**。执行间持久化的
+- [x] **`storage` 键值能力草案 (`storage.kv.v1`)**。执行间持久化的
   受控 KV: 键 ASCII 白名单、值走既有 LuaValue 配额、宿主侧落盘。
   完成判据: 能力设计文档 (含配额与清除策略); 实现另立勾选项。
-- [ ] **能力协商回归矩阵**。宿主未授予某 capability 时, 脚本调用对应 API
+- [x] **能力协商回归矩阵**。宿主未授予某 capability 时, 脚本调用对应 API
   必须得到确定性 DENIED 错误而非挂起或崩溃。
   完成判据: 对每个已注册 capability 各一条 JVM 测试 (授予/未授予两态)。
 
@@ -164,6 +164,15 @@ R4-C console 证据 (2026-08-24): `docs/console-levels-decision.md` 选择不扩
 `STDERR/2`。JNI 使用命名 wire 常量，JVM 用例固定协议仍恰好只有两个 stream，
 原生 instrumentation 在同一 16 KiB x86_64 模拟器覆盖四个 `autojs.console`
 名称的有序双流输出；现有序列、credit、分块与总量门禁不变。
+
+R4-C capability/storage 证据 (2026-08-25): 当前 Provider metadata 中已注册的
+`device.info` 与 `module.snapshot.v1` 各由一条 1 秒超时 JVM 用例同时覆盖授予和
+拒绝；默认拒绝器稳定产生 `DENIED`，JNI bridge 记录固定 rejected wire 值 `3`，
+不挂起也不降级。原生 instrumentation 另覆盖 `device.info` 未授予时映射为
+`HOST_CAPABILITY`；模块未授予路径沿用相同终态映射。`docs/storage-kv-v1.md`
+冻结 Host 侧持久化与稳定脚本 principal 隔离、64-byte ASCII key、每 principal
+256 keys/2 MiB、每执行 64 次操作/32 次 mutation、清除语义，以及 mutation 禁止
+Provider 重试；该能力仍是 design-only，未进入 Kotlin/JNI 或 Provider metadata。
 
 ## R4-D — 可观测性与诊断
 

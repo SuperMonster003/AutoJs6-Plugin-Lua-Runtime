@@ -214,6 +214,13 @@ class NativeLuaRuntimeInstrumentationTest {
 
         assertEquals(LuaValue.StringValue("AutoJs|NativeTest|36"), value)
         assertEquals(1, calls)
+
+        val denial = assertThrows(LuaRunnerException::class.java) {
+            NativeLuaExecutionRunner.execute(
+                runnerRequest("return require('autojs').device.info()"),
+            )
+        }
+        assertEquals(LuaRunnerFailureKind.HOST_CAPABILITY, denial.kind)
     }
 
     @Test

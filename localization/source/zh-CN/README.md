@@ -137,7 +137,9 @@ string。`now()` 无需 Host 调用，返回有符号 64 位 Unix epoch 毫秒�
 路径。`console.info` 映射 stdout，`console.warn` 映射 stderr，因此六个输出入口
 都保留已有的序列、credit、分块与总输出上限，不增加 wire stream。平面 ASCII
 模块名还可通过固定的 `module.snapshot.v1` capability 解析为执行本地 UTF-8 文本
-快照。路径/package 搜索、二进制模块和动态 C 模块仍不可用。
+快照。路径/package 搜索、二进制模块和动态 C 模块仍不可用。两个已注册 Host
+capability 都有 Android-free 的授予/拒绝回归覆盖；缺少授权时会稳定终止为
+`DENIED`/`HOST_CAPABILITY`。
 
 进程级 watchdog 绑定到每个获准执行的 token。它只在 worker 即将派发前启动，
 在 cancel、close 或 callback 死亡时缩短宽限期，并在正常结束时清除 token。如果
@@ -163,7 +165,10 @@ R4 继续保持 Lua 层 `pcall` 和 `xpcall` 不可用；审阅后的理由与�
 在 [`docs/safe-standard-library-subset.md`](docs/safe-standard-library-subset.md)
 和 [`docs/console-levels-decision.md`](docs/console-levels-decision.md)。点分模块名、
 聚合源码配额与缓存指标仅作为不广告能力的 V2 提案记录在
-[`docs/module-snapshot-v2.md`](docs/module-snapshot-v2.md)。
+[`docs/module-snapshot-v2.md`](docs/module-snapshot-v2.md)。持久化、按 principal
+隔离的 KV 提案仅作为设计记录在
+[`docs/storage-kv-v1.md`](docs/storage-kv-v1.md)；目前不广告 storage capability
+或 Lua API。
 
 仓库 JVM 套件的准确数量只在 `verification.properties` 中声明一次，本地、CI、
 debug 制品和 release 制品门禁都从这里读取。原生、Binder/PFD、进程恢复与

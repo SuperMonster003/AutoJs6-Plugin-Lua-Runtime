@@ -27,6 +27,12 @@ not published availability.
   names, aggregate per-execution quotas, and cache metrics.
 - Corrected the native instrumentation expectation for an unavailable Host
   module capability from a Lua runtime error to `HOST_CAPABILITY`.
+- Added symmetric grant/deny JVM coverage for every registered Host capability;
+  rejected grants remain bounded and map through `DENIED` to
+  `HOST_CAPABILITY`.
+- Specified a design-only, non-advertised `storage.kv.v1` contract with stable
+  script-principal isolation, bounded keys/values/operations, atomic Host-side
+  persistence, explicit clear semantics, and no Provider mutation retries.
 
 ## 0.1.0-rc.1 — historical local candidate
 

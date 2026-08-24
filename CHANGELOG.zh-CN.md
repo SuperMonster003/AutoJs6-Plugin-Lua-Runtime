@@ -25,6 +25,10 @@
   与缓存指标。
 - 将 Host 模块 capability 不可用时的原生 instrumentation 预期从 Lua runtime
   错误修正为 `HOST_CAPABILITY`。
+- 为所有已注册 Host capability 增加对称的授予/拒绝 JVM 覆盖；拒绝路径保持有界，
+  并从 `DENIED` 稳定映射为 `HOST_CAPABILITY`。
+- 形成仅设计且不广告的 `storage.kv.v1` 契约，固定稳定脚本 principal 隔离、有界
+  键/值/操作、Host 侧原子持久化、显式清除语义，以及 Provider 不重试 mutation。
 
 ## 0.1.0-rc.1 — 历史本地候选版本
 

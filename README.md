@@ -158,7 +158,9 @@ to stdout and `console.warn` maps to stderr, so all six output entry points
 retain the existing sequence, credit, chunk, and total-output limits without a
 new wire stream. Flat ASCII module names may additionally resolve through the
 fixed `module.snapshot.v1` capability to execution-local UTF-8 text snapshots.
-Path/package search and binary or dynamic C modules remain unavailable.
+Path/package search and binary or dynamic C modules remain unavailable. Both
+registered Host capabilities have Android-free grant/deny regression coverage;
+a missing grant terminates deterministically as `DENIED`/`HOST_CAPABILITY`.
 
 A process-wide watchdog is bound to each admitted execution token. It arms only
 immediately before worker dispatch, shortens its grace window on cancel, close,
@@ -190,7 +192,10 @@ boundary. The reviewed utility subset and console mapping are recorded in
 and [`docs/console-levels-decision.md`](docs/console-levels-decision.md).
 Dotted module names, aggregate source quotas, and cache metrics are specified
 only as a non-advertised V2 proposal in
-[`docs/module-snapshot-v2.md`](docs/module-snapshot-v2.md).
+[`docs/module-snapshot-v2.md`](docs/module-snapshot-v2.md). A persistent,
+principal-isolated KV proposal is design-only in
+[`docs/storage-kv-v1.md`](docs/storage-kv-v1.md); no storage capability or Lua
+API is advertised.
 
 The exact repository JVM-suite count is declared once in
 `verification.properties`; local, CI, debug-artifact, and release-artifact

@@ -2,6 +2,8 @@ package io.github.supermonster003.autojs6.plugin.lua.runtime
 
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaOutputEmitter
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaCancellationProbe
+import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaHostCapabilityException
+import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaHostCapabilityFailureKind
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaHostCapabilityInvoker
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaRunnerRequest
 import org.autojs.plugin.lua.runtime.api.LuaOutputStream
@@ -177,8 +179,8 @@ class NativeLuaRuntimeBoundaryTest {
         assertEquals(NativeLuaFailureKind.CANCELLED, cancelled.kind)
     }
 
-    @Test
-    fun deviceInfoBridgeUsesOneFixedCapabilityAndExactEmptyArguments() {
+    @Test(timeout = 1_000L)
+    fun deviceInfoCapabilityGrantAndDenialStayDeterministic() {
         val expected = deviceInfo()
         var observedCapability: String? = null
         var observedArguments: LuaValue? = null
@@ -201,6 +203,23 @@ class NativeLuaRuntimeBoundaryTest {
         assertEquals("device.info", observedCapability)
         assertEquals(emptyMap<String, LuaValue>(), (observedArguments as LuaValue.MapValue).values)
         assertArrayEquals(NativeLuaArgumentCodec.encode(expected), encoded)
+
+        val deniedBridge = NativeLuaHostCapabilityBridge(
+            LuaRunnerRequest(
+                sourceUtf8 = "return 1".toByteArray(),
+                sourceName = "device-info-denied.lua",
+                arguments = LuaValue.Nil,
+                memoryLimitBytes = LuaRuntimeContract.DEFAULT_MEMORY_BYTES,
+                timeoutMillis = LuaRuntimeContract.DEFAULT_TIMEOUT_MILLIS,
+                cancellationProbe = LuaCancellationProbe { false },
+                hostCapabilityInvoker = LuaHostCapabilityInvoker.REJECTING,
+            ),
+        )
+        val denial = assertThrows(LuaHostCapabilityException::class.java) {
+            deniedBridge.invokeDeviceInfo()
+        }
+        assertEquals(LuaHostCapabilityFailureKind.DENIED, denial.kind)
+        assertEquals(HOST_FAILURE_REJECTED, deniedBridge.takeFailureKind())
     }
 
     @Test
@@ -217,8 +236,8 @@ class NativeLuaRuntimeBoundaryTest {
         }
     }
 
-    @Test
-    fun moduleSnapshotBridgeUsesOneFixedCapabilityAndRejectsInvalidPayloads() {
+    @Test(timeout = 1_000L)
+    fun moduleSnapshotCapabilityGrantAndDenialStayDeterministic() {
         val observedNames = mutableListOf<String>()
         val runnerRequest = LuaRunnerRequest(
             sourceUtf8 = "return 1".toByteArray(),
@@ -275,6 +294,23 @@ class NativeLuaRuntimeBoundaryTest {
             bridge.loadModule("nested.name".toByteArray())
         }
         assertEquals(listOf("helper", "missing", "bad", "digest"), observedNames)
+
+        val deniedBridge = NativeLuaHostCapabilityBridge(
+            LuaRunnerRequest(
+                sourceUtf8 = "return 1".toByteArray(),
+                sourceName = "module-snapshot-denied.lua",
+                arguments = LuaValue.Nil,
+                memoryLimitBytes = LuaRuntimeContract.DEFAULT_MEMORY_BYTES,
+                timeoutMillis = LuaRuntimeContract.DEFAULT_TIMEOUT_MILLIS,
+                cancellationProbe = LuaCancellationProbe { false },
+                hostCapabilityInvoker = LuaHostCapabilityInvoker.REJECTING,
+            ),
+        )
+        val denial = assertThrows(LuaHostCapabilityException::class.java) {
+            deniedBridge.loadModule("helper".toByteArray())
+        }
+        assertEquals(LuaHostCapabilityFailureKind.DENIED, denial.kind)
+        assertEquals(HOST_FAILURE_REJECTED, deniedBridge.takeFailureKind())
     }
 
     private fun request(
@@ -303,4 +339,8 @@ class NativeLuaRuntimeBoundaryTest {
             "sdkInt" to LuaValue.Int64Value(36L),
         ),
     )
+
+    private companion object {
+        const val HOST_FAILURE_REJECTED = 3
+    }
 }

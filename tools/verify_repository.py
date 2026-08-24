@@ -694,6 +694,40 @@ def verify_r4_design_records() -> None:
         "R4 console level decision",
     )
 
+    storage_design = (ROOT / "docs/storage-kv-v1.md").read_text("utf-8")
+    require(
+        isinstance(source_revision, str) and source_revision in storage_design,
+        "Storage KV V1 design does not identify the frozen protocol revision",
+    )
+    require_tokens(
+        storage_design,
+        (
+            "Status: **DESIGN ONLY — NOT IMPLEMENTED OR ADVERTISED**",
+            "`storage.kv.v1`",
+            "Host's stable logical script principal",
+            "single Host-wide or Provider-wide namespace is forbidden",
+            "`[A-Za-z_][A-Za-z0-9._-]{0,63}`",
+            'get     -> {op="get", key=string}',
+            'put     -> {op="put", key=string, value=LuaValue}',
+            'clear       -> {removedCount=int64}',
+            "maximum depth 32",
+            "maximum 4,096 nodes",
+            "at most 256 keys per principal",
+            "at most 2 MiB of canonical encoded key/value bytes per principal",
+            "at most 64 storage operations per execution",
+            "at most 32 mutations",
+            "Provider never retries",
+            "## Clear and retention policy",
+            "deterministic `DENIED` / `HOST_CAPABILITY` path",
+            "no `STORAGE_KV_CAPABILITY`",
+        ),
+        "R4 storage KV V1 design",
+    )
+    require(
+        "storage.kv.v1" not in metadata and "STORAGE_KV_CAPABILITY" not in metadata,
+        "Design-only storage KV capability was advertised before implementation",
+    )
+
 
 def verify_input_workflows() -> None:
     expected_jvm_test_count()
@@ -1108,8 +1142,11 @@ def verify_native_boundary() -> None:
     require(
         "module.snapshot.v2" not in kotlin_boundary
         and "MODULE_SNAPSHOT_V2_CAPABILITY" not in kotlin_boundary
-        and "module.snapshot.v2" not in native,
-        "Design-only module snapshot V2 entered the implementation",
+        and "module.snapshot.v2" not in native
+        and "storage.kv.v1" not in kotlin_boundary
+        and "STORAGE_KV_CAPABILITY" not in kotlin_boundary
+        and "storage.kv.v1" not in native,
+        "A design-only Host capability entered the implementation",
     )
     proguard_rules = (ROOT / "app/proguard-rules.pro").read_text("utf-8")
     require(
@@ -1179,8 +1216,24 @@ def verify_native_boundary() -> None:
             "enumValues<LuaOutputStream>().toList()",
             "assertEquals(1, LuaOutputStream.STDOUT.wireCode)",
             "assertEquals(2, LuaOutputStream.STDERR.wireCode)",
+            "deviceInfoCapabilityGrantAndDenialStayDeterministic",
+            "moduleSnapshotCapabilityGrantAndDenialStayDeterministic",
+            "LuaHostCapabilityFailureKind.DENIED",
+            "HOST_FAILURE_REJECTED = 3",
         ),
-        "Console two-stream JVM boundary",
+        "Console and Host-capability JVM boundary",
+    )
+    require(
+        boundary_tests.count("hostCapabilityInvoker = LuaHostCapabilityInvoker.REJECTING") == 2
+        and boundary_tests.count(
+            "assertEquals(LuaHostCapabilityFailureKind.DENIED, denial.kind)"
+        )
+        == 2
+        and boundary_tests.count(
+            "assertEquals(HOST_FAILURE_REJECTED, deniedBridge.takeFailureKind())"
+        )
+        == 2,
+        "Registered Host capabilities lack symmetric grant/denial JVM evidence",
     )
     for capability in advertised_capabilities:
         for token in capability_boundaries[capability][:-1]:
@@ -1505,6 +1558,8 @@ def verify_native_android_test_boundary() -> None:
             "assertEquals(LuaRunnerFailureKind.HOST_CAPABILITY, deniedModuleCapability.kind)",
             "nativeRunnerMapsV1ArgumentsIntoTheControlledAutoJsModule",
             "nativeRunnerLoadsFrozenModulesOnceAndRejectsDependencyCycles",
+            "runnerRequest(\"return require('autojs').device.info()\")",
+            "assertEquals(LuaRunnerFailureKind.HOST_CAPABILITY, denial.kind)",
             "syntaxAndRuntimeErrorsAreClassified",
             "infiniteLoopIsCancelledByHook",
             "infiniteLoopHonoursDeadline",

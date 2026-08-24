@@ -44,9 +44,10 @@ Each JNI call:
 3. opens only base, math, string, table, and UTF-8 libraries
 4. removes `dofile`, `load`, `loadfile`, `pcall`, `xpcall`, `getmetatable`,
    `setmetatable`, and `string.dump`
-5. installs controlled global `print`/`warn` output bridges and a restricted
-   `require` exposing `autojs` plus execution-local frozen modules loaded only
-   through the fixed module snapshot capability
+5. installs controlled global `print`/`warn` output bridges, the reviewed
+   explicit-seed PRNG wrapper, and a restricted `require` exposing `autojs`
+   plus execution-local frozen modules loaded only through the fixed module
+   snapshot capability
 6. loads the main source and every admitted module through
    `luaL_loadbufferx(..., "t")`
 7. installs a count hook for cancellation and a monotonic deadline
@@ -108,6 +109,28 @@ publishing the module. Native mapping occurs inside a protected call and every
 Lua table allocation remains charged to the execution allocator. The snapshot
 does not contain Java or Android objects and cannot be written back to the host.
 
+## Reviewed utility and console surface
+
+The safe-library inventory continues to expose PUC Lua 5.4.8 `string.format`
+and the math PRNG without opening the `os` library. `math.random` remains
+pseudo-random and carries no cryptographic guarantee. The controlled
+`math.randomseed(seed1[, seed2])` wrapper requires one or two explicit integer
+seeds; it rejects the upstream no-argument branch so the seeds derived from the
+wall clock and `lua_State` address are not returned to an untrusted script.
+
+`require("autojs").now()` accepts no arguments and returns signed 64-bit Unix
+epoch milliseconds from the process wall clock. It polls execution control and
+makes no Host/Binder call. It is a timestamp API, not a monotonic duration API;
+runtime deadlines continue to use a private monotonic clock. The complete
+review and rejected OS/process surface are recorded in
+[safe-standard-library-subset.md](safe-standard-library-subset.md).
+
+`autojs.console.info` is an exact stdout alias of `console.log`, while
+`autojs.console.warn` is an exact stderr alias of `console.error`. Together
+with global `print`/`warn`, all six entry points still use only the frozen
+`LuaOutputStream.STDOUT`/`STDERR` wire values. No protocol enum or capability
+was added. See [console-levels-decision.md](console-levels-decision.md).
+
 ## Known limits before enablement
 
 - The admitted modules are the built-in `autojs` module and flat ASCII names
@@ -116,6 +139,10 @@ does not contain Java or Android objects and cannot be written back to the host.
   the native boundary. Each text snapshot is bounded to 64 KiB, loaded in text
   mode, cached per execution (including `false` and nil-as-true), and a loading
   cycle fails closed.
+- Dotted names, aggregate module-source quotas, and cache-hit metrics are
+  design-only in [module-snapshot-v2.md](module-snapshot-v2.md). The exact
+  `module.snapshot.v2` capability is neither implemented nor advertised, and a
+  future V2 failure must never be retried under V1.
 - `module.snapshot.v1` sends exactly `{name=string}` and accepts only
   `{found=false}` or `{found=true, source=bytes, sha256=bytes}`. Kotlin repeats
   the UTF-8 and byte-limit validation and recomputes the 32-byte SHA-256 before
@@ -126,9 +153,10 @@ does not contain Java or Android objects and cannot be written back to the host.
   and deadline, and callback UID, execution ID, call ID, terminal uniqueness,
   and zero descriptors are validated before the response reaches JNI.
 - Console output is synchronous and must be accepted by the session's existing
-  sequence, credit, chunk, and total-byte limits. Global `print` routes to that
-  controlled stdout path and global `warn` to the controlled stderr path; no
-  unrestricted Lua output fallback exists.
+  sequence, credit, chunk, and total-byte limits. Global `print` plus
+  `console.log`/`console.info` route to controlled stdout; global `warn` plus
+  `console.error`/`console.warn` route to controlled stderr. No unrestricted
+  Lua output fallback exists.
 - There is no coroutine library in the source-only MVP.
 - Lua hooks cannot preempt source parsing, time spent inside one long native
   C-library operation, or native heap teardown. The bridge polls immediately
@@ -144,7 +172,10 @@ does not contain Java or Android objects and cannot be written back to the host.
   packaging plus 16 KiB ELF/ZIP alignment pass the debug artifact gate.
 
 `NativeLuaRuntimeBoundaryTest` records defensive source and argument snapshots,
-UTF-8, scalar mapping, console wire boundaries, and result-limit expectations.
+UTF-8, scalar mapping, the exact two-stream console wire boundary, and
+result-limit expectations. Focused native instrumentation additionally covers
+`autojs.now()`, `string.format`, explicit PRNG seeds, zero-seed rejection, and
+the four `autojs.console` names.
 The repository JVM gate also covers watchdog token, stop, finish, and
 scheduler-failure races.
 Focused Android tests cover native execution; the official Provider smoke is

@@ -17,6 +17,14 @@
   在获得真实且经过审阅的翻译之前保持为空。
 - 记录 R4 中继续关闭 Lua 层 `pcall`/`xpcall` 的决策，并起草需要宿主协同演进的
   V2 结构化及多返回值模型。
+- 新增零参数 `autojs.now()`，保留有界的 `string.format` 与伪随机能力，并要求
+  `math.randomseed` 使用显式整数 seed，避免返回上游实现中的状态地址 seed。
+- 将 `console.info`/`console.warn` 作为 stdout/stderr 别名加入，不扩展冻结的双流
+  wire 枚举。
+- 形成仅设计且不广告的 `module.snapshot.v2`，明确点分 ASCII 名、每执行聚合配额
+  与缓存指标。
+- 将 Host 模块 capability 不可用时的原生 instrumentation 预期从 Lua runtime
+  错误修正为 `HOST_CAPABILITY`。
 
 ## 0.1.0-rc.1 — 历史本地候选版本
 

@@ -125,15 +125,19 @@ Binder/session 骨架。它会复制并关闭源描述符，在进程级零队�
 Provider 发现仍是独立的默认关闭门禁。
 
 受控的 `require("autojs")` 暴露 `console.log(string)`、
-`console.error(string)` 和执行本地的 `arguments` 快照。该快照把完整有界 V1
-值模型映射为 Lua 标量、从 1 开始的稠密数组和字符串键表；字符串与字节使用
-binary-safe Lua string。全局 `print(...)` 与 `warn(string)` 是受控的
-stdout/stderr 桥：`print` 将参数字符串化、用制表符连接并追加换行，`warn` 则
-复用 `console.error` 的 stderr 路径。四条输出路径都保留已有的序列、credit、
-分块与总输出上限。
+`console.info(string)`、`console.error(string)`、`console.warn(string)`、零参数
+`now()` 和执行本地的 `arguments` 快照。该快照把完整有界 V1 值模型映射为 Lua
+标量、从 1 开始的稠密数组和字符串键表；字符串与字节使用 binary-safe Lua
+string。`now()` 无需 Host 调用，返回有符号 64 位 Unix epoch 毫秒。现有的
+`string.format` 与伪随机 `math.random` 继续开放，而 `math.randomseed` 现在要求
+显式传入一到两个整数 seed；完整的 `os` 库仍不可用。
 
-平面 ASCII 模块名还可通过固定的 `module.snapshot.v1` capability 解析为执行
-本地 UTF-8 文本快照。路径/package 搜索、二进制模块和动态 C 模块仍不可用。
+全局 `print(...)` 与 `warn(string)` 是受控的 stdout/stderr 桥：`print` 将参数
+字符串化、用制表符连接并追加换行，`warn` 则复用 `console.error` 的 stderr
+路径。`console.info` 映射 stdout，`console.warn` 映射 stderr，因此六个输出入口
+都保留已有的序列、credit、分块与总输出上限，不增加 wire stream。平面 ASCII
+模块名还可通过固定的 `module.snapshot.v1` capability 解析为执行本地 UTF-8 文本
+快照。路径/package 搜索、二进制模块和动态 C 模块仍不可用。
 
 进程级 watchdog 绑定到每个获准执行的 token。它只在 worker 即将派发前启动，
 在 cancel、close 或 callback 死亡时缩短宽限期，并在正常结束时清除 token。如果
@@ -155,7 +159,11 @@ R4 继续保持 Lua 层 `pcall` 和 `xpcall` 不可用；审阅后的理由与�
 在 [`docs/pcall-boundary-decision.md`](docs/pcall-boundary-decision.md)。需要宿主
 协同的结构化与多返回值提案记录在
 [`docs/result-model-v2.md`](docs/result-model-v2.md)；它目前只是设计，不会修改
-冻结的 V1 协议制品或当前标量结果边界。
+冻结的 V1 协议制品或当前标量结果边界。审阅后的工具子集与 console 映射分别记录
+在 [`docs/safe-standard-library-subset.md`](docs/safe-standard-library-subset.md)
+和 [`docs/console-levels-decision.md`](docs/console-levels-decision.md)。点分模块名、
+聚合源码配额与缓存指标仅作为不广告能力的 V2 提案记录在
+[`docs/module-snapshot-v2.md`](docs/module-snapshot-v2.md)。
 
 仓库 JVM 套件的准确数量只在 `verification.properties` 中声明一次，本地、CI、
 debug 制品和 release 制品门禁都从这里读取。原生、Binder/PFD、进程恢复与

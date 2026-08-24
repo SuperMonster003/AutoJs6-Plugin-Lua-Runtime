@@ -265,6 +265,9 @@ class R4DesignRecordTest(unittest.TestCase):
     FILES = (
         "docs/pcall-boundary-decision.md",
         "docs/result-model-v2.md",
+        "docs/safe-standard-library-subset.md",
+        "docs/module-snapshot-v2.md",
+        "docs/console-levels-decision.md",
         "protocol/protocol-artifacts.lock.json",
         "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/LuaProviderMetadata.kt",
     )
@@ -275,7 +278,7 @@ class R4DesignRecordTest(unittest.TestCase):
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(SOURCE_ROOT / relative, destination)
 
-    def test_current_pcall_rejection_and_result_v2_design_are_complete(self) -> None:
+    def test_current_r4_decisions_and_v2_designs_are_complete(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             self.copy_records(root)
@@ -310,12 +313,40 @@ class R4DesignRecordTest(unittest.TestCase):
             ),
             (
                 "frozen protocol identity",
-                self.FILES[2],
+                self.FILES[5],
                 lambda text: text.replace(
                     "3b7378758c5a4f68e8680a78cf2c541c23628489",
                     "1111111111111111111111111111111111111111",
                     1,
                 ),
+            ),
+            (
+                "safe random seed boundary",
+                self.FILES[2],
+                lambda text: text.replace(
+                    "rejection of zero-argument `math.randomseed()`",
+                    "zero-argument seeding remains exposed",
+                    1,
+                ),
+            ),
+            (
+                "module V2 fallback boundary",
+                self.FILES[3],
+                lambda text: text.replace(
+                    "must never retry a denied, missing, malformed, or failed V2 lookup",
+                    "may retry a V2 lookup as V1",
+                    1,
+                ),
+            ),
+            (
+                "module V2 aggregate quota",
+                self.FILES[3],
+                lambda text: text.replace("at most 512 KiB of verified source bytes", "unbounded source bytes", 1),
+            ),
+            (
+                "console stream inventory",
+                self.FILES[4],
+                lambda text: text.replace("exactly `STDOUT` and `STDERR`", "additional local streams", 1),
             ),
         )
         for label, relative, mutate in mutations:
@@ -817,8 +848,19 @@ class NativeBoundaryTest(unittest.TestCase):
                 1,
             ),
             lambda text: text.replace(
-                "return emit_autojs_console(state, 1);",
+                "return emit_autojs_console(state, kStdoutStreamWireCode);",
                 "return 0;",
+                1,
+            ),
+            lambda text: text.replace(
+                'lua_pushcfunction(state, autojs_console_log);\n    lua_setfield(state, -2, "info");',
+                'lua_pushcfunction(state, autojs_console_error);\n    lua_setfield(state, -2, "info");',
+                1,
+            ),
+            lambda text: text.replace("lua_gettop(state) != 0", "false", 1),
+            lambda text: text.replace(
+                "argument_count < 1 || argument_count > 2",
+                "argument_count > 2",
                 1,
             ),
         )

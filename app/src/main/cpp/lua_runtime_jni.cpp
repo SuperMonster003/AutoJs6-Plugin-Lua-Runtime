@@ -29,6 +29,8 @@ namespace {
 constexpr jsize kMaxSourceBytes = 16 * 1024 * 1024;
 constexpr jsize kMaxSourceNameBytes = 1024;
 constexpr size_t kMaxOutputChunkBytes = 32 * 1024;
+constexpr jint kStdoutStreamWireCode = 1;
+constexpr jint kStderrStreamWireCode = 2;
 constexpr size_t kMaxScalarStringBytes = 64 * 1024;
 constexpr size_t kMaxModuleNameBytes = 64;
 constexpr jsize kMaxModuleSourceBytes = 64 * 1024;
@@ -45,6 +47,11 @@ constexpr size_t kMaxFailureMessageBytes = 256U;
 constexpr jlong kMaxMemoryBytes = 256LL * 1024LL * 1024LL;
 constexpr jlong kMaxTimeoutMillis = 10LL * 60LL * 1000LL;
 constexpr int kHookInstructionCount = 10'000;
+
+static_assert(
+    std::numeric_limits<lua_Integer>::is_signed
+        && std::numeric_limits<lua_Integer>::digits >= 63,
+    "autojs.now requires a signed 64-bit Lua integer");
 
 struct MemoryBudget {
     size_t limit;
@@ -528,15 +535,51 @@ int autojs_console_print(lua_State* state) {
     output.push_back('\n');
     lua_settop(state, 0);
     lua_pushlstring(state, output.data(), output.size());
-    return emit_autojs_console(state, 1);
+    return emit_autojs_console(state, kStdoutStreamWireCode);
 }
 
 int autojs_console_log(lua_State* state) {
-    return emit_autojs_console(state, 1);
+    return emit_autojs_console(state, kStdoutStreamWireCode);
 }
 
 int autojs_console_error(lua_State* state) {
-    return emit_autojs_console(state, 2);
+    return emit_autojs_console(state, kStderrStreamWireCode);
+}
+
+int autojs_now(lua_State* state) {
+    ExecutionControl* control = execution_control(state);
+    if (control == nullptr || lua_gettop(state) != 0) {
+        return luaL_error(state, "autojs.now expects no arguments");
+    }
+    if (!poll_execution_control(control)) {
+        return luaL_error(state, "AutoJs Lua execution interrupted");
+    }
+
+    const auto unix_epoch_millis = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    lua_pushinteger(state, static_cast<lua_Integer>(unix_epoch_millis));
+    return 1;
+}
+
+int controlled_math_randomseed(lua_State* state) {
+    ExecutionControl* control = execution_control(state);
+    const int argument_count = lua_gettop(state);
+    if (control == nullptr || argument_count < 1 || argument_count > 2
+        || !lua_isinteger(state, 1)
+        || (argument_count == 2 && !lua_isinteger(state, 2))) {
+        return luaL_error(state, "math.randomseed expects one or two explicit integer seeds");
+    }
+    if (!poll_execution_control(control)) {
+        return luaL_error(state, "AutoJs Lua execution interrupted");
+    }
+
+    lua_pushvalue(state, lua_upvalueindex(1));
+    lua_insert(state, 1);
+    lua_call(state, argument_count, 2);
+    if (!poll_execution_control(control)) {
+        return luaL_error(state, "AutoJs Lua execution interrupted");
+    }
+    return 2;
 }
 
 int push_host_result(lua_State* state) {
@@ -924,6 +967,19 @@ int install_autojs_module(lua_State* state) {
         return luaL_error(state, "AutoJs argument bridge input is unavailable");
     }
     const auto* arguments = static_cast<const NativeArgumentView*>(lua_touserdata(state, 1));
+
+    lua_getglobal(state, LUA_MATHLIBNAME);
+    if (lua_type(state, -1) != LUA_TTABLE) {
+        return luaL_error(state, "AutoJs math library is unavailable");
+    }
+    lua_getfield(state, -1, "randomseed");
+    if (lua_type(state, -1) != LUA_TFUNCTION) {
+        return luaL_error(state, "AutoJs math.randomseed is unavailable");
+    }
+    lua_pushcclosure(state, controlled_math_randomseed, 1);
+    lua_setfield(state, -2, "randomseed");
+    lua_pop(state, 1);
+
     lua_pushcfunction(state, autojs_console_print);
     lua_setglobal(state, "print");
     lua_pushcfunction(state, autojs_console_error);
@@ -932,14 +988,21 @@ int install_autojs_module(lua_State* state) {
     lua_newtable(state);
     lua_pushcfunction(state, autojs_console_log);
     lua_setfield(state, -2, "log");
+    lua_pushcfunction(state, autojs_console_log);
+    lua_setfield(state, -2, "info");
     lua_pushcfunction(state, autojs_console_error);
     lua_setfield(state, -2, "error");
+    lua_pushcfunction(state, autojs_console_error);
+    lua_setfield(state, -2, "warn");
     lua_setfield(state, -2, "console");
 
     lua_newtable(state);
     lua_pushcfunction(state, autojs_device_info);
     lua_setfield(state, -2, "info");
     lua_setfield(state, -2, "device");
+
+    lua_pushcfunction(state, autojs_now);
+    lua_setfield(state, -2, "now");
 
     if (!push_native_arguments(state, arguments)) {
         return luaL_error(state, "AutoJs argument bridge input is invalid");

@@ -160,6 +160,16 @@ class NativeLuaRuntimeBoundaryTest {
     }
 
     @Test
+    fun consoleLevelAliasesRetainExactlyTwoWireStreams() {
+        assertEquals(
+            listOf(LuaOutputStream.STDOUT, LuaOutputStream.STDERR),
+            enumValues<LuaOutputStream>().toList(),
+        )
+        assertEquals(1, LuaOutputStream.STDOUT.wireCode)
+        assertEquals(2, LuaOutputStream.STDERR.wireCode)
+    }
+
+    @Test
     fun preCancelledRequestFailsBeforeNativeLibraryAdmission() {
         val cancelled = assertThrows(NativeLuaExecutionException::class.java) {
             NativeLuaRuntime.execute(request("return 1".toByteArray(), cancelled = true))

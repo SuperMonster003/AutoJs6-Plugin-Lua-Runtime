@@ -629,6 +629,71 @@ def verify_r4_design_records() -> None:
         "Design-only V2 result capability was advertised before implementation",
     )
 
+    safe_subset = (ROOT / "docs/safe-standard-library-subset.md").read_text("utf-8")
+    require_tokens(
+        safe_subset,
+        (
+            "Status: **IMPLEMENTED WITHOUT OPENING `os`**",
+            "`lstrlib.c` and `lmathlib.c`",
+            "does not compile or open `loslib.c`",
+            "`math.randomseed(seed1[, seed2])`",
+            "address of the active `lua_State`",
+            "must not be used for keys, tokens, nonces, signatures, authorization",
+            "## Exact `autojs.now()` contract",
+            "Unix epoch milliseconds",
+            "wall clock and may move forward or backward",
+            "## Rejected surface",
+            "reviewedTimeFormatAndRandomSubsetStaysNarrow",
+            "rejection of zero-argument `math.randomseed()`",
+        ),
+        "R4 safe Lua utility subset decision",
+    )
+
+    module_design = (ROOT / "docs/module-snapshot-v2.md").read_text("utf-8")
+    require_tokens(
+        module_design,
+        (
+            "Status: **DESIGN ONLY — NOT IMPLEMENTED OR ADVERTISED**",
+            "`module.snapshot.v2`",
+            "must never retry a denied, missing, malformed, or failed V2 lookup",
+            "total encoded length from 1 through 255 bytes",
+            "no more than 16 dot-separated segments",
+            "[A-Za-z_][A-Za-z0-9_]{0,62}(?:\\.[A-Za-z_][A-Za-z0-9_]{0,62}){0,15}",
+            "at most 64 distinct non-`autojs` module names",
+            "at most 512 KiB of verified source bytes",
+            "`cacheHits + cacheMisses == lookupRequests`",
+            "not exposed to Lua, console output,",
+            "or the current V1 result callback",
+            "## Required implementation evidence",
+            "No `MODULE_SNAPSHOT_V2_CAPABILITY` constant",
+        ),
+        "R4 module snapshot V2 design",
+    )
+    require(
+        "module.snapshot.v2" not in metadata
+        and "MODULE_SNAPSHOT_V2_CAPABILITY" not in metadata,
+        "Design-only module snapshot V2 capability was advertised before implementation",
+    )
+
+    console_decision = (ROOT / "docs/console-levels-decision.md").read_text("utf-8")
+    require_tokens(
+        console_decision,
+        (
+            "Status: **IMPLEMENTED AS TWO-STREAM ALIASES**",
+            "`autojs.console.info(string)`",
+            "`autojs.console.warn(string)`",
+            "`LuaOutputStream.STDOUT` | 1",
+            "`LuaOutputStream.STDERR` | 2",
+            "kStdoutStreamWireCode = 1",
+            "kStderrStreamWireCode = 2",
+            "exactly `STDOUT` and `STDERR`",
+            "The mapping is intentionally lossy",
+            "All six entry points",
+            "consoleLevelAliasesRetainExactlyTwoWireStreams",
+        ),
+        "R4 console level decision",
+    )
+
 
 def verify_input_workflows() -> None:
     expected_jvm_test_count()
@@ -896,6 +961,10 @@ def verify_native_boundary() -> None:
         'Lua module snapshot dependency cycle rejected': "Frozen module cycles do not fail closed",
         'lua_pushvalue(state, lua_upvalueindex(2))': "The execution-local module cache is missing",
         'lua_setfield(state, -2, "console")': "The controlled console module is missing",
+        'constexpr jint kStdoutStreamWireCode = 1;': "The stdout wire constant drifted",
+        'constexpr jint kStderrStreamWireCode = 2;': "The stderr wire constant drifted",
+        'int autojs_now(lua_State* state)': "The controlled wall-clock API is missing",
+        'int controlled_math_randomseed(lua_State* state)': "The explicit-seed PRNG wrapper is missing",
         'lua_setfield(state, -2, "arguments")': "The bounded argument snapshot is missing",
         "push_native_argument_value(": "The native argument decoder is missing",
         "lua_rawseti(state, -2": "Lua arrays are not installed with 1-based raw indices",
@@ -909,9 +978,37 @@ def verify_native_boundary() -> None:
     print_end = native.index("int autojs_console_log(lua_State* state)", print_start)
     print_boundary = native[print_start:print_end]
     require(
-        "return emit_autojs_console(state, 1);" in print_boundary
+        "return emit_autojs_console(state, kStdoutStreamWireCode);" in print_boundary
         and "kMaxOutputChunkBytes" in print_boundary,
         "Global print no longer routes through the bounded stdout bridge",
+    )
+    now_start = native.index("int autojs_now(lua_State* state)")
+    now_end = native.index("int controlled_math_randomseed(lua_State* state)", now_start)
+    now_boundary = native[now_start:now_end]
+    require_tokens(
+        now_boundary,
+        (
+            "lua_gettop(state) != 0",
+            "poll_execution_control(control)",
+            "std::chrono::system_clock::now().time_since_epoch()",
+            "std::chrono::duration_cast<std::chrono::milliseconds>",
+            "lua_pushinteger(state, static_cast<lua_Integer>(unix_epoch_millis))",
+        ),
+        "Controlled autojs.now boundary",
+    )
+    randomseed_start = native.index("int controlled_math_randomseed(lua_State* state)")
+    randomseed_end = native.index("int push_host_result(lua_State* state)", randomseed_start)
+    randomseed_boundary = native[randomseed_start:randomseed_end]
+    require_tokens(
+        randomseed_boundary,
+        (
+            "argument_count < 1 || argument_count > 2",
+            "!lua_isinteger(state, 1)",
+            "lua_pushvalue(state, lua_upvalueindex(1))",
+            "lua_call(state, argument_count, 2)",
+            "return 2;",
+        ),
+        "Controlled math.randomseed boundary",
     )
     install_start = native.index("int install_autojs_module(lua_State* state)")
     install_end = native.index("bool throw_bridge_exception(", install_start)
@@ -926,6 +1023,27 @@ def verify_native_boundary() -> None:
         )
         == 1,
         "Global print/warn are not installed as the reviewed console bridges",
+    )
+    require(
+        install_boundary.count(
+            'lua_pushcfunction(state, autojs_console_log);\n    lua_setfield(state, -2, "info");'
+        )
+        == 1
+        and install_boundary.count(
+            'lua_pushcfunction(state, autojs_console_error);\n    lua_setfield(state, -2, "warn");'
+        )
+        == 1,
+        "Console info/warn aliases are not installed as the reviewed two-stream bridges",
+    )
+    require_tokens(
+        install_boundary,
+        (
+            'lua_pushcclosure(state, controlled_math_randomseed, 1);',
+            'lua_setfield(state, -2, "randomseed");',
+            'lua_pushcfunction(state, autojs_now);',
+            'lua_setfield(state, -2, "now");',
+        ),
+        "Reviewed Lua utility installation",
     )
     host_copy_start = native.index("ProtectedHostMappingResult copy_and_map_host_result(")
     host_copy_end = native.index("int autojs_device_info(lua_State* state)", host_copy_start)
@@ -987,6 +1105,12 @@ def verify_native_boundary() -> None:
         ROOT
         / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/NativeLuaRuntime.kt"
     ).read_text("utf-8")
+    require(
+        "module.snapshot.v2" not in kotlin_boundary
+        and "MODULE_SNAPSHOT_V2_CAPABILITY" not in kotlin_boundary
+        and "module.snapshot.v2" not in native,
+        "Design-only module snapshot V2 entered the implementation",
+    )
     proguard_rules = (ROOT / "app/proguard-rules.pro").read_text("utf-8")
     require(
         "NativeLuaHostCapabilityBridge" in proguard_rules
@@ -1048,6 +1172,16 @@ def verify_native_boundary() -> None:
         ROOT
         / "app/src/test/java/io/github/supermonster003/autojs6/plugin/lua/runtime/NativeLuaRuntimeBoundaryTest.kt"
     ).read_text("utf-8")
+    require_tokens(
+        boundary_tests,
+        (
+            "consoleLevelAliasesRetainExactlyTwoWireStreams",
+            "enumValues<LuaOutputStream>().toList()",
+            "assertEquals(1, LuaOutputStream.STDOUT.wireCode)",
+            "assertEquals(2, LuaOutputStream.STDERR.wireCode)",
+        ),
+        "Console two-stream JVM boundary",
+    )
     for capability in advertised_capabilities:
         for token in capability_boundaries[capability][:-1]:
             require(token in kotlin_boundary, f"Fixed-shape capability bridge drift: {token}")
@@ -1094,6 +1228,13 @@ def verify_native_boundary() -> None:
     require("infinite `__gc` or `__close` handler" in native_doc, "Native teardown limitation is missing")
     require("process-level cleanup watchdog" in native_doc, "Native cleanup watchdog gate is missing")
     require("Selecting the adapter does not load JNI" in native_doc, "Native adapter status is ambiguous")
+    require("`autojs.now()`" in native_doc, "Native controlled wall-clock API is missing")
+    require(
+        "`math.randomseed(seed1[, seed2])` wrapper" in native_doc
+        and "upstream no-argument branch" in native_doc,
+        "Native PRNG seed boundary is missing",
+    )
+    require("console.info" in native_doc and "console.warn" in native_doc, "Native console aliases are missing")
 
     inventory = (ROOT / "app/src/main/cpp/cmake/lua54-sources.cmake").read_text("utf-8")
     for forbidden in (
@@ -1112,6 +1253,11 @@ def verify_native_boundary() -> None:
         any(line.strip() == "src/lundump.c" for line in inventory.splitlines()),
         "Lua core inventory unexpectedly lost lundump.c",
     )
+    for required_library in ("src/lmathlib.c", "src/lstrlib.c"):
+        require(
+            any(line.strip() == required_library for line in inventory.splitlines()),
+            f"Reviewed Lua utility library left the native inventory: {required_library}",
+        )
     readme = (ROOT / "README.md").read_text("utf-8")
     require(
         'luaL_loadbufferx(..., "t")' in readme,
@@ -1350,6 +1496,13 @@ def verify_native_android_test_boundary() -> None:
             "assertFalse(BuildConfig.LUA_PROVIDER_ENABLED)",
             "providerRemainsDisabledDuringNativeTests",
             "nativeCoreAndRunnerReturnV1Scalars",
+            "reviewedTimeFormatAndRandomSubsetStaysNarrow",
+            "autojs.console.info('notice')",
+            "autojs.console.warn('warning')",
+            "execute(\"return require('autojs').now(1)\")",
+            "execute(\"return math.randomseed()\")",
+            "deniedModuleCapability",
+            "assertEquals(LuaRunnerFailureKind.HOST_CAPABILITY, deniedModuleCapability.kind)",
             "nativeRunnerMapsV1ArgumentsIntoTheControlledAutoJsModule",
             "nativeRunnerLoadsFrozenModulesOnceAndRejectsDependencyCycles",
             "syntaxAndRuntimeErrorsAreClassified",

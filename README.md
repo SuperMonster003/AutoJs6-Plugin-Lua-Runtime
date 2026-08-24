@@ -142,17 +142,23 @@ contains callback/terminal/close races. Native-enabled builds now select
 `NativeLuaExecutionRunner`, while native-disabled builds retain
 `DisabledLuaExecutionRunner`. Provider discovery remains an independent,
 default-off gate. A controlled `require("autojs")` exposes
-`console.log(string)`, `console.error(string)`, and an execution-local
+`console.log(string)`, `console.info(string)`, `console.error(string)`,
+`console.warn(string)`, zero-argument `now()`, and an execution-local
 `arguments` snapshot. The snapshot maps the complete bounded V1 value model to
 Lua scalars, 1-based dense arrays, and string-key tables; strings and bytes use
-binary-safe Lua strings. Global `print(...)` and `warn(string)` are controlled
-stdout/stderr bridges: `print` stringifies its arguments, joins them with tabs,
-and appends a newline, while `warn` uses the same stderr path as
-`console.error`. All four output paths retain the existing sequence, credit,
-chunk, and total-output limits. Flat ASCII module names may additionally
-resolve through the fixed `module.snapshot.v1` capability to execution-local
-UTF-8 text snapshots. Path/package search and binary or dynamic C modules
-remain unavailable.
+binary-safe Lua strings. `now()` returns signed 64-bit Unix epoch milliseconds
+without a Host call. The existing `string.format` and pseudo-random
+`math.random` remain admitted, while `math.randomseed` now requires one or two
+explicit integer seeds; the complete `os` library remains unavailable.
+
+Global `print(...)` and `warn(string)` are controlled stdout/stderr bridges:
+`print` stringifies its arguments, joins them with tabs, and appends a newline,
+while `warn` uses the same stderr path as `console.error`. `console.info` maps
+to stdout and `console.warn` maps to stderr, so all six output entry points
+retain the existing sequence, credit, chunk, and total-output limits without a
+new wire stream. Flat ASCII module names may additionally resolve through the
+fixed `module.snapshot.v1` capability to execution-local UTF-8 text snapshots.
+Path/package search and binary or dynamic C modules remain unavailable.
 
 A process-wide watchdog is bound to each admitted execution token. It arms only
 immediately before worker dispatch, shortens its grace window on cancel, close,
@@ -179,7 +185,12 @@ reconsideration requirements are recorded in
 host-coordinated structured and multiple-result proposal is documented in
 [`docs/result-model-v2.md`](docs/result-model-v2.md); it is a design only and
 does not modify the frozen V1 protocol artifacts or the current scalar result
-boundary.
+boundary. The reviewed utility subset and console mapping are recorded in
+[`docs/safe-standard-library-subset.md`](docs/safe-standard-library-subset.md)
+and [`docs/console-levels-decision.md`](docs/console-levels-decision.md).
+Dotted module names, aggregate source quotas, and cache metrics are specified
+only as a non-advertised V2 proposal in
+[`docs/module-snapshot-v2.md`](docs/module-snapshot-v2.md).
 
 The exact repository JVM-suite count is declared once in
 `verification.properties`; local, CI, debug-artifact, and release-artifact

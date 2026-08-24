@@ -72,7 +72,9 @@ class NativeLuaRuntimeInstrumentationTest {
                     source = """
                         local autojs = require('autojs')
                         autojs.console.log('hello')
+                        autojs.console.info('notice')
                         autojs.console.error('problem')
+                        autojs.console.warn('warning')
                         return 8
                     """.trimIndent(),
                     outputEmitter = LuaOutputEmitter { stream, text ->
@@ -85,15 +87,48 @@ class NativeLuaRuntimeInstrumentationTest {
         assertEquals(
             listOf(
                 LuaOutputStream.STDOUT to "hello",
+                LuaOutputStream.STDOUT to "notice",
                 LuaOutputStream.STDERR to "problem",
+                LuaOutputStream.STDERR to "warning",
             ),
             output,
         )
 
-        val unknownModule = assertThrows(LuaRunnerException::class.java) {
+        val deniedModuleCapability = assertThrows(LuaRunnerException::class.java) {
             NativeLuaExecutionRunner.execute(runnerRequest("return require('unknown')"))
         }
-        assertEquals(LuaRunnerFailureKind.RUNTIME, unknownModule.kind)
+        assertEquals(LuaRunnerFailureKind.HOST_CAPABILITY, deniedModuleCapability.kind)
+    }
+
+    @Test
+    fun reviewedTimeFormatAndRandomSubsetStaysNarrow() {
+        val earliestAcceptedMillis = System.currentTimeMillis() - CLOCK_SKEW_TOLERANCE_MILLIS
+        val value = execute(
+            """
+                local autojs = require('autojs')
+                assert(os == nil)
+                assert(string.format('%04d', 7) == '0007')
+                math.randomseed(1, 2)
+                local sampled = math.random(1, 4)
+                assert(math.type(sampled) == 'integer' and sampled >= 1 and sampled <= 4)
+                local now = autojs.now()
+                assert(math.type(now) == 'integer')
+                return now
+            """.trimIndent(),
+        )
+        val latestAcceptedMillis = System.currentTimeMillis() + CLOCK_SKEW_TOLERANCE_MILLIS
+
+        val now = (value as NativeLuaExecutionValue.IntegerValue).value
+        assertTrue(
+            "autojs.now returned an implausible wall-clock value",
+            now in earliestAcceptedMillis..latestAcceptedMillis,
+        )
+        assertNativeFailure(NativeLuaFailureKind.RUNTIME) {
+            execute("return require('autojs').now(1)")
+        }
+        assertNativeFailure(NativeLuaFailureKind.RUNTIME) {
+            execute("return math.randomseed()")
+        }
     }
 
     @Test
@@ -378,6 +413,7 @@ class NativeLuaRuntimeInstrumentationTest {
         }
 
     private companion object {
+        const val CLOCK_SKEW_TOLERANCE_MILLIS = 60_000L
         const val PLUGIN_INFO_ACTION = "org.autojs.plugin.INFO"
         const val LUA_RUNTIME_ACTION = "org.autojs.plugin.lua.RUNTIME"
     }

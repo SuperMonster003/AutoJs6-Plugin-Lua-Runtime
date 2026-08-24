@@ -113,11 +113,11 @@ planned source 与翻译占位标记。
   兼容性分析, 不动 frozen 协议。
   完成判据: `docs/result-model-v2.md` 完成, 含与宿主协议版本协商方案;
   明确标注需要宿主侧配合的部分。
-- [ ] **`string.format`/`os.time` 类安全子集调研**。梳理脚本实际高频诉求
+- [x] **`string.format`/`os.time` 类安全子集调研**。梳理脚本实际高频诉求
   (时间戳、随机数), 评估以 `autojs` 模块受控 API 形式提供 (如
   `autojs.now()`), 而非开放 `os` 库。
   完成判据: 调研记录 + 决定清单入库; 采纳项各配 JNI 边界测试。
-- [ ] **模块快照能力增强**。当前 `module.snapshot.v1` 仅支持平面 ASCII 名。
+- [x] **模块快照能力增强**。当前 `module.snapshot.v1` 仅支持平面 ASCII 名。
   评估 v2: 点分层级名 (`a.b.c`)、每执行模块总量上限、快照缓存命中指标。
   完成判据: 能力协商设计文档; 若实现, 名称校验正则与循环加载 fail-closed
   测试同步扩展。
@@ -131,9 +131,20 @@ ordered returns、V1 downgrade 与宿主/Provider 分工；冻结的 1.0 AAR、�
 metadata、JNI 标量边界及零结果 PFD 均未改变。Python 敌意/静态套件会拒绝关键
 决策或兼容性证据被移除。
 
+R4-B 工具/模块证据 (2026-08-24):
+`docs/safe-standard-library-subset.md` 保持 `loslib.c`/完整 `os` 库关闭，采纳
+现有 `string.format`、伪随机 `math.random` 与零参数 `autojs.now()`；同时将
+`math.randomseed` 收紧为必须显式传入一到两个整数，避免把上游无参数分支中含
+`lua_State` 地址成分的 seed 返回脚本。原生 instrumentation 源码覆盖格式化、
+随机数、时钟值与两条错误参数路径；完整 11 项 native instrumentation 已在
+16 KiB x86_64 `emulator-5554` 以 `native=true/provider=false` 实跑通过。
+`docs/module-snapshot-v2.md` 则冻结点分 ASCII 正则、16 段/255 字节名称上限、
+64 个不同模块/512 KiB 聚合源码配额、精确缓存指标与禁止 V2→V1 错误回退；
+`module.snapshot.v2` 仍未进入 Kotlin/JNI 或 Provider metadata。
+
 ## R4-C — 宿主能力面扩展 (capability 逐个白名单化)
 
-- [ ] **`console` 分级增强**。评估 `console.warn`/`console.info` 独立
+- [x] **`console` 分级增强**。评估 `console.warn`/`console.info` 独立
   wire 流或以现有双流 (stdout/stderr) 映射; 保持序列/额度/分块限制不变。
   完成判据: 决策记录; 若实现, `emit_autojs_console` 常量与协议枚举对齐,
   JVM 测试覆盖新流。
@@ -147,6 +158,12 @@ metadata、JNI 标量边界及零结果 PFD 均未改变。Python 敌意/静态�
 - [ ] **能力协商回归矩阵**。宿主未授予某 capability 时, 脚本调用对应 API
   必须得到确定性 DENIED 错误而非挂起或崩溃。
   完成判据: 对每个已注册 capability 各一条 JVM 测试 (授予/未授予两态)。
+
+R4-C console 证据 (2026-08-24): `docs/console-levels-decision.md` 选择不扩展
+冻结协议枚举；`console.info` 精确映射 `STDOUT/1`，`console.warn` 精确映射
+`STDERR/2`。JNI 使用命名 wire 常量，JVM 用例固定协议仍恰好只有两个 stream，
+原生 instrumentation 在同一 16 KiB x86_64 模拟器覆盖四个 `autojs.console`
+名称的有序双流输出；现有序列、credit、分块与总量门禁不变。
 
 ## R4-D — 可观测性与诊断
 
@@ -209,9 +226,9 @@ metadata、JNI 标量边界及零结果 PFD 均未改变。Python 敌意/静态�
 
 R4-F 本地证据 (2026-08-24): `verification.properties` 成为 JVM 测试计数唯一
 source of truth；CI、debug/release artifact gate 与本地门禁均从中读取。
-Python 静态/敌意套件扩展为 31 项，覆盖受控 `print`/`warn`、capability 注册表、
-PFD/deadline、CI cache/retry、fault checklist 与 SSOT 篡改；
-`tools/verify_local.ps1` 实测输出 `LOCAL_OFFLINE_GATE_PASS tests=48 ...
+Python 静态/敌意套件扩展为 36 项，覆盖受控 console/工具 API、R4 决策记录、
+capability 注册表、PFD/deadline、CI cache/retry、fault checklist 与 SSOT 篡改；
+`tools/verify_local.ps1` 实测输出 `LOCAL_OFFLINE_GATE_PASS tests=49 ...
 network=disabled`。
 
 ## 执行顺序建议

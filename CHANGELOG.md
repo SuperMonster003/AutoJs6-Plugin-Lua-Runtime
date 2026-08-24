@@ -22,6 +22,15 @@ not published availability.
   real reviewed translations exist.
 - Recorded the R4 decision to keep Lua-level `pcall`/`xpcall` unavailable and
   drafted the host-coordinated V2 structured/multiple-result model.
+- Added zero-argument `autojs.now()`, retained the bounded `string.format` and
+  pseudo-random surface, and required explicit integer seeds for
+  `math.randomseed` to avoid returning the upstream state-address seed.
+- Added `console.info`/`console.warn` as stdout/stderr aliases without expanding
+  the frozen two-stream wire enum.
+- Specified a design-only, non-advertised `module.snapshot.v2` with dotted ASCII
+  names, aggregate per-execution quotas, and cache metrics.
+- Corrected the native instrumentation expectation for an unavailable Host
+  module capability from a Lua runtime error to `HOST_CAPABILITY`.
 
 ## 0.1.0-rc.1 — historical local candidate
 

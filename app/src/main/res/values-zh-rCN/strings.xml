@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Generated from localization/source/zh-CN/strings.json by tools/generate_localized_content.py. -->
 <resources>
     <string name="app_name">Lua 运行时</string>
     <string name="plugin_description">独立的 PUC Lua 5.4 运行时插件</string>

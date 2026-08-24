@@ -17,7 +17,7 @@ Gradle, Android, native, device, signing, or release acceptance.
 - [x] Freeze PUC Lua 5.4.8 URL/SHA-256, exact CMake source admission, JNI probe,
   bounded allocator, and safe-library baseline without fake vendor sources.
 - [x] Initialize Git and establish the independent release history.
-- [ ] Add the ten-locale generated README/changelog/resource workflow.
+- [x] Add the ten-locale generated README/changelog/resource workflow.
 - [x] Generate and commit a repository-owned Gradle wrapper.
 - [x] Compile and assemble the native-enabled, provider-disabled scaffold.
 

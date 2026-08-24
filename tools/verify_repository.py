@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import re
+import subprocess
 import sys
 import xml.etree.ElementTree as ET
 
@@ -478,6 +479,155 @@ def verify_ci_resilience() -> None:
 def require_tokens(text: str, tokens: tuple[str, ...], label: str) -> None:
     for token in tokens:
         require(token in text, f"{label} drift: {token}")
+
+
+def verify_localization_workflow() -> None:
+    generator = ROOT / "tools/generate_localized_content.py"
+    require(
+        generator.is_file() and not generator.is_symlink(),
+        "Missing regular localized-content generator",
+    )
+    generator_text = generator.read_text("utf-8")
+    require_tokens(
+        generator_text,
+        (
+            "object_pairs_hook=reject_duplicate_pairs",
+            "The localization workflow must retain exactly ten locale slots",
+            "English and zh-CN must be the first active locales",
+            "Only active locales may have source directories; planned locales must remain source-free",
+            "Translated Markdown structure or protected literal drift",
+            'config["humanReviewed"] is True',
+            "PLACEHOLDER_MARKERS",
+            "actual_outputs == expected_outputs",
+            "Generated content drift:",
+            "LOCALIZED_CONTENT_OK",
+        ),
+        "Localized-content generator",
+    )
+    try:
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(generator),
+                "--check",
+                "--root",
+                str(ROOT),
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise RuntimeError("Localized-content check could not complete") from error
+    detail = (completed.stderr or completed.stdout).strip()
+    require(completed.returncode == 0, f"Localized-content check failed: {detail}")
+    require(
+        completed.stdout.strip()
+        == "LOCALIZED_CONTENT_OK active=2 planned=8 artifacts=6 mode=check",
+        "Localized-content success receipt drift",
+    )
+
+    manifest = require_exact_keys(
+        load_json_strict(ROOT / "localization/locales.json"),
+        {
+            "schemaVersion",
+            "sourceLocale",
+            "localeSlots",
+            "activeLocales",
+            "plannedLocales",
+            "androidStrings",
+        },
+        "Locale manifest",
+    )
+    require_schema_one(manifest["schemaVersion"], "Locale manifest")
+    require(
+        list(manifest["activeLocales"]) == ["en", "zh-CN"]
+        and len(manifest["plannedLocales"]) == 8,
+        "Reviewed active/planned locale baseline drift",
+    )
+    require_tokens(
+        (ROOT / "README.md").read_text("utf-8"),
+        (
+            "Generated from localization/source/en/README.md",
+            "[English](README.md) | [简体中文](README.zh-CN.md)",
+            "python tools/generate_localized_content.py --check",
+        ),
+        "Generated English README",
+    )
+    require_tokens(
+        (ROOT / "README.zh-CN.md").read_text("utf-8"),
+        (
+            "Generated from localization/source/zh-CN/README.md",
+            "其余八个槽位在获得真实翻译前没有源目录",
+        ),
+        "Generated Simplified Chinese README",
+    )
+
+
+def verify_r4_design_records() -> None:
+    pcall_decision = (ROOT / "docs/pcall-boundary-decision.md").read_text("utf-8")
+    require_tokens(
+        pcall_decision,
+        (
+            "Status: **REJECTED FOR R4**",
+            'remove_global(state, "pcall")',
+            'remove_global(state, "xpcall")',
+            "TerminationReason",
+            "control-plane interruption to be non-catchable",
+            "private light-userdata sentinel",
+            "lua_pcallk",
+            "Nested protected calls",
+            "## Reconsideration gate",
+            "repeated catches cannot defer termination",
+        ),
+        "R4 pcall/xpcall decision record",
+    )
+
+    result_design = (ROOT / "docs/result-model-v2.md").read_text("utf-8")
+    protocol_lock = require_exact_keys(
+        load_json_strict(ROOT / "protocol/protocol-artifacts.lock.json"),
+        PROTOCOL_LOCK_KEYS,
+        "Protocol lock",
+    )
+    source_revision = protocol_lock["sourceRevision"]
+    require(
+        isinstance(source_revision, str) and source_revision in result_design,
+        "Result V2 design does not identify the frozen protocol revision",
+    )
+    require_tokens(
+        result_design,
+        (
+            "Status: **DESIGN ONLY — NOT IMPLEMENTED**",
+            "Frozen V1 remains unchanged",
+            "SCHEMA_RESULT_V2",
+            "result.model.v2",
+            "LuaProtocolVersion(1, 1)",
+            "requiredCapabilities",
+            "ILuaExecutionCallback.onCompleted",
+            "ParcelFileDescriptor[] descriptors",
+            "zero returns",
+            "one `nil`",
+            "MAX_VALUE_DEPTH = 32",
+            "MAX_VALUE_NODES = 4_096",
+            "MAX_VALUE_DATA_BYTES = 256 KiB",
+            "MAX_VALUE_CONTAINER_ENTRIES = 1_023",
+            "## Host-side changes required",
+            "## Provider-side changes required",
+            "both V1 and initial V2 return zero descriptors",
+        ),
+        "R4 result-model V2 design",
+    )
+    metadata = (
+        ROOT
+        / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/LuaProviderMetadata.kt"
+    ).read_text("utf-8")
+    require(
+        "result.model.v2" not in metadata and "SCHEMA_RESULT_V2" not in metadata,
+        "Design-only V2 result capability was advertised before implementation",
+    )
 
 
 def verify_input_workflows() -> None:
@@ -1415,8 +1565,10 @@ def main() -> int:
     verify_manifest()
     verify_default_off()
     verify_ci_resilience()
+    verify_localization_workflow()
     verify_input_workflows()
     verify_wrapper()
+    verify_r4_design_records()
     verify_native_boundary()
     verify_watchdog_boundary()
     verify_descriptor_boundary()

@@ -1,0 +1,6 @@
+{
+  "app_name": "Lua Runtime",
+  "plugin_description": "Independent PUC Lua 5.4 runtime plugin",
+  "plugin_instruction": "Provides an isolated Lua runtime after the native-runtime and conformance gates pass.",
+  "plugin_author": "SuperMonster003"
+}

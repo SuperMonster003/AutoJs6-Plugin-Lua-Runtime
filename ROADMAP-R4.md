@@ -76,7 +76,7 @@ APK/ABI、16 KiB ZIP/ELF 对齐、签名与 packaged gates。
   case: 宿主更新、宿主卸载重装、broker 与 callback 分别单独死亡。
   完成判据: 仪器矩阵各 case 至少一条用例, 断言会话清理与 watchdog 不误杀
   后续执行。
-- [ ] **十语言 README/changelog/资源工作流**。R3-A 唯一未勾选项。先落地
+- [x] **十语言 README/changelog/资源工作流**。R3-A 唯一未勾选项。先落地
   zh-CN/en 双语生成脚手架 (脚本生成、单一 source of truth), 其余八语言
   仅在有真实翻译输入时扩展, 不引入机器占位文本。
   完成判据: 生成脚本 + 双语 README 入库; verifier 增加生成物一致性检查。
@@ -88,6 +88,13 @@ Host callback payload 与 V1 零返回 payload，所有分类进/出严格配平
 `start()` 固定产生唯一 `TIMEOUT/QUEUE` 终态，并释放未派发的 watchdog 与
 start lease。OS 级 FD、阻塞 pipe 与更广对端死亡仍由下方未勾选项承接。
 
+R4-A 本地化证据 (2026-08-24): `localization/locales.json` 声明恰好十个语言
+槽位，当前仅 `en`/`zh-CN` 为 `humanReviewed` active source；其余八个 planned
+槽位没有 source 目录或占位译文。`tools/generate_localized_content.py` 从单一
+source tree 生成双语 README、双语 changelog 与两套 Android strings，
+`--check`、仓库 verifier 及 Python 敌意用例会拒绝生成物漂移、重复 JSON key、
+planned source 与翻译占位标记。
+
 ## R4-B — 语言能力精进 (受控扩展, 每项默认关闭直至证据齐备)
 
 - [ ] **协程库受控引入**。R3 因 hook 继承性未验证而排除 `lcorolib.c`。
@@ -95,12 +102,12 @@ start lease。OS 级 FD、阻塞 pipe 与更广对端死亡仍由下方未勾选
   cancel 生效、跨 resume/yield 的 allocator 记账不破。
   完成判据: CMake 源清单加入 `lcorolib.c` (仅此一文件);
   androidTest 覆盖协程内超时/取消/OOM 三路径; `linit.c` 仍排除。
-- [ ] **受控 `pcall`/`xpcall` 评估**。当前移除二者是为防脚本吞掉 hook 取消
+- [x] **受控 `pcall`/`xpcall` 评估**。当前移除二者是为防脚本吞掉 hook 取消
   错误。评估替代方案: 提供包装版 `pcall`, 对 watchdog/cancel 类错误
   (以私有 sentinel 标识) 强制重抛, 普通业务错误可捕获。
   完成判据: 决策记录写入 `docs/` (采纳或明确拒绝均可勾选);
   若采纳, 附带"取消错误不可吞"的 native 测试。
-- [ ] **多返回值/表结果的 V2 结果模型草案**。当前结果仅限单标量。
+- [x] **多返回值/表结果的 V2 结果模型草案**。当前结果仅限单标量。
   在协议 wire API 允许的范围内起草 V2: 表→受限 LuaValue 树 (复用参数侧
   已有的 depth/nodes/bytes 配额), 多返回值→数组。仅出设计文档与
   兼容性分析, 不动 frozen 协议。
@@ -114,6 +121,15 @@ start lease。OS 级 FD、阻塞 pipe 与更广对端死亡仍由下方未勾选
   评估 v2: 点分层级名 (`a.b.c`)、每执行模块总量上限、快照缓存命中指标。
   完成判据: 能力协商设计文档; 若实现, 名称校验正则与循环加载 fail-closed
   测试同步扩展。
+
+R4-B 决策/设计证据 (2026-08-24): `docs/pcall-boundary-decision.md` 明确拒绝在
+R4 开放 Lua 层 `pcall`/`xpcall`，保留 control-plane interruption 不可捕获的
+性质，并列出未来重新评估必须覆盖的 nested catch、OOM、xpcall handler 与
+coroutine 矩阵。`docs/result-model-v2.md` 仅起草 protocol 1.1 +
+`result.model.v2` 双重协商、独立 `SCHEMA_RESULT_V2`、有界 LuaValue tree/
+ordered returns、V1 downgrade 与宿主/Provider 分工；冻结的 1.0 AAR、当前
+metadata、JNI 标量边界及零结果 PFD 均未改变。Python 敌意/静态套件会拒绝关键
+决策或兼容性证据被移除。
 
 ## R4-C — 宿主能力面扩展 (capability 逐个白名单化)
 

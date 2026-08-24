@@ -4,6 +4,7 @@ import importlib.util
 import json
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -142,6 +143,190 @@ class VerificationPropertiesTest(unittest.TestCase):
                 with mock.patch.object(verifier, "ROOT", root):
                     with self.assertRaises(RuntimeError):
                         verifier.expected_jvm_test_count()
+
+
+class LocalizationWorkflowTest(unittest.TestCase):
+    FILES = (
+        "tools/generate_localized_content.py",
+        "localization/locales.json",
+        "localization/source/en/README.md",
+        "localization/source/en/CHANGELOG.md",
+        "localization/source/en/strings.json",
+        "localization/source/zh-CN/README.md",
+        "localization/source/zh-CN/CHANGELOG.md",
+        "localization/source/zh-CN/strings.json",
+        "README.md",
+        "README.zh-CN.md",
+        "CHANGELOG.md",
+        "CHANGELOG.zh-CN.md",
+        "app/src/main/res/values/strings.xml",
+        "app/src/main/res/values-zh-rCN/strings.xml",
+    )
+
+    def copy_workflow(self, root: Path) -> None:
+        for relative in self.FILES:
+            destination = root / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(SOURCE_ROOT / relative, destination)
+
+    def test_current_reviewed_bilingual_outputs_are_exactly_generated(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.copy_workflow(root)
+            with mock.patch.object(verifier, "ROOT", root):
+                verifier.verify_localization_workflow()
+
+    def test_generator_recreates_missing_and_drifted_outputs(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.copy_workflow(root)
+            write_text(root / "README.md", "drift\n")
+            (root / "CHANGELOG.zh-CN.md").unlink()
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(root / "tools/generate_localized_content.py"),
+                    "--root",
+                    str(root),
+                ],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=30,
+                check=False,
+            )
+            self.assertEqual(0, completed.returncode, completed.stderr)
+            with mock.patch.object(verifier, "ROOT", root):
+                verifier.verify_localization_workflow()
+
+    def test_output_drift_placeholder_sources_and_duplicate_manifest_keys_fail_closed(self) -> None:
+        mutations = (
+            (
+                "generated README drift",
+                lambda root: write_text(
+                    root / "README.md",
+                    (root / "README.md").read_text("utf-8") + "unreviewed drift\n",
+                ),
+            ),
+            (
+                "planned locale source",
+                lambda root: write_text(
+                    root / "localization/source/ja/README.md",
+                    "# Placeholder\n",
+                ),
+            ),
+            (
+                "unexpected localized output",
+                lambda root: write_text(root / "README.ja.md", "# Placeholder\n"),
+            ),
+            (
+                "translation marker",
+                lambda root: write_text(
+                    root / "localization/source/zh-CN/README.md",
+                    (root / "localization/source/zh-CN/README.md").read_text("utf-8")
+                    + "TODO_TRANSLATION\n",
+                ),
+            ),
+            (
+                "translated protected literal drift",
+                lambda root: write_text(
+                    root / "localization/source/zh-CN/README.md",
+                    (root / "localization/source/zh-CN/README.md").read_text("utf-8").replace(
+                        "4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae",
+                        "0" * 64,
+                        1,
+                    ),
+                ),
+            ),
+            (
+                "duplicate manifest key",
+                lambda root: write_text(
+                    root / "localization/locales.json",
+                    (root / "localization/locales.json").read_text("utf-8").replace(
+                        '"sourceLocale": "en",',
+                        '"sourceLocale": "en",\n  "sourceLocale": "en",',
+                        1,
+                    ),
+                ),
+            ),
+        )
+        for label, mutate in mutations:
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                self.copy_workflow(root)
+                mutate(root)
+                with mock.patch.object(verifier, "ROOT", root):
+                    with self.assertRaises(RuntimeError):
+                        verifier.verify_localization_workflow()
+
+
+class R4DesignRecordTest(unittest.TestCase):
+    FILES = (
+        "docs/pcall-boundary-decision.md",
+        "docs/result-model-v2.md",
+        "protocol/protocol-artifacts.lock.json",
+        "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/LuaProviderMetadata.kt",
+    )
+
+    def copy_records(self, root: Path) -> None:
+        for relative in self.FILES:
+            destination = root / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(SOURCE_ROOT / relative, destination)
+
+    def test_current_pcall_rejection_and_result_v2_design_are_complete(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.copy_records(root)
+            with mock.patch.object(verifier, "ROOT", root):
+                verifier.verify_r4_design_records()
+
+    def test_decision_or_compatibility_evidence_removal_is_rejected(self) -> None:
+        mutations = (
+            (
+                "pcall status",
+                self.FILES[0],
+                lambda text: text.replace("REJECTED FOR R4", "UNDECIDED", 1),
+            ),
+            (
+                "pcall nested catch gate",
+                self.FILES[0],
+                lambda text: text.replace(
+                    "repeated catches cannot defer termination",
+                    "termination remains untested",
+                    1,
+                ),
+            ),
+            (
+                "result capability negotiation",
+                self.FILES[1],
+                lambda text: text.replace("result.model.v2", "unreviewed.result"),
+            ),
+            (
+                "host coordination",
+                self.FILES[1],
+                lambda text: text.replace("## Host-side changes required", "## Deferred host work", 1),
+            ),
+            (
+                "frozen protocol identity",
+                self.FILES[2],
+                lambda text: text.replace(
+                    "3b7378758c5a4f68e8680a78cf2c541c23628489",
+                    "1111111111111111111111111111111111111111",
+                    1,
+                ),
+            ),
+        )
+        for label, relative, mutate in mutations:
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                self.copy_records(root)
+                path = root / relative
+                write_text(path, mutate(path.read_text("utf-8")))
+                with mock.patch.object(verifier, "ROOT", root):
+                    with self.assertRaises(RuntimeError):
+                        verifier.verify_r4_design_records()
 
 
 class StrictJsonParsingTest(unittest.TestCase):
@@ -572,7 +757,9 @@ class RepositoryCheckpointTest(unittest.TestCase):
             verifier.verify_manifest()
             verifier.verify_default_off()
             verifier.verify_ci_resilience()
+            verifier.verify_localization_workflow()
             verifier.verify_input_workflows()
+            verifier.verify_r4_design_records()
             verifier.verify_native_boundary()
             verifier.verify_watchdog_boundary()
             verifier.verify_descriptor_boundary()

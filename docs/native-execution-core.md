@@ -64,7 +64,8 @@ The cancellation reason is stored outside the Lua stack. Lua-level `pcall` and
 `xpcall` are unavailable so a script cannot repeatedly swallow the hook error;
 the retained reason also overrides a later Lua result. The coroutine library is
 excluded until hook inheritance and interruption behavior have compiled native
-conformance evidence.
+conformance evidence. R4's reviewed rejection and the conditions for reopening
+that decision are recorded in [pcall-boundary-decision.md](pcall-boundary-decision.md).
 
 Lua-level metatable discovery and mutation are also unavailable. This prevents
 an untrusted chunk from installing an infinite `__gc` or `__close` handler that
@@ -84,7 +85,9 @@ The native bridge currently admits only:
 Multiple returns, tables, functions, threads, userdata, light userdata,
 non-finite numbers, invalid UTF-8, and oversized strings fail closed. No result
 is presented as the protocol `LuaValue` until the runner adapter performs that
-explicit scalar mapping.
+explicit scalar mapping. The host-coordinated V2 proposal is design-only and is
+recorded in [result-model-v2.md](result-model-v2.md); it does not alter this V1
+boundary or the frozen protocol inputs.
 
 ## Bounded argument boundary
 

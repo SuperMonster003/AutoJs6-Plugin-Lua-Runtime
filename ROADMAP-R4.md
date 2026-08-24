@@ -255,9 +255,9 @@ R4-F fault audit 修正 (2026-08-25): release-candidate Gradle guard 从笼统�
 `compileReleaseKotlin`、`processReleaseMainManifest`、`externalNativeBuildRelease`
 与其 `packageReleaseResources` 中间依赖可以为物理排除审计生成证据，而
 `assembleRelease`、`bundleRelease`、release APK/split package 仍强制经过
-`requireReleaseCandidate`。规范 fault invocation 另固定 `--rerun-tasks`，使所有
-受审中间产物都晚于 invocation timestamp；敌意用例会拒绝重新阻塞 audit
-intermediate 或复用过期输出。
+`requireReleaseCandidate`。规范 fault invocation 先执行 `:app:clean`，再以
+`--rerun-tasks` 生成最小受审集合，使所有中间产物都晚于 invocation timestamp；
+敌意用例会拒绝重新阻塞 audit intermediate、跳过清理或复用过期输出。
 
 ## 执行顺序建议
 

@@ -1808,6 +1808,7 @@ def verify_fault_harness_boundary() -> None:
         readme,
         (
             "### Pre-release fault-harness checklist",
+            ":app:clean",
             ":app:assembleDebug",
             ":app:compileReleaseKotlin",
             ":app:processReleaseMainManifest",

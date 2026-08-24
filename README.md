@@ -304,6 +304,7 @@ $faultStarted = [DateTimeOffset]::UtcNow.ToString(
     'yyyy-MM-ddTHH:mm:ss.ffffffZ'
 )
 $faultArgs = @(
+    ':app:clean'
     ':app:assembleDebug'
     ':app:compileReleaseKotlin'
     ':app:processReleaseMainManifest'

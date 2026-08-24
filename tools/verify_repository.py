@@ -1813,6 +1813,7 @@ def verify_fault_harness_boundary() -> None:
             ":app:processReleaseMainManifest",
             ":app:externalNativeBuildRelease",
             "-Pautojs.lua.faultHarness.enabled=true",
+            "--rerun-tasks",
             "verify_fault_harness_artifacts.ps1",
             "-InvocationStartedAtUtc $faultStarted",
             "RELEASE_VARIANT_FAULT_HARNESS_EXCLUSION_PASS",

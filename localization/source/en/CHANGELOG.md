@@ -41,7 +41,8 @@ not published availability.
   physically excluded from release variants.
 - Narrowed the release-candidate Gradle guard to actual APK/AAB artifact tasks,
   allowing unsigned release intermediates to be generated for the fault-harness
-  exclusion audit while every publishable package remains guarded.
+  exclusion audit while every publishable package remains guarded; the canonical
+  audit now forces fresh intermediates with `--rerun-tasks`.
 
 ## 0.1.0-rc.1 — historical local candidate
 

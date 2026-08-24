@@ -1115,6 +1115,11 @@ class FaultHarnessBoundaryTest(unittest.TestCase):
                     1,
                 ),
             ),
+            (
+                "stale fault intermediates",
+                "README.md",
+                lambda text: text.replace("    '--rerun-tasks'\n", "", 1),
+            ),
         )
         for label, relative, mutate in mutations:
             with self.subTest(label=label), tempfile.TemporaryDirectory() as directory:

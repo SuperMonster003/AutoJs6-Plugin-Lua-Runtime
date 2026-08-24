@@ -311,6 +311,7 @@ $faultArgs = @(
     '-Pautojs.lua.native.enabled=true'
     '-Pautojs.lua.provider.enabled=false'
     '-Pautojs.lua.faultHarness.enabled=true'
+    '--rerun-tasks'
     '--offline'
     '--no-daemon'
     '--console=plain'

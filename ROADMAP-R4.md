@@ -72,7 +72,7 @@ APK/ABI、16 KiB ZIP/ELF 对齐、签名与 packaged gates。
   读取阶段必须受 deadline/watchdog 约束而非无限阻塞。
   完成判据: androidTest 用 pipe 写端悬挂构造阻塞读, 断言在 deadline +
   宽限期内进程被 fail-stop 或会话进入 TIMEOUT 终态。
-- [ ] **更广的对端死亡矩阵**。补齐 R3 明示未测的 update/uninstall/对端死亡
+- [x] **更广的对端死亡矩阵**。补齐 R3 明示未测的 update/uninstall/对端死亡
   case: 宿主更新、宿主卸载重装、broker 与 callback 分别单独死亡。
   完成判据: 仪器矩阵各 case 至少一条用例, 断言会话清理与 watchdog 不误杀
   后续执行。
@@ -96,7 +96,26 @@ digest 失败、主动取消、callback 独立进程死亡、broker 独立进程
 阻塞读会被已派发 watchdog 在 deadline + 2 秒 cleanup grace 后 fail-stop；重绑
 获得新 PID/nonce，并再次成功执行 `return 7`。完整 fault instrumentation 4/4
 已在 API 37 x86_64 `emulator-5554` 通过。更广矩阵中的 callback/broker 独立死亡
-已有证据；宿主 update/uninstall 仍待真实宿主生命周期批次，因此该项保持未勾选。
+已有证据。
+
+R4-A 真实宿主生命周期证据 (2026-08-25): 独立测试 APK 的 instrumentation
+`targetPackage` 固定为真实 `org.autojs.autojs6`，且与宿主/Provider 使用同一签名；
+因此 `while true do end` 活跃会话的 callback 与 broker Binder 均实际归属宿主
+进程/UID，而测试代码没有自行杀进程的入口。以宿主源码 revision
+`afca7b14c4ba3971b60a9ce3587e2f10bfd0ab1e` 构造同源同签名的 5276 → 5277
+x86_64 APK 对，先在 `onStarted` 后执行真实 package replace，再独立执行宿主卸载、
+确认 Provider 仍安装、重装 5277；两次 Host 死亡前后的 `:lua_runtime` PID 均稳定为
+14807。每个 case 在恢复后立即成功执行一次 `return 7`，再持有同一 Provider
+Binder 跨过 7 秒 (大于旧会话 4 秒 deadline + 2 秒 cleanup grace) 后再次成功，
+共 4 次恢复执行，证明会话租约已清理且旧 watchdog 未误杀后续执行。API 37
+`emulator-5554` 最终输出 `HOST_LIFECYCLE_MATRIX_PASS`；完整边界与复现方法见
+[`docs/host-lifecycle-matrix.md`](docs/host-lifecycle-matrix.md)。精确制品为 Host 5276
+`c3d87a02713ac3b5b9674bbbd34ba890226e1a8dd4840dfcb3f9cd4b74bf572c`、Host 5277
+`8561864bbad8d739e875d998484e5d2e393cce38c406e0ff58d6bec0eb215f1c`、revision
+`6b6019243c6cc9a66d54f559450776cf7829a059` 的 Provider versionCode 33
+`6ef9cb7858f5ba886767d18f31e6de1255a8bfa975670511887004a0f20c8166` 与 lifecycle
+test `5de00fd680e40370ed3c37305f94d760ffc8b592af2e9567d299e97c6f757f81`；共同 signer
+SHA-256 为 `31a681fcfffb3e428420cae280ded89292b12a3b0f59e19b7a73e32a8ae4c213`。
 
 R4-A 本地化证据 (2026-08-24): `localization/locales.json` 声明恰好十个语言
 槽位，当前仅 `en`/`zh-CN` 为 `humanReviewed` active source；其余八个 planned
@@ -245,8 +264,9 @@ Provider 重试；该能力仍是 design-only，未进入 Kotlin/JNI 或 Provide
 
 R4-F 本地证据 (2026-08-24): `verification.properties` 成为 JVM 测试计数唯一
 source of truth；CI、debug/release artifact gate 与本地门禁均从中读取。
-Python 静态/敌意套件扩展为 36 项，覆盖受控 console/工具 API、R4 决策记录、
-capability 注册表、PFD/deadline、CI cache/retry、fault checklist 与 SSOT 篡改；
+Python 静态/敌意套件扩展为 38 项，覆盖受控 console/工具 API、R4 决策记录、
+capability 注册表、PFD/deadline、CI cache/retry、fault checklist、真实宿主
+lifecycle target/模拟器/PID/watchdog 边界与 SSOT 篡改；
 `tools/verify_local.ps1` 实测输出 `LOCAL_OFFLINE_GATE_PASS tests=49 ...
 network=disabled`。
 

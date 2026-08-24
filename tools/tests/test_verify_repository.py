@@ -1140,6 +1140,7 @@ class FaultHarnessBoundaryTest(unittest.TestCase):
 class HostLifecycleBoundaryTest(unittest.TestCase):
     FILES = (
         "settings.gradle.kts",
+        "ROADMAP-R4.md",
         "app/build.gradle.kts",
         "app/src/main/AndroidManifest.xml",
         "host-lifecycle-test/build.gradle.kts",

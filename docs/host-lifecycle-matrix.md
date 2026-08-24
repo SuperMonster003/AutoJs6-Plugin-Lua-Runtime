@@ -88,3 +88,34 @@ This matrix is lifecycle evidence for the exact APK identities in its pass
 record. It does not publish the provider, change default-off discovery, authorize
 physical-device uninstall, or substitute for the separate release upgrade and
 rollback matrix in R4-E.
+
+## Recorded R4-A run — 2026-08-25
+
+The canonical run used API 37 `emulator-5554` with ABI list
+`x86_64,arm64-v8a`. Both Host APKs came from AutoJs6 revision
+`afca7b14c4ba3971b60a9ce3587e2f10bfd0ab1e`; their version codes and exact
+identities were:
+
+| Artifact | Bytes | SHA-256 |
+| --- | ---: | --- |
+| Host 6.8.0 x86_64, versionCode 5276 | 42,263,861 | `c3d87a02713ac3b5b9674bbbd34ba890226e1a8dd4840dfcb3f9cd4b74bf572c` |
+| Host 6.8.0 x86_64, versionCode 5277 | 42,263,821 | `8561864bbad8d739e875d998484e5d2e393cce38c406e0ff58d6bec0eb215f1c` |
+| Lua provider 0.1.0-rc.2, versionCode 33 | 1,291,547 | `6ef9cb7858f5ba886767d18f31e6de1255a8bfa975670511887004a0f20c8166` |
+| Host lifecycle test, versionCode 33 | 967,195 | `5de00fd680e40370ed3c37305f94d760ffc8b592af2e9567d299e97c6f757f81` |
+
+The provider and lifecycle APKs were built from clean runtime revision
+`6b6019243c6cc9a66d54f559450776cf7829a059`. All four APKs had current signer
+SHA-256 `31a681fcfffb3e428420cae280ded89292b12a3b0f59e19b7a73e32a8ae4c213`.
+
+The update case and uninstall/reinstall case both passed. The runtime PID was
+`14807` before Host death, before recovery, and after the seven-second proof in
+both cases. Four recovery executions completed in total. The exact terminal
+record was:
+
+```text
+HOST_LIFECYCLE_MATRIX_PASS serial=emulator-5554 api=37 abis=x86_64,arm64-v8a hostRevision=afca7b14c4ba3971b60a9ce3587e2f10bfd0ab1e hostVersionCodes=5276->5277 hostBaselineSha256=c3d87a02713ac3b5b9674bbbd34ba890226e1a8dd4840dfcb3f9cd4b74bf572c hostUpdatedSha256=8561864bbad8d739e875d998484e5d2e393cce38c406e0ff58d6bec0eb215f1c providerVersionCode=33 providerSha256=6ef9cb7858f5ba886767d18f31e6de1255a8bfa975670511887004a0f20c8166 lifecycleSha256=5de00fd680e40370ed3c37305f94d760ffc8b592af2e9567d299e97c6f757f81 signerSha256=31a681fcfffb3e428420cae280ded89292b12a3b0f59e19b7a73e32a8ae4c213 updateRuntimePid=14807 uninstallRuntimePid=14807 update=pass uninstallReinstall=pass recoveryExecutions=4 staleWatchdogProofMillis=7000
+```
+
+The terminal emulator state retained Host 5277, provider versionCode 33, the
+lifecycle test APK, and the same live runtime PID for post-run inspection. No
+physical device was mutated.

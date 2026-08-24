@@ -1974,6 +1974,20 @@ def verify_host_lifecycle_boundary() -> None:
         ),
         "Published Host lifecycle matrix boundary",
     )
+    roadmap = (ROOT / "ROADMAP-R4.md").read_text("utf-8")
+    require_tokens(
+        roadmap,
+        (
+            "- [x] **更广的对端死亡矩阵**",
+            "R4-A 真实宿主生命周期证据 (2026-08-25)",
+            "6b6019243c6cc9a66d54f559450776cf7829a059",
+            "Provider versionCode 33",
+            "HOST_LIFECYCLE_MATRIX_PASS",
+            "`:lua_runtime` PID 均稳定为",
+            "14807。每个 case",
+        ),
+        "R4-A Host lifecycle evidence ledger",
+    )
 
 
 def main() -> int:

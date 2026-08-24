@@ -13,7 +13,7 @@
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="false"
         android:hasCode="true"
-        android:icon="@drawable/ic_launcher_lua"
+        android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:usesCleartextTraffic="false"
@@ -35,7 +35,7 @@
             </intent-filter>
             <meta-data
                 android:name="requiresHostVersion"
-                android:value="5273" />
+                android:value="@string/lua_runtime_requires_host_version" />
         </service>
 
         <service
@@ -50,7 +50,7 @@
             </intent-filter>
             <meta-data
                 android:name="requiresHostVersion"
-                android:value="5273" />
+                android:value="@string/lua_runtime_requires_host_version" />
         </service>
 
     </application>

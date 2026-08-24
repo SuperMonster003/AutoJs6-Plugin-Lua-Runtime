@@ -141,6 +141,11 @@ android {
             "${versionProperties.getProperty("REQUIRED_HOST_VERSION_CODE")}L",
         )
         resValue("bool", "lua_runtime_provider_enabled", luaProviderEnabled.get().toString())
+        resValue(
+            "string",
+            "lua_runtime_requires_host_version",
+            versionProperties.getProperty("REQUIRED_HOST_VERSION_CODE"),
+        )
 
         ndk {
             abiFilters += supportedAbis

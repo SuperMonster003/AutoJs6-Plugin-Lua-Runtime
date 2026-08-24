@@ -1016,20 +1016,20 @@ jobject fail_for_lua_status(JNIEnv* environment, int status, bool loading, lua_S
             -1,
             loading
                 ? "Lua source could not be parsed as a text chunk"
-                : "Lua execution failed inside a protected call",
+                : "Lua execution failed inside a protected call"
         );
     if (loading && status == LUA_ERRSYNTAX) {
         return fail(
             environment,
             "SYNTAX",
-            ("Lua source could not be parsed as a text chunk: " + detail).c_str(),
+            ("Lua source could not be parsed as a text chunk: " + detail).c_str()
         );
     }
     if (loading) {
         return fail(
             environment,
             "INTERNAL",
-            ("Lua text loader failed: " + detail).c_str(),
+            ("Lua text loader failed: " + detail).c_str()
         );
     }
     return fail(environment, "RUNTIME", detail.c_str());

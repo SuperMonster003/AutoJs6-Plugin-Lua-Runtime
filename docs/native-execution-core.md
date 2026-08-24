@@ -43,9 +43,10 @@ Each JNI call:
 2. creates one `lua_State` with the bounded allocator
 3. opens only base, math, string, table, and UTF-8 libraries
 4. removes `dofile`, `load`, `loadfile`, `pcall`, `xpcall`, `getmetatable`,
-   `setmetatable`, `print`, `warn`, and `string.dump`
-5. installs a restricted `require` exposing `autojs` plus execution-local frozen
-   modules loaded only through the fixed module snapshot capability
+   `setmetatable`, and `string.dump`
+5. installs controlled global `print`/`warn` output bridges and a restricted
+   `require` exposing `autojs` plus execution-local frozen modules loaded only
+   through the fixed module snapshot capability
 6. loads the main source and every admitted module through
    `luaL_loadbufferx(..., "t")`
 7. installs a count hook for cancellation and a monotonic deadline
@@ -122,8 +123,9 @@ does not contain Java or Android objects and cannot be written back to the host.
   and deadline, and callback UID, execution ID, call ID, terminal uniqueness,
   and zero descriptors are validated before the response reaches JNI.
 - Console output is synchronous and must be accepted by the session's existing
-  sequence, credit, chunk, and total-byte limits; it never falls back to
-  unrestricted Lua `print` or `warn`.
+  sequence, credit, chunk, and total-byte limits. Global `print` routes to that
+  controlled stdout path and global `warn` to the controlled stderr path; no
+  unrestricted Lua output fallback exists.
 - There is no coroutine library in the source-only MVP.
 - Lua hooks cannot preempt source parsing, time spent inside one long native
   C-library operation, or native heap teardown. The bridge polls immediately

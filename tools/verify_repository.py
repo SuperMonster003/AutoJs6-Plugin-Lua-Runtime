@@ -315,6 +315,14 @@ def verify_manifest() -> None:
             for node in intent_filter.findall("action")
         }
         require(actions == {action}, f"{name} action drift")
+        metadata = {
+            node.get(ANDROID + "name"): node.get(ANDROID + "value")
+            for node in service.findall("meta-data")
+        }
+        require(
+            metadata == {"requiresHostVersion": "@string/lua_runtime_requires_host_version"},
+            f"{name} host-version metadata drift",
+        )
 
 
 def parse_default_off_flags(properties: str) -> dict[str, str]:
@@ -400,7 +408,7 @@ def verify_default_off() -> None:
         and "gradle-version:" not in ci,
         "CI must execute the repository-owned Gradle wrapper",
     )
-    require(ci.count("-ExpectedTests 43") == 1, "CI JVM test count drift")
+    require(ci.count("-ExpectedTests 44") == 1, "CI JVM test count drift")
     service = (ROOT / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaRuntimeService.kt").read_text("utf-8")
     require(
         "override fun onBind(intent: Intent?): IBinder = binder" in service,
@@ -428,6 +436,7 @@ def verify_input_workflows() -> None:
         app_build,
         (
             'flag("autojs.lua.releaseCandidate.enabled")',
+            '"lua_runtime_requires_host_version"',
             '"autojs.lua.release.signingPropertiesFile"',
             '"autojs.lua.release.signingStoreFile"',
             '"External release signing paths must be absolute"',
@@ -438,6 +447,30 @@ def verify_input_workflows() -> None:
             'task.name.startsWith("package")',
         ),
         "Explicit signed release-candidate gate",
+    )
+    runnable_provider = (ROOT / "tools/build_runnable_provider.ps1").read_text("utf-8")
+    require_tokens(
+        runnable_provider,
+        (
+            '":app:testDebugUnitTest"',
+            '":app:assembleRelease"',
+            '"-Pautojs.lua.native.enabled=true"',
+            '"-Pautojs.lua.provider.enabled=true"',
+            '"-Pautojs.lua.faultHarness.enabled=false"',
+            '"-Pautojs.lua.releaseCandidate.enabled=true"',
+            'bool/lua_runtime_provider_enabled',
+            '"org.autojs.plugin.INFO"',
+            '"org.autojs.plugin.lua.RUNTIME"',
+            'foreach ($abi in @("arm64-v8a", "x86_64"))',
+            '$pluginSigner = Read-CertificateSha256 $universalApk',
+            '$hostSigner = Read-CertificateSha256 $resolvedHostApk',
+            'if ($pluginSigner -ne $hostSigner)',
+            '$requiredHostVersionCode = [long] $versionProperties["REQUIRED_HOST_VERSION_CODE"]',
+            'if ($hostVersionCode -lt $requiredHostVersionCode)',
+            'status --porcelain --untracked-files=all',
+            'deviceVerified=false runtimeVerified=false',
+        ),
+        "Runnable same-signer Lua provider workflow",
     )
 
     attributes_lines = (ROOT / ".gitattributes").read_text("utf-8").splitlines()
@@ -520,7 +553,7 @@ def verify_input_workflows() -> None:
         artifact_gate,
         (
             "status --porcelain --untracked-files=all",
-            "[int] $ExpectedTests = 43",
+            "[int] $ExpectedTests = 44",
             "rev-list --count HEAD",
             "VERSION_BUILD must equal the positive commit count",
             "app/build/test-results/testDebugUnitTest",

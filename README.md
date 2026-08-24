@@ -37,6 +37,33 @@ off until the native execution, lifecycle, descriptor, and Android conformance
 gates pass. Installing a default scaffold build therefore cannot affect host
 runtime selection.
 
+### Build an installable provider
+
+Do not install an ordinary debug APK when testing Plugin Center discovery: it
+contains neither an enabled Provider nor the native Lua library. Build the
+explicit runnable release candidate instead, and prove that it uses the same
+certificate as the matching AutoJs6 APK:
+
+```powershell
+.\tools\build_runnable_provider.ps1 `
+    -SigningPropertiesFile '<absolute sign.properties path>' `
+    -SigningStoreFile '<absolute JKS path>' `
+    -HostApk '<absolute matching AutoJs6 APK path>'
+```
+
+The command runs the JVM suite, enables native execution and both discovery
+services for the release build, checks the universal APK's actions, native
+ABIs, version, and signer, then prints its exact path. The final receipt keeps
+`deviceVerified=false` and `runtimeVerified=false`; installation and one real
+host-to-provider Lua execution remain separate device evidence. Repository
+defaults stay non-discoverable, and the same-signer Binder boundary is not
+weakened.
+
+The current runnable candidate requires AutoJs6 version code 5276 or newer.
+That Host version keeps the pre-dispatch runtime-info timeout within the live
+binding's original budget; earlier Lua-capable Host builds can discover the
+Provider but cannot reliably dispatch a script.
+
 ## Protocol inputs
 
 The App consumes exactly three repository-local, SHA-256-locked AARs:
@@ -97,10 +124,13 @@ default-off gate. A controlled `require("autojs")` exposes
 `console.log(string)`, `console.error(string)`, and an execution-local
 `arguments` snapshot. The snapshot maps the complete bounded V1 value model to
 Lua scalars, 1-based dense arrays, and string-key tables; strings and bytes use
-binary-safe Lua strings. Console calls retain the existing sequence, credit,
-chunk, and total-output limits. Flat ASCII module names may additionally resolve
-through the fixed `module.snapshot.v1` capability to execution-local UTF-8 text
-snapshots. Path/package search, binary or dynamic C modules, `print`, and `warn`
+binary-safe Lua strings. Global `print(...)` and `warn(string)` are controlled
+stdout/stderr bridges: `print` stringifies its arguments, joins them with tabs,
+and appends a newline, while `warn` uses the same stderr path as
+`console.error`. All four output paths retain the existing sequence, credit,
+chunk, and total-output limits. Flat ASCII module names may additionally
+resolve through the fixed `module.snapshot.v1` capability to execution-local
+UTF-8 text snapshots. Path/package search and binary or dynamic C modules
 remain unavailable.
 
 A process-wide watchdog is bound to each admitted execution token. It arms only
@@ -122,7 +152,7 @@ output, failures, hooks, and allocator recovery without discovering either
 production service. A separate opt-in smoke exercises the production
 INFO/RUNTIME Binder path while keeping repository defaults disabled.
 
-The repository JVM suite contains 43 tests, while focused Android evidence is
+The repository JVM suite contains 44 tests, while focused Android evidence is
 kept separate for native, Binder/PFD, process-recovery, and Provider paths.
 
 ## CI

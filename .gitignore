@@ -10,5 +10,6 @@ local.properties
 sign.properties
 releases/
 .cxx/
+.bak/
 !protocol/*.aar
 !gradle/wrapper/gradle-wrapper.jar

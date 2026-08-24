@@ -105,7 +105,7 @@ def write_default_off_fixture(root: Path) -> None:
           :app:assembleDebug
           -Pautojs.lua.native.enabled=true
           -Pautojs.lua.provider.enabled=false
-      - run: ./tools/verify_debug_artifacts.ps1 -ExpectedTests 43
+      - run: ./tools/verify_debug_artifacts.ps1 -ExpectedTests 44
       - run: python tools/verify_repository.py --require-build-ready --github-output
 """,
     )
@@ -338,6 +338,7 @@ class InputWorkflowTest(unittest.TestCase):
         "tools/stage_protocol_artifacts.ps1",
         "tools/stage_lua_source.ps1",
         "tools/verify_debug_artifacts.ps1",
+        "tools/build_runnable_provider.ps1",
         "tools/verify_release_candidate_artifacts.ps1",
         "tools/verify_lua_archive.ps1",
     )
@@ -427,7 +428,7 @@ class InputWorkflowTest(unittest.TestCase):
             (
                 "debug artifact gate stale JVM count",
                 "tools/verify_debug_artifacts.ps1",
-                lambda text: text.replace("[int] $ExpectedTests = 43", "[int] $ExpectedTests = 30"),
+                lambda text: text.replace("[int] $ExpectedTests = 44", "[int] $ExpectedTests = 30"),
             ),
             (
                 "release artifact gate drops signer certificate derivation",
@@ -435,6 +436,24 @@ class InputWorkflowTest(unittest.TestCase):
                 lambda text: text.replace(
                     "keytoolCommand.Source -exportcert -rfc",
                     "keytoolCommand.Source -list -rfc",
+                    1,
+                ),
+            ),
+            (
+                "runnable provider no longer compares the Host signer",
+                "tools/build_runnable_provider.ps1",
+                lambda text: text.replace(
+                    "$hostSigner = Read-CertificateSha256 $resolvedHostApk",
+                    "$hostSigner = $pluginSigner",
+                    1,
+                ),
+            ),
+            (
+                "runnable provider no longer checks the Host version",
+                "tools/build_runnable_provider.ps1",
+                lambda text: text.replace(
+                    "if ($hostVersionCode -lt $requiredHostVersionCode)",
+                    "if ($false)",
                     1,
                 ),
             ),

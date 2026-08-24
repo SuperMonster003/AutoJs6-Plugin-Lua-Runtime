@@ -3,13 +3,21 @@ param(
     [string] $SdkRoot,
     [string] $BuildToolsVersion = '37.0.0',
     [string] $NdkVersion = '28.2.13676358',
-    [int] $ExpectedTests = 44,
     [switch] $RequireFaultHarness
 )
 
 $ErrorActionPreference = 'Stop'
 
 $repositoryRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
+$verificationProperties = ConvertFrom-StringData -StringData (
+    Get-Content -LiteralPath (Join-Path $repositoryRoot 'verification.properties') -Raw
+)
+if ($verificationProperties.Count -ne 1 -or
+    -not $verificationProperties.ContainsKey('JVM_TEST_COUNT') -or
+    [string]$verificationProperties.JVM_TEST_COUNT -notmatch '^[1-9][0-9]{0,5}$') {
+    throw 'verification.properties must contain exactly one positive JVM_TEST_COUNT'
+}
+$expectedTests = [int]$verificationProperties.JVM_TEST_COUNT
 if (-not $SdkRoot) {
     $SdkRoot = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } else { $env:ANDROID_SDK_ROOT }
 }
@@ -74,7 +82,7 @@ foreach ($report in $testReports) {
     $skipped += [int]$document.testsuite.skipped
 }
 if (
-    $tests -ne $ExpectedTests -or
+    $tests -ne $expectedTests -or
     $failures -ne 0 -or
     $errors -ne 0 -or
     $skipped -ne 0

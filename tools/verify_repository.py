@@ -49,6 +49,25 @@ VENDOR_LOCK_KEYS = {
 }
 
 
+def expected_jvm_test_count() -> int:
+    path = ROOT / "verification.properties"
+    require(path.is_file() and not path.is_symlink(), "Missing regular verification.properties")
+    values: dict[str, str] = {}
+    for raw_line in path.read_text("utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split("=", 1)
+        require(len(parts) == 2 and parts[0], f"Malformed verification property: {line}")
+        key, value = parts[0].strip(), parts[1].strip()
+        require(key not in values, f"Duplicate verification property: {key}")
+        values[key] = value
+    require(set(values) == {"JVM_TEST_COUNT"}, "Verification property inventory drift")
+    count = values["JVM_TEST_COUNT"]
+    require(re.fullmatch(r"[1-9][0-9]{0,5}", count) is not None, "Invalid JVM_TEST_COUNT")
+    return int(count)
+
+
 def require(condition: bool, message: str) -> None:
     if not condition:
         raise RuntimeError(message)
@@ -380,6 +399,7 @@ def ci_gradle_property_values(ci: str, key: str) -> list[str]:
 
 
 def verify_default_off() -> None:
+    expected_jvm_test_count()
     parse_default_off_flags((ROOT / "gradle.properties").read_text("utf-8"))
 
     ci = (ROOT / ".github/workflows/ci.yml").read_text("utf-8")
@@ -404,15 +424,54 @@ def verify_default_off() -> None:
         "CI must fail closed when immutable inputs regress",
     )
     require(
-        ci.count("          ./gradlew\n") == 1
+        ci.count("if ./gradlew \\") == 1
         and "gradle-version:" not in ci,
         "CI must execute the repository-owned Gradle wrapper",
     )
-    require(ci.count("-ExpectedTests 44") == 1, "CI JVM test count drift")
+    require(
+        ci.count("./tools/verify_debug_artifacts.ps1 -BuildToolsVersion 36.0.0") == 1
+        and "-ExpectedTests" not in ci,
+        "CI must derive the JVM test count from verification.properties",
+    )
     service = (ROOT / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaRuntimeService.kt").read_text("utf-8")
     require(
         "override fun onBind(intent: Intent?): IBinder = binder" in service,
         "Runtime service no longer supports actionless explicit binding",
+    )
+
+
+def verify_ci_resilience() -> None:
+    ci = (ROOT / ".github/workflows/ci.yml").read_text("utf-8")
+    require_tokens(
+        ci,
+        (
+            "android-actions/setup-android@v4",
+            'packages: ""',
+            "actions/cache@v4",
+            "/usr/local/lib/android/sdk/platforms/android-36",
+            "/usr/local/lib/android/sdk/build-tools/36.0.0",
+            "/usr/local/lib/android/sdk/ndk/28.2.13676358",
+            "/usr/local/lib/android/sdk/cmake/3.22.1",
+            "android-sdk-${{ runner.os }}-api36-bt36.0.0-ndk28.2.13676358-cmake3.22.1",
+            "for attempt in 1 2 3; do",
+            'if [ "$attempt" -eq 3 ]; then',
+            'echo "sdkmanager failed after two retries" >&2',
+            "sleep $((attempt * 15))",
+            "gradle/actions/setup-gradle@v4",
+            "for build_attempt in 1 2 3; do",
+            "if ./gradlew \\",
+            'if [ "$build_attempt" -eq 3 ]; then',
+            'echo "Gradle build failed after two retries" >&2',
+            "sleep $((build_attempt * 15))",
+        ),
+        "CI Android SDK cache and retry boundary",
+    )
+    require(
+        ci.count("sdkmanager \\") == 1
+        and ci.count("for attempt in 1 2 3; do") == 1
+        and ci.count("if ./gradlew \\") == 1
+        and ci.count("for build_attempt in 1 2 3; do") == 1,
+        "CI must have exactly one bounded SDK loop and one bounded Gradle loop",
     )
 
 
@@ -422,6 +481,7 @@ def require_tokens(text: str, tokens: tuple[str, ...], label: str) -> None:
 
 
 def verify_input_workflows() -> None:
+    expected_jvm_test_count()
     root_build = (ROOT / "build.gradle.kts").read_text("utf-8")
     app_build = (ROOT / "app/build.gradle.kts").read_text("utf-8")
     require(
@@ -553,7 +613,9 @@ def verify_input_workflows() -> None:
         artifact_gate,
         (
             "status --porcelain --untracked-files=all",
-            "[int] $ExpectedTests = 44",
+            "verification.properties",
+            "JVM_TEST_COUNT",
+            "$expectedTests = [int]$verificationProperties.JVM_TEST_COUNT",
             "rev-list --count HEAD",
             "VERSION_BUILD must equal the positive commit count",
             "app/build/test-results/testDebugUnitTest",
@@ -580,6 +642,9 @@ def verify_input_workflows() -> None:
             "keytoolCommand.Source -exportcert -rfc",
             "-storepass:env $passwordEnvironmentName",
             "status --porcelain --untracked-files=all",
+            "verification.properties",
+            "JVM_TEST_COUNT",
+            "$expectedTests = [int]$verificationProperties.JVM_TEST_COUNT",
             "VERSION_BUILD must equal the positive commit count",
             "app/build/outputs/apk/release",
             "zipalign -c -P 16 4",
@@ -595,6 +660,25 @@ def verify_input_workflows() -> None:
             "runtimeVerified = $false",
         ),
         "Signed release-candidate artifact gate",
+    )
+    local_gate = (ROOT / "tools/verify_local.ps1").read_text("utf-8")
+    require_tokens(
+        local_gate,
+        (
+            "verification.properties",
+            "JVM_TEST_COUNT",
+            "tools/verify_repository.py",
+            "--require-build-ready",
+            "unittest",
+            "discover",
+            ":app:testDebugUnitTest",
+            "-Pautojs.lua.native.enabled=true",
+            "-Pautojs.lua.provider.enabled=false",
+            "--offline",
+            "app/build/test-results/testDebugUnitTest",
+            "LOCAL_OFFLINE_GATE_PASS",
+        ),
+        "One-command offline local gate",
     )
     archive_verifier = (ROOT / "tools/verify_lua_archive.ps1").read_text("utf-8")
     require_tokens(
@@ -651,6 +735,8 @@ def verify_native_boundary() -> None:
         'remove_global(state, "setmetatable")': "Lua can install an unbounded teardown finalizer",
         'remove_global(state, "print")': "Lua print can bypass output credits",
         'remove_global(state, "warn")': "Lua warnings can bypass output credits",
+        'lua_setglobal(state, "print")': "Controlled Lua print bridge is missing",
+        'lua_setglobal(state, "warn")': "Controlled Lua warn bridge is missing",
         'lua_setfield(state, -2, "dump")': "Lua string.dump is still exposed",
         'int restricted_require(lua_State* state)': "The controlled require boundary is missing",
         'std::memcmp(name, "autojs", 6U)': "The autojs module admission is not exact",
@@ -669,6 +755,28 @@ def verify_native_boundary() -> None:
     }
     for token, message in required_execution_tokens.items():
         require(token in native, message)
+    print_start = native.index("int autojs_console_print(lua_State* state)")
+    print_end = native.index("int autojs_console_log(lua_State* state)", print_start)
+    print_boundary = native[print_start:print_end]
+    require(
+        "return emit_autojs_console(state, 1);" in print_boundary
+        and "kMaxOutputChunkBytes" in print_boundary,
+        "Global print no longer routes through the bounded stdout bridge",
+    )
+    install_start = native.index("int install_autojs_module(lua_State* state)")
+    install_end = native.index("bool throw_bridge_exception(", install_start)
+    install_boundary = native[install_start:install_end]
+    require(
+        install_boundary.count(
+            'lua_pushcfunction(state, autojs_console_print);\n    lua_setglobal(state, "print");'
+        )
+        == 1
+        and install_boundary.count(
+            'lua_pushcfunction(state, autojs_console_error);\n    lua_setglobal(state, "warn");'
+        )
+        == 1,
+        "Global print/warn are not installed as the reviewed console bridges",
+    )
     host_copy_start = native.index("ProtectedHostMappingResult copy_and_map_host_result(")
     host_copy_end = native.index("int autojs_device_info(lua_State* state)", host_copy_start)
     host_copy_boundary = native[host_copy_start:host_copy_end]
@@ -761,10 +869,42 @@ def verify_native_boundary() -> None:
         ROOT
         / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/LuaProviderMetadata.kt"
     ).read_text("utf-8")
-    require(
-        "NativeLuaHostCapabilityBridge.MODULE_SNAPSHOT_CAPABILITY" in provider_metadata,
-        "Provider metadata does not advertise the frozen module capability",
+    capabilities_start = provider_metadata.index("capabilities = listOf(")
+    capabilities_end = provider_metadata.index("),", capabilities_start)
+    advertised_capabilities = re.findall(
+        r"NativeLuaHostCapabilityBridge\.([A-Z][A-Z0-9_]+_CAPABILITY)",
+        provider_metadata[capabilities_start:capabilities_end],
     )
+    require(
+        advertised_capabilities
+        == ["DEVICE_INFO_CAPABILITY", "MODULE_SNAPSHOT_CAPABILITY"],
+        f"Provider capability registry lacks a reviewed fixed-shape bridge: {advertised_capabilities}",
+    )
+    capability_boundaries = {
+        "DEVICE_INFO_CAPABILITY": (
+            'const val DEVICE_INFO_CAPABILITY = "device.info"',
+            "fun invokeDeviceInfo(): ByteArray",
+            "validateDeviceInfo(value)",
+            'assertEquals("device.info", observedCapability)',
+        ),
+        "MODULE_SNAPSHOT_CAPABILITY": (
+            'const val MODULE_SNAPSHOT_CAPABILITY = "module.snapshot.v1"',
+            "fun loadModule(nameUtf8: ByteArray): ByteArray?",
+            "validateModuleSnapshot(value)",
+            'assertEquals("module.snapshot.v1", capability)',
+        ),
+    }
+    boundary_tests = (
+        ROOT
+        / "app/src/test/java/io/github/supermonster003/autojs6/plugin/lua/runtime/NativeLuaRuntimeBoundaryTest.kt"
+    ).read_text("utf-8")
+    for capability in advertised_capabilities:
+        for token in capability_boundaries[capability][:-1]:
+            require(token in kotlin_boundary, f"Fixed-shape capability bridge drift: {token}")
+        require(
+            capability_boundaries[capability][-1] in boundary_tests,
+            f"Fixed-shape capability JVM evidence drift: {capability}",
+        )
     execute_start = kotlin_boundary.index(
         "fun execute(request: NativeLuaExecutionRequest): NativeLuaExecutionValue",
     )
@@ -897,6 +1037,146 @@ def verify_watchdog_boundary() -> None:
     )
 
 
+def verify_descriptor_boundary() -> None:
+    ledger = (
+        ROOT
+        / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaFileDescriptorLedger.kt"
+    ).read_text("utf-8")
+    require_tokens(
+        ledger,
+        (
+            "INCOMING_SOURCE",
+            "DUPLICATED_SOURCE",
+            "HOST_CALLBACK_PAYLOAD",
+            "RESULT_CALLBACK_PAYLOAD",
+            "ownedCounters.acquired.incrementAndGet()",
+            "ownedCounters.released.incrementAndGet()",
+            "closed.compareAndSet(false, true)",
+            "val isBalanced: Boolean",
+        ),
+        "Logical PFD ownership ledger",
+    )
+
+    service = (
+        ROOT
+        / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaRuntimeService.kt"
+    ).read_text("utf-8")
+    require_tokens(
+        service,
+        (
+            "incomingOwnership = executionManager.trackIncomingSource()",
+            "source?.runCatching { close() }",
+            "incomingOwnership?.close()",
+        ),
+        "Incoming source PFD ownership",
+    )
+    fault_service = (
+        ROOT
+        / "app/src/debug/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/LuaRuntimeFaultService.kt"
+    ).read_text("utf-8")
+    require_tokens(
+        fault_service,
+        (
+            "incomingOwnership = executionManager.trackIncomingSource()",
+            "source?.runCatching { close() }",
+            "incomingOwnership?.close()",
+        ),
+        "Debug fault-harness incoming source PFD ownership",
+    )
+
+    manager = (
+        ROOT
+        / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaRuntimeExecutionManager.kt"
+    ).read_text("utf-8")
+    require_tokens(
+        manager,
+        (
+            "descriptorLedger.acquire(LuaFileDescriptorKind.INCOMING_SOURCE)",
+            "descriptorLedger = descriptorLedger",
+            "ownedSource?.close()",
+            "LuaFileDescriptorKind.DUPLICATED_SOURCE",
+            "if (!closed.compareAndSet(false, true)) return",
+            "ownership.close()",
+        ),
+        "Duplicated source PFD ownership",
+    )
+    require(
+        "callback.onCompleted(\n            LuaRuntimeCodec.encodeResult(result),\n            emptyArray<ParcelFileDescriptor>(),\n        )"
+        in manager,
+        "Protocol V1 result callback unexpectedly returns PFD payloads",
+    )
+
+    host_invoker = (
+        ROOT
+        / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/BinderLuaHostCapabilityInvoker.kt"
+    ).read_text("utf-8")
+    require_tokens(
+        host_invoker,
+        (
+            "descriptorLedger.acquire(LuaFileDescriptorKind.HOST_CALLBACK_PAYLOAD)",
+            "descriptors.forEachIndexed { index, descriptor ->",
+            "runCatching { descriptor?.close() }",
+            "ownerships[index]?.close()",
+        ),
+        "Host callback PFD ownership",
+    )
+
+    controller = (
+        ROOT
+        / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/execution/LuaExecutionSessionController.kt"
+    ).read_text("utf-8")
+    require_tokens(
+        controller,
+        (
+            "fun expireIfNotStarted(): Boolean",
+            "timeout = timeoutFailure(LuaExecutionFailurePhase.QUEUE)",
+            "timeout?.let { failure -> deliver { it.onFailed(failure) } }",
+        ),
+        "Unstarted deadline terminal convergence",
+    )
+
+    ledger_tests = (
+        ROOT
+        / "app/src/test/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaFileDescriptorLedgerTest.kt"
+    ).read_text("utf-8")
+    controller_tests = (
+        ROOT
+        / "app/src/test/java/io/github/supermonster003/autojs6/plugin/lua/runtime/execution/LuaExecutionSessionControllerTest.kt"
+    ).read_text("utf-8")
+    android_tests = (
+        ROOT
+        / "app/src/androidTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/BinderLuaHostCapabilityInvokerInstrumentationTest.kt"
+    ).read_text("utf-8")
+    require_tokens(
+        ledger_tests,
+        (
+            "createFailureBalancesIncomingAndDuplicatedSourceExactlyOnce",
+            "busyRejectionBalancesIncomingSourceWithoutCreatingADuplicate",
+            "sourceReadAndControllerFinishStyleDoubleCloseReleaseOneLease",
+            "hostPayloadsBalanceWhileV1ScalarResultOwnsNoDescriptors",
+        ),
+        "JVM PFD ledger matrix",
+    )
+    require_tokens(
+        controller_tests,
+        (
+            "oneMillisecondDeadlineBeforeDelayedStartEmitsOneTimeoutAndReleasesLeases",
+            "assertEquals(LuaExecutionErrorCode.TIMEOUT, observer.lastError?.code)",
+            "assertEquals(LuaExecutionFailurePhase.QUEUE, observer.lastError?.phase)",
+            "assertEquals(1, watchdog.closes.get())",
+        ),
+        "Tiny-deadline delayed-start race",
+    )
+    require_tokens(
+        android_tests,
+        (
+            "rejectedHostPayloadIsClosedAndLogicallyBalanced",
+            "assertFalse(payload.fileDescriptor.valid())",
+        ),
+        "Android host-payload close evidence",
+    )
+
+
 def verify_native_android_test_boundary() -> None:
     build = (ROOT / "app/build.gradle.kts").read_text("utf-8")
     require_tokens(
@@ -991,6 +1271,7 @@ def verify_fault_harness_boundary() -> None:
             "writeStrongBinder(runtimeProvider)",
             "LuaRuntimeValidation.validateRequestAgainst(",
             "executionManager.create(",
+            "incomingOwnership = executionManager.trackIncomingSource()",
             "incomingSource = source",
             "source.contentEquals(FAULT_WEDGE_SOURCE) -> NativeLuaFaults.wedge()",
             "else -> NativeLuaExecutionRunner.execute(request)",
@@ -1094,6 +1375,23 @@ def verify_fault_harness_boundary() -> None:
         ),
         "Release fault-harness physical exclusion gate",
     )
+    readme = (ROOT / "README.md").read_text("utf-8")
+    require_tokens(
+        readme,
+        (
+            "### Pre-release fault-harness checklist",
+            ":app:assembleDebug",
+            ":app:compileReleaseKotlin",
+            ":app:processReleaseMainManifest",
+            ":app:externalNativeBuildRelease",
+            "-Pautojs.lua.faultHarness.enabled=true",
+            "verify_fault_harness_artifacts.ps1",
+            "-InvocationStartedAtUtc $faultStarted",
+            "RELEASE_VARIANT_FAULT_HARNESS_EXCLUSION_PASS",
+            "LuaRuntimeFaultRecoveryInstrumentationTest",
+        ),
+        "Published fault-harness release checklist",
+    )
 
 
 def main() -> int:
@@ -1116,10 +1414,12 @@ def main() -> int:
     vendor_ready = verify_vendor()
     verify_manifest()
     verify_default_off()
+    verify_ci_resilience()
     verify_input_workflows()
     verify_wrapper()
     verify_native_boundary()
     verify_watchdog_boundary()
+    verify_descriptor_boundary()
     verify_native_android_test_boundary()
     verify_fault_harness_boundary()
     build_ready = protocol_ready and vendor_ready

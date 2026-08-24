@@ -160,23 +160,23 @@ internal class LuaExecutionSessionController(
 
     fun expireIfNotStarted(): Boolean {
         var leaseToCancel: LuaStartLease? = null
+        var timeout: LuaExecutionError? = null
         val expired = synchronized(lock) {
             if (phase != Phase.CREATED || startRequested || closeRequested || terminalClaimed) {
                 false
             } else {
-                closeRequested = true
-                cancelRequested = true
-                observerAvailable = false
                 terminalClaimed = true
                 phase = Phase.FINISHED
                 leaseToCancel = startLease
                 startLease = null
+                timeout = timeoutFailure(LuaExecutionFailurePhase.QUEUE)
                 true
             }
         }
         if (!expired) return false
         leaseToCancel?.closeQuietly()
         source.close()
+        timeout?.let { failure -> deliver { it.onFailed(failure) } }
         finish()
         return true
     }

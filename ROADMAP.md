@@ -75,7 +75,7 @@ R3-B static input-gate evidence on 2026-08-10:
 - [x] Add a process-wide, execution-token-bound fail-stop watchdog for deadline,
   cancel, close, and Binder-death cleanup overruns. Android kill/rebind recovery
   remains a device gate.
-- [ ] Account for every incoming, duplicated, returned, and abandoned PFD.
+- [x] Account for every incoming, duplicated, returned, and abandoned PFD.
 - [x] Keep coroutine, debug, unrestricted io, OS/process access, dynamic C
   modules, reflection, metatable installation, and loadlib unavailable in the
   source allowlist.
@@ -83,9 +83,9 @@ R3-B static input-gate evidence on 2026-08-10:
 R3-C source evidence on 2026-08-10:
 
 - The repository-owned Gradle 9.6.1 wrapper compiles Kotlin/Java/JNI and both
-  admitted ABIs with native enabled and provider disabled. The current focused
-  JVM gate contains 44 tests, including token/stop/finish/scheduler watchdog
-  races.
+  admitted ABIs with native enabled and provider disabled. The exact focused
+  JVM gate count is owned by `verification.properties`, including
+  token/stop/finish/scheduler watchdog races and R4 descriptor accounting.
 - The service now selects `NativeLuaExecutionRunner` only when
   `BuildConfig.LUA_NATIVE_ENABLED` is true. Both exported services remain
   controlled by the packaged false provider resource, so this is not device or
@@ -136,12 +136,12 @@ The checkable local artifact gate is:
 .\tools\verify_debug_artifacts.ps1 `
     -SdkRoot 'E:\.android\sdk' `
     -BuildToolsVersion '37.0.0' `
-    -NdkVersion '28.2.13676358' `
-    -ExpectedTests 44
+    -NdkVersion '28.2.13676358'
 ```
 
 It requires a clean revision whose positive `VERSION_BUILD` equals its commit
-count, 44/44 JVM tests, exactly three debug APK outputs, a single common signer,
+count, the exact JVM count from `verification.properties`, exactly three debug
+APK outputs, a single common signer,
 the exact split/universal ABI inventories, 16 KiB ZIP and ELF LOAD alignment,
 and packaged `native=true/provider=false` gates. It does not run Gradle, ADB,
 Binder, native execution, install, process recovery, or release signing.

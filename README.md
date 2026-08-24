@@ -152,8 +152,25 @@ output, failures, hooks, and allocator recovery without discovering either
 production service. A separate opt-in smoke exercises the production
 INFO/RUNTIME Binder path while keeping repository defaults disabled.
 
-The repository JVM suite contains 44 tests, while focused Android evidence is
-kept separate for native, Binder/PFD, process-recovery, and Provider paths.
+The exact repository JVM-suite count is declared once in
+`verification.properties`; local, CI, debug-artifact, and release-artifact
+gates derive it from there. Focused Android evidence remains separate for
+native, Binder/PFD, process-recovery, and Provider paths.
+
+## Local offline gate
+
+Run the standard repository-owned local gate with no dependency refresh or
+network fallback:
+
+```powershell
+.\tools\verify_local.ps1
+```
+
+It runs the build-ready repository verifier, the Python hostile-boundary suite,
+and `:app:testDebugUnitTest` with native enabled, Provider discovery disabled,
+and Gradle `--offline`. It then checks the generated XML reports against
+`JVM_TEST_COUNT` from `verification.properties`; removal of a JVM test therefore
+fails the gate even when every remaining test passes.
 
 ## CI
 
@@ -229,6 +246,44 @@ The verifier derives the expected certificate digest through `keytool` using a
 process-scoped password environment variable, then clears it. Its result is
 signed-packaging-only evidence: it deliberately reports device and runtime
 verification as false.
+
+### Pre-release fault-harness checklist
+
+Before rebuilding a signed candidate, produce both sides of the default-off
+fault-harness exclusion evidence in one clean canonical invocation. The debug
+variant opts into the destructive harness; the unsigned release intermediates
+must keep it physically absent:
+
+```powershell
+$faultStarted = [DateTimeOffset]::UtcNow.ToString(
+    'yyyy-MM-ddTHH:mm:ss.ffffffZ'
+)
+$faultArgs = @(
+    ':app:assembleDebug'
+    ':app:compileReleaseKotlin'
+    ':app:processReleaseMainManifest'
+    ':app:externalNativeBuildRelease'
+    '-Pautojs.lua.native.enabled=true'
+    '-Pautojs.lua.provider.enabled=false'
+    '-Pautojs.lua.faultHarness.enabled=true'
+    '--offline'
+    '--no-daemon'
+    '--console=plain'
+)
+.\gradlew.bat @faultArgs
+.\tools\verify_fault_harness_artifacts.ps1 `
+    -InvocationStartedAtUtc $faultStarted `
+    -SdkRoot '<Android SDK root>'
+```
+
+The required success receipt is
+`RELEASE_VARIANT_FAULT_HARNESS_EXCLUSION_PASS`: debug must contain the isolated
+service and both fault JNI symbols, while release BuildConfig, merged manifest,
+compiled classes, and both ABI native outputs must exclude them. On a disposable
+device, separately run `LuaRuntimeFaultRecoveryInstrumentationTest` with
+`native=true`, `provider=false`, and `faultHarness=true`; its crash/wedge,
+Binder-death, new-PID, and post-recovery execution assertions are device evidence
+and are not implied by the artifact receipt.
 
 ## License
 

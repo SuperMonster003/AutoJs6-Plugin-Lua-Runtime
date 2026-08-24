@@ -222,16 +222,21 @@ class LuaExecutionSessionControllerTest {
     }
 
     @Test
-    fun unstartedSessionLeaseExpiresWithoutManufacturingCallback() {
+    fun oneMillisecondDeadlineBeforeDelayedStartEmitsOneTimeoutAndReleasesLeases() {
         val dispatcher = ManualDispatcher()
         val observer = RecordingObserver()
         val source = FakeSource()
         val finished = AtomicInteger()
         val leaseCloses = AtomicInteger()
+        val watchdog = RecordingWatchdogLease()
+        val now = AtomicLong(0L)
         val controller = controller(
             dispatcher = dispatcher,
             observer = observer,
             source = source,
+            request = TINY_DEADLINE_REQUEST,
+            clock = LuaMonotonicClock(now::get),
+            watchdog = watchdog,
             onFinished = { finished.incrementAndGet() },
         )
 
@@ -239,14 +244,20 @@ class LuaExecutionSessionControllerTest {
             leaseCloses.incrementAndGet()
             Unit
         }))
+        now.set(1_000_000L)
         assertTrue(controller.expireIfNotStarted())
         assertFalse(controller.expireIfNotStarted())
 
-        assertTrue(observer.events.isEmpty())
+        assertEquals(listOf("failed"), observer.events)
+        assertEquals(LuaExecutionErrorCode.TIMEOUT, observer.lastError?.code)
+        assertEquals(LuaExecutionFailurePhase.QUEUE, observer.lastError?.phase)
         assertTrue(source.closed)
         assertTrue(observer.closed)
         assertEquals(1, leaseCloses.get())
         assertEquals(1, finished.get())
+        assertEquals(0, watchdog.dispatched.get())
+        assertEquals(0, watchdog.stops.get())
+        assertEquals(1, watchdog.closes.get())
         assertFalse(controller.start())
     }
 
@@ -507,11 +518,12 @@ class LuaExecutionSessionControllerTest {
         source: FakeSource = FakeSource(),
         runner: LuaExecutionRunner = LuaExecutionRunner { LuaValue.Nil },
         initialFailure: LuaExecutionError? = null,
+        request: LuaExecutionRequest = REQUEST,
         clock: LuaMonotonicClock = LuaMonotonicClock { 1_000_000L },
         watchdog: LuaExecutionWatchdogLease = RecordingWatchdogLease(),
         onFinished: () -> Unit = {},
     ): LuaExecutionSessionController = LuaExecutionSessionController(
-        request = REQUEST,
+        request = request,
         runtimeInfo = RUNTIME_INFO,
         source = source,
         runner = runner,
@@ -624,6 +636,14 @@ class LuaExecutionSessionControllerTest {
             sourceName = "source.lua",
             sourceLengthBytes = SOURCE.size.toLong(),
             sourceSha256 = LuaSha256.digest(SOURCE),
+        )
+        val TINY_DEADLINE_REQUEST = LuaExecutionRequest(
+            requestId = REQUEST_ID,
+            protocolVersion = PROTOCOL,
+            sourceName = "source.lua",
+            sourceLengthBytes = SOURCE.size.toLong(),
+            sourceSha256 = LuaSha256.digest(SOURCE),
+            timeoutMillis = 1L,
         )
         val RUNTIME_INFO = LuaRuntimeInfo(
             protocolMin = PROTOCOL,

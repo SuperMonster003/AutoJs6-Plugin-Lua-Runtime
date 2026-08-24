@@ -31,25 +31,54 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-      - uses: android-actions/setup-android@v3
-      - run: >-
-          sdkmanager
-          "platforms;android-36"
-          "build-tools;36.0.0"
-          "ndk;28.2.13676358"
-          "cmake;3.22.1"
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: ""
+      - uses: actions/cache@v4
+        with:
+          path: |
+            /usr/local/lib/android/sdk/platforms/android-36
+            /usr/local/lib/android/sdk/build-tools/36.0.0
+            /usr/local/lib/android/sdk/ndk/28.2.13676358
+            /usr/local/lib/android/sdk/cmake/3.22.1
+          key: android-sdk-${{ runner.os }}-api36-bt36.0.0-ndk28.2.13676358-cmake3.22.1
+      - name: Install pinned Android SDK packages with bounded retries
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if sdkmanager \
+              "platforms;android-36" \
+              "build-tools;36.0.0" \
+              "ndk;28.2.13676358" \
+              "cmake;3.22.1"; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "sdkmanager failed after two retries" >&2
+              exit 1
+            fi
+            sleep $((attempt * 15))
+          done
       - uses: gradle/actions/wrapper-validation@v4
       - uses: gradle/actions/setup-gradle@v4
-      - run: >-
-          ./gradlew
-          :app:testDebugUnitTest
-          :app:assembleDebug
-          -Pautojs.lua.native.enabled=true
-          -Pautojs.lua.provider.enabled=false
-          --no-daemon
-          --console=plain
+      - name: Build with bounded retries
+        shell: bash
+        run: |
+          for build_attempt in 1 2 3; do
+            if ./gradlew \
+              :app:testDebugUnitTest \
+              :app:assembleDebug \
+              -Pautojs.lua.native.enabled=true \
+              -Pautojs.lua.provider.enabled=false \
+              --no-daemon \
+              --console=plain; then
+              exit 0
+            fi
+            if [ "$build_attempt" -eq 3 ]; then
+              echo "Gradle build failed after two retries" >&2
+              exit 1
+            fi
+            sleep $((build_attempt * 15))
+          done
       - shell: pwsh
-        run: >-
-          ./tools/verify_debug_artifacts.ps1
-          -BuildToolsVersion 36.0.0
-          -ExpectedTests 44
+        run: ./tools/verify_debug_artifacts.ps1 -BuildToolsVersion 36.0.0

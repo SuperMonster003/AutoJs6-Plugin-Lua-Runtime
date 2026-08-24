@@ -54,7 +54,7 @@ APK/ABI、16 KiB ZIP/ELF 对齐、签名与 packaged gates。
 
 ## R4-A — R3 遗留缺口收敛 (ROADMAP.md 已明示未勾选/未测项)
 
-- [ ] **PFD 全生命周期账目**。补齐 R3-C 唯一未勾选项: 为每个传入、复制、
+- [x] **PFD 全生命周期账目**。补齐 R3-C 唯一未勾选项: 为每个传入、复制、
   返回、遗弃的 ParcelFileDescriptor 建立逻辑账目, 覆盖 create 异常路径、
   BUSY 拒绝路径、broker 回调 payload 关闭路径。
   完成判据: 新增 JVM 账目测试 (计数进/出严格配平); 现有
@@ -63,7 +63,7 @@ APK/ABI、16 KiB ZIP/ELF 对齐、签名与 packaged gates。
 - [ ] **OS 级 FD 泄漏证据**。在 androidTest 中于批量执行前后对比
   `/proc/self/fd` 计数 (含故意失败、取消、回调死亡各路径)。
   完成判据: 仪器测试断言 FD 计数回落到基线; 用例并入故障恢复矩阵。
-- [ ] **极小 deadline 与 oneway start 竞争**。R3 记录: 极小请求超时可能在
+- [x] **极小 deadline 与 oneway start 竞争**。R3 记录: 极小请求超时可能在
   oneway `start()` 尚未到达时就过期。为该窗口定义确定性行为 (统一走
   `expireIfNotStarted` 的 TIMEOUT 终态, 不得出现无终态会话)。
   完成判据: JVM 测试固定 1ms deadline + 延迟 start, 断言唯一终态与
@@ -80,6 +80,13 @@ APK/ABI、16 KiB ZIP/ELF 对齐、签名与 packaged gates。
   zh-CN/en 双语生成脚手架 (脚本生成、单一 source of truth), 其余八语言
   仅在有真实翻译输入时扩展, 不引入机器占位文本。
   完成判据: 生成脚本 + 双语 README 入库; verifier 增加生成物一致性检查。
+
+R4-A 本地账目/竞争证据 (2026-08-24): JVM 套件新增四条 PFD 逻辑账目用例，
+分别覆盖 create 异常、BUSY 不复制、source read/controller finish 双重关闭幂等、
+Host callback payload 与 V1 零返回 payload，所有分类进/出严格配平；Android
+测试另直接断言非法 Host payload 的真实 PFD 已关闭。1ms deadline + 延迟
+`start()` 固定产生唯一 `TIMEOUT/QUEUE` 终态，并释放未派发的 watchdog 与
+start lease。OS 级 FD、阻塞 pipe 与更广对端死亡仍由下方未勾选项承接。
 
 ## R4-B — 语言能力精进 (受控扩展, 每项默认关闭直至证据齐备)
 
@@ -167,22 +174,29 @@ APK/ABI、16 KiB ZIP/ELF 对齐、签名与 packaged gates。
 
 ## R4-F — 门禁与 CI 强化 (全程可离线)
 
-- [ ] **verifier 覆盖新边界**。`verify_repository.py` 增加: print/warn
+- [x] **verifier 覆盖新边界**。`verify_repository.py` 增加: print/warn
   受控桥的存在性检查 (防止未来误开无限制 print)、R4 新 capability 的
   fixed-shape 桥 token 检查、测试计数单一 source of truth (从一处常量
   派生, 消灭六处硬编码)。
   完成判据: `tools/tests` 相应新增敌意用例; 套件保持全绿。
-- [ ] **本地一键离线门禁脚本**。新增 `tools/verify_local.ps1`: 串联
+- [x] **本地一键离线门禁脚本**。新增 `tools/verify_local.ps1`: 串联
   python verifier → unittest → `gradlew --offline testDebugUnitTest`,
   任何一步失败即停; 明确不触网。
   完成判据: 脚本入库并在 README 记为标准本地门禁; 断网环境实测通过。
-- [ ] **CI 网络韧性**。GitHub Actions 中为 Gradle/SDK 下载步骤增加重试
+- [x] **CI 网络韧性**。GitHub Actions 中为 Gradle/SDK 下载步骤增加重试
   (最多 2 次) 与依赖缓存 (`gradle/actions/setup-gradle` 缓存已内建,
   补 sdkmanager 缓存), 降低远端 5xx 导致的红灯噪声。
   完成判据: workflow 更新入库; verifier 的 CI 文本检查同步放行。
-- [ ] **fault harness 门禁并入常规矩阵**。`verify_fault_harness_artifacts.ps1`
+- [x] **fault harness 门禁并入常规矩阵**。`verify_fault_harness_artifacts.ps1`
   目前独立存在; 将其运行前提与产出写入 README 并纳入发布前 checklist。
   完成判据: README/发布 checklist 引用该脚本; 参数与当前 harness 实现一致。
+
+R4-F 本地证据 (2026-08-24): `verification.properties` 成为 JVM 测试计数唯一
+source of truth；CI、debug/release artifact gate 与本地门禁均从中读取。
+Python 静态/敌意套件扩展为 31 项，覆盖受控 `print`/`warn`、capability 注册表、
+PFD/deadline、CI cache/retry、fault checklist 与 SSOT 篡改；
+`tools/verify_local.ps1` 实测输出 `LOCAL_OFFLINE_GATE_PASS tests=48 ...
+network=disabled`。
 
 ## 执行顺序建议
 

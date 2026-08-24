@@ -132,6 +132,59 @@ class BinderLuaHostCapabilityInvokerInstrumentationTest {
         invoker.close()
     }
 
+    @Test
+    fun rejectedHostPayloadIsClosedAndLogicallyBalanced() {
+        val executionId = requestId(4)
+        val ledger = LuaFileDescriptorLedger()
+        val pipe = ParcelFileDescriptor.createPipe()
+        val payload = pipe[0]
+        val writer = pipe[1]
+        val broker = object : ILuaHostCapabilityBroker.Stub() {
+            override fun invoke(
+                requestMetadata: ByteArray?,
+                payloads: Array<out ParcelFileDescriptor?>?,
+                callback: ILuaHostCapabilityCallback?,
+            ) {
+                val request = LuaRuntimeCodec.decodeHostRequest(checkNotNull(requestMetadata))
+                checkNotNull(callback).onCompleted(
+                    LuaRuntimeCodec.encodeHostResult(
+                        LuaHostCallResult(request.executionId, request.callId, LuaValue.Nil),
+                    ),
+                    arrayOf(payload),
+                )
+            }
+        }
+        val invoker = BinderLuaHostCapabilityInvoker(
+            broker = broker,
+            executionId = executionId,
+            allowedCapabilities = listOf("device.info"),
+            ownerUid = Process.myUid(),
+            callerVerifier = LuaSessionCallerVerifier { },
+            descriptorLedger = ledger,
+        )
+
+        try {
+            val failure = assertThrows(LuaHostCapabilityException::class.java) {
+                invoker.invoke(
+                    "device.info",
+                    LuaValue.MapValue(emptyMap()),
+                    1_000L,
+                    LuaCancellationProbe { false },
+                )
+            }
+            assertEquals(LuaHostCapabilityFailureKind.PROTOCOL, failure.kind)
+            assertFalse(payload.fileDescriptor.valid())
+            val balance = ledger.snapshot().balance(LuaFileDescriptorKind.HOST_CALLBACK_PAYLOAD)
+            assertEquals(1L, balance.acquired)
+            assertEquals(1L, balance.released)
+            assertTrue(ledger.snapshot().isBalanced)
+        } finally {
+            invoker.close()
+            runCatching { payload.close() }
+            runCatching { writer.close() }
+        }
+    }
+
     private fun requestId(marker: Byte): LuaRequestId =
         LuaRequestId.fromBytes(ByteArray(16).also { it[15] = marker })
 }

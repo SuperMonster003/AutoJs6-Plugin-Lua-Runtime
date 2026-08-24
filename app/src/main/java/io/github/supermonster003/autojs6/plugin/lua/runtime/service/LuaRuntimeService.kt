@@ -59,6 +59,7 @@ class LuaRuntimeService : Service() {
             hostBroker: ILuaHostCapabilityBroker?,
         ): ILuaExecutionSession? {
             val createdNanos = System.nanoTime()
+            var incomingOwnership: LuaFileDescriptorLease? = null
             try {
                 val ownerUid = callerVerifier.enforceAllowedCaller()
                 require(requestMetadata != null) { "Lua execution metadata must not be null" }
@@ -66,6 +67,7 @@ class LuaRuntimeService : Service() {
                     "Lua execution metadata exceeds the protocol bound"
                 }
                 require(source != null) { "Lua source descriptor must not be null" }
+                incomingOwnership = executionManager.trackIncomingSource()
                 require(callback != null) { "Lua execution callback must not be null" }
                 require(hostBroker != null) { "Lua host broker must not be null" }
                 NativeLuaRuntime.requireReady()
@@ -86,7 +88,11 @@ class LuaRuntimeService : Service() {
                     hostBroker = hostBroker,
                 )
             } finally {
-                source?.runCatching { close() }
+                try {
+                    source?.runCatching { close() }
+                } finally {
+                    incomingOwnership?.close()
+                }
             }
         }
     }

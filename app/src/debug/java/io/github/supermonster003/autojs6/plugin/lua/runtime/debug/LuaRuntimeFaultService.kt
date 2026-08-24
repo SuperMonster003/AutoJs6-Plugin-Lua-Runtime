@@ -13,6 +13,7 @@ import io.github.supermonster003.autojs6.plugin.lua.runtime.BuildConfig
 import io.github.supermonster003.autojs6.plugin.lua.runtime.NativeLuaExecutionRunner
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaExecutionRunner
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaRunnerRequest
+import io.github.supermonster003.autojs6.plugin.lua.runtime.service.LuaFileDescriptorLease
 import io.github.supermonster003.autojs6.plugin.lua.runtime.service.LuaRuntimeExecutionManager
 import io.github.supermonster003.autojs6.plugin.lua.runtime.service.LuaSessionCallerVerifier
 import org.autojs.plugin.lua.runtime.api.ILuaExecutionCallback
@@ -110,6 +111,7 @@ class LuaRuntimeFaultService : Service() {
             hostBroker: ILuaHostCapabilityBroker?,
         ): ILuaExecutionSession? {
             val createdNanos = System.nanoTime()
+            var incomingOwnership: LuaFileDescriptorLease? = null
             try {
                 val ownerUid = SameUidSessionCallerVerifier.enforceAllowedCaller()
                 require(requestMetadata != null) { "Lua execution metadata must not be null" }
@@ -117,6 +119,7 @@ class LuaRuntimeFaultService : Service() {
                     "Lua execution metadata exceeds the protocol bound"
                 }
                 require(source != null) { "Lua source descriptor must not be null" }
+                incomingOwnership = executionManager.trackIncomingSource()
                 require(callback != null) { "Lua execution callback must not be null" }
                 require(hostBroker != null) { "Lua host broker must not be null" }
                 val runtimeInfo = debugRuntimeInfo()
@@ -136,7 +139,11 @@ class LuaRuntimeFaultService : Service() {
                     hostBroker = hostBroker,
                 )
             } finally {
-                source?.runCatching { close() }
+                try {
+                    source?.runCatching { close() }
+                } finally {
+                    incomingOwnership?.close()
+                }
             }
         }
     }

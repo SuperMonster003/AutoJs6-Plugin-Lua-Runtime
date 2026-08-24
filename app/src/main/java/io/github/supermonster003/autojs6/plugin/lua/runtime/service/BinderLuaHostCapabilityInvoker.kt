@@ -34,6 +34,7 @@ internal class BinderLuaHostCapabilityInvoker(
     allowedCapabilities: Collection<String>,
     private val ownerUid: Int,
     private val callerVerifier: LuaSessionCallerVerifier,
+    private val descriptorLedger: LuaFileDescriptorLedger = LuaFileDescriptorLedger(),
 ) : LuaHostCapabilityInvoker, AutoCloseable {
     private val policy = LuaHostCallPolicy(executionId, allowedCapabilities)
     private val sequence = AtomicLong()
@@ -73,6 +74,11 @@ internal class BinderLuaHostCapabilityInvoker(
                 payloads: Array<out ParcelFileDescriptor?>?,
             ) {
                 val descriptors = payloads.orEmpty()
+                val ownerships = descriptors.map { descriptor ->
+                    descriptor?.let {
+                        descriptorLedger.acquire(LuaFileDescriptorKind.HOST_CALLBACK_PAYLOAD)
+                    }
+                }
                 var identityToken: Long? = null
                 try {
                     callerVerifier.enforceSessionOwner(ownerUid)
@@ -89,7 +95,13 @@ internal class BinderLuaHostCapabilityInvoker(
                     publish(Outcome.ProtocolFailure(failure))
                 } finally {
                     identityToken?.let(Binder::restoreCallingIdentity)
-                    descriptors.forEach { descriptor -> runCatching { descriptor?.close() } }
+                    descriptors.forEachIndexed { index, descriptor ->
+                        try {
+                            runCatching { descriptor?.close() }
+                        } finally {
+                            ownerships[index]?.close()
+                        }
+                    }
                 }
             }
 

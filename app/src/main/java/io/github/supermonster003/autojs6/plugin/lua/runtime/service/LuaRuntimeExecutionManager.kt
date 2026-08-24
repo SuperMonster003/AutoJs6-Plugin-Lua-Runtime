@@ -35,11 +35,13 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
+import java.io.InputStream
 
 /** Owns process-local admission, worker lifetime, Binder peers, and source PFDs. */
 internal class LuaRuntimeExecutionManager(
     private val callerVerifier: LuaSessionCallerVerifier,
     private val runner: LuaExecutionRunner,
+    private val descriptorLedger: LuaFileDescriptorLedger = LuaFileDescriptorLedger(),
 ) : AutoCloseable {
     private val sessions = ConcurrentHashMap.newKeySet<RemoteLuaExecutionSession>()
     private val closed = AtomicBoolean(false)
@@ -95,7 +97,10 @@ internal class LuaRuntimeExecutionManager(
                 timeoutMillis = request.timeoutMillis,
             ) ?: error("The Lua runtime watchdog is unavailable or poisoned")
             watchdogLease = admittedWatchdog
-            val admittedSource = LuaParcelFileExecutionSource.duplicateOf(incomingSource)
+            val admittedSource = LuaParcelFileExecutionSource.duplicateOf(
+                incoming = incomingSource,
+                descriptorLedger = descriptorLedger,
+            )
             ownedSource = admittedSource
             newRemoteSession(
                 ownerUid = ownerUid,
@@ -118,6 +123,9 @@ internal class LuaRuntimeExecutionManager(
             throw error
         }
     }
+
+    fun trackIncomingSource(): LuaFileDescriptorLease =
+        descriptorLedger.acquire(LuaFileDescriptorKind.INCOMING_SOURCE)
 
     override fun close() {
         val snapshot = synchronized(lifecycleLock) {
@@ -148,6 +156,7 @@ internal class LuaRuntimeExecutionManager(
             allowedCapabilities = request.requiredCapabilities,
             ownerUid = ownerUid,
             callerVerifier = callerVerifier,
+            descriptorLedger = descriptorLedger,
         )
         lateinit var remote: RemoteLuaExecutionSession
         val controller = LuaExecutionSessionController(
@@ -329,8 +338,10 @@ private class BinderLuaExecutionObserver(
     }
 }
 
-private class LuaParcelFileExecutionSource private constructor(
-    private val descriptor: ParcelFileDescriptor,
+internal class LuaParcelFileExecutionSource internal constructor(
+    private val openInput: () -> InputStream,
+    private val closeDescriptor: () -> Unit,
+    private val ownership: LuaFileDescriptorLease,
 ) : LuaExecutionSource {
     private val readClaimed = AtomicBoolean(false)
     private val closed = AtomicBoolean(false)
@@ -338,7 +349,7 @@ private class LuaParcelFileExecutionSource private constructor(
     override fun readVerified(request: LuaExecutionRequest): ByteArray {
         check(readClaimed.compareAndSet(false, true)) { "Lua source descriptor was already consumed" }
         try {
-            return ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { input ->
+            return openInput().use { input ->
                 LuaSourceVerifier.read(input, request)
             }
         } finally {
@@ -348,12 +359,26 @@ private class LuaParcelFileExecutionSource private constructor(
 
     override fun close() {
         if (!closed.compareAndSet(false, true)) return
-        runCatching { descriptor.close() }
+        try {
+            runCatching(closeDescriptor)
+        } finally {
+            ownership.close()
+        }
     }
 
     companion object {
-        fun duplicateOf(incoming: ParcelFileDescriptor): LuaParcelFileExecutionSource =
-            LuaParcelFileExecutionSource(ParcelFileDescriptor.dup(incoming.fileDescriptor))
+        fun duplicateOf(
+            incoming: ParcelFileDescriptor,
+            descriptorLedger: LuaFileDescriptorLedger,
+        ): LuaParcelFileExecutionSource {
+            val duplicate = ParcelFileDescriptor.dup(incoming.fileDescriptor)
+            val ownership = descriptorLedger.acquire(LuaFileDescriptorKind.DUPLICATED_SOURCE)
+            return LuaParcelFileExecutionSource(
+                openInput = { ParcelFileDescriptor.AutoCloseInputStream(duplicate) },
+                closeDescriptor = duplicate::close,
+                ownership = ownership,
+            )
+        }
     }
 }
 

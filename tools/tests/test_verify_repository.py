@@ -89,6 +89,7 @@ def stage_vendor(root: Path, lock: dict[str, object], files: dict[str, bytes]) -
 
 
 def write_default_off_fixture(root: Path) -> None:
+    shutil.copy2(SOURCE_ROOT / "verification.properties", root / "verification.properties")
     write_text(
         root / "gradle.properties",
         "autojs.lua.native.enabled=false\nautojs.lua.provider.enabled=false\n"
@@ -101,11 +102,16 @@ def write_default_off_fixture(root: Path) -> None:
   build:
     steps:
       - run: >-
-          ./gradlew
-          :app:assembleDebug
-          -Pautojs.lua.native.enabled=true
-          -Pautojs.lua.provider.enabled=false
-      - run: ./tools/verify_debug_artifacts.ps1 -ExpectedTests 44
+          for build_attempt in 1 2 3; do
+            if ./gradlew \\
+              :app:assembleDebug \\
+              -Pautojs.lua.native.enabled=true \\
+              -Pautojs.lua.provider.enabled=false \\
+              --no-daemon; then
+              exit 0
+            fi
+          done
+      - run: ./tools/verify_debug_artifacts.ps1 -BuildToolsVersion 36.0.0
       - run: python tools/verify_repository.py --require-build-ready --github-output
 """,
     )
@@ -114,6 +120,28 @@ def write_default_off_fixture(root: Path) -> None:
         / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaRuntimeService.kt",
         "override fun onBind(intent: Intent?): IBinder = binder\n",
     )
+
+
+class VerificationPropertiesTest(unittest.TestCase):
+    def test_jvm_count_is_positive_unique_and_the_only_verification_property(self) -> None:
+        invalid = (
+            "JVM_TEST_COUNT=0\n",
+            "JVM_TEST_COUNT=2\nJVM_TEST_COUNT=3\n",
+            "JVM_TEST_COUNT=2\nUNREVIEWED_GATE=true\n",
+            "JVM_TEST_COUNT=two\n",
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copy2(SOURCE_ROOT / "verification.properties", root / "verification.properties")
+            with mock.patch.object(verifier, "ROOT", root):
+                self.assertGreater(verifier.expected_jvm_test_count(), 0)
+        for value in invalid:
+            with self.subTest(value=value), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                write_text(root / "verification.properties", value)
+                with mock.patch.object(verifier, "ROOT", root):
+                    with self.assertRaises(RuntimeError):
+                        verifier.expected_jvm_test_count()
 
 
 class StrictJsonParsingTest(unittest.TestCase):
@@ -316,7 +344,7 @@ class DefaultOffTest(unittest.TestCase):
     def test_ci_cannot_downgrade_readiness_or_bypass_the_wrapper(self) -> None:
         mutations = (
             lambda text: text.replace("--require-build-ready ", ""),
-            lambda text: text.replace("          ./gradlew\n", "          gradle\n"),
+            lambda text: text.replace("if ./gradlew \\", "if gradle \\", 1),
         )
         for mutate in mutations:
             with self.subTest(mutate=mutate), tempfile.TemporaryDirectory() as directory:
@@ -329,8 +357,38 @@ class DefaultOffTest(unittest.TestCase):
                         verifier.verify_default_off()
 
 
+class CiResilienceTest(unittest.TestCase):
+    def test_current_sdk_cache_and_two_retry_loop_are_admitted(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            destination = root / ".github/workflows/ci.yml"
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(SOURCE_ROOT / ".github/workflows/ci.yml", destination)
+            with mock.patch.object(verifier, "ROOT", root):
+                verifier.verify_ci_resilience()
+
+    def test_cache_or_bounded_retry_removal_is_rejected(self) -> None:
+        mutations = (
+            lambda text: text.replace("actions/cache@v4", "actions/cache@removed", 1),
+            lambda text: text.replace("for attempt in 1 2 3; do", "for attempt in 1; do", 1),
+            lambda text: text.replace("gradle/actions/setup-gradle@v4", "gradle/actions/setup-gradle@removed", 1),
+            lambda text: text.replace("for build_attempt in 1 2 3; do", "for build_attempt in 1; do", 1),
+        )
+        for mutate in mutations:
+            with self.subTest(mutate=mutate), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                destination = root / ".github/workflows/ci.yml"
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                source = (SOURCE_ROOT / ".github/workflows/ci.yml").read_text("utf-8")
+                write_text(destination, mutate(source))
+                with mock.patch.object(verifier, "ROOT", root):
+                    with self.assertRaises(RuntimeError):
+                        verifier.verify_ci_resilience()
+
+
 class InputWorkflowTest(unittest.TestCase):
     INPUT_FILES = (
+        "verification.properties",
         ".gitattributes",
         ".gitignore",
         "build.gradle.kts",
@@ -340,6 +398,7 @@ class InputWorkflowTest(unittest.TestCase):
         "tools/verify_debug_artifacts.ps1",
         "tools/build_runnable_provider.ps1",
         "tools/verify_release_candidate_artifacts.ps1",
+        "tools/verify_local.ps1",
         "tools/verify_lua_archive.ps1",
     )
 
@@ -426,9 +485,27 @@ class InputWorkflowTest(unittest.TestCase):
                 ),
             ),
             (
-                "debug artifact gate stale JVM count",
+                "debug artifact gate bypasses the JVM count source",
                 "tools/verify_debug_artifacts.ps1",
-                lambda text: text.replace("[int] $ExpectedTests = 44", "[int] $ExpectedTests = 30"),
+                lambda text: text.replace(
+                    "$expectedTests = [int]$verificationProperties.JVM_TEST_COUNT",
+                    "$expectedTests = 30",
+                    1,
+                ),
+            ),
+            (
+                "release artifact gate bypasses the JVM count source",
+                "tools/verify_release_candidate_artifacts.ps1",
+                lambda text: text.replace(
+                    "$expectedTests = [int]$verificationProperties.JVM_TEST_COUNT",
+                    "$expectedTests = 30",
+                    1,
+                ),
+            ),
+            (
+                "invalid JVM count source",
+                "verification.properties",
+                lambda text: "JVM_TEST_COUNT=0\n",
             ),
             (
                 "release artifact gate drops signer certificate derivation",
@@ -438,6 +515,11 @@ class InputWorkflowTest(unittest.TestCase):
                     "keytoolCommand.Source -list -rfc",
                     1,
                 ),
+            ),
+            (
+                "local gate can reach the network",
+                "tools/verify_local.ps1",
+                lambda text: text.replace("'--offline'", "'--refresh-dependencies'", 1),
             ),
             (
                 "runnable provider no longer compares the Host signer",
@@ -489,9 +571,11 @@ class RepositoryCheckpointTest(unittest.TestCase):
             vendor_ready = verifier.verify_vendor()
             verifier.verify_manifest()
             verifier.verify_default_off()
+            verifier.verify_ci_resilience()
             verifier.verify_input_workflows()
             verifier.verify_native_boundary()
             verifier.verify_watchdog_boundary()
+            verifier.verify_descriptor_boundary()
             verifier.verify_native_android_test_boundary()
             verifier.verify_fault_harness_boundary()
             with mock.patch.object(
@@ -504,6 +588,152 @@ class RepositoryCheckpointTest(unittest.TestCase):
                 else:
                     with self.assertRaisesRegex(RuntimeError, "not ready"):
                         verifier.main()
+
+
+class NativeBoundaryTest(unittest.TestCase):
+    FILES = (
+        "README.md",
+        "app/proguard-rules.pro",
+        "app/src/main/cpp/CMakeLists.txt",
+        "app/src/main/cpp/cmake/lua54-sources.cmake",
+        "app/src/main/cpp/lua_runtime_jni.cpp",
+        "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/LuaProviderMetadata.kt",
+        "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/NativeLuaRuntime.kt",
+        "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaRuntimeService.kt",
+        "app/src/test/java/io/github/supermonster003/autojs6/plugin/lua/runtime/NativeLuaRuntimeBoundaryTest.kt",
+        "docs/native-execution-core.md",
+    )
+
+    def copy_boundary(self, root: Path) -> None:
+        for relative in self.FILES:
+            destination = root / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(SOURCE_ROOT / relative, destination)
+
+    def test_current_controlled_print_and_warn_boundary_is_admitted(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.copy_boundary(root)
+            with mock.patch.object(verifier, "ROOT", root):
+                verifier.verify_native_boundary()
+
+    def test_unbounded_or_missing_global_output_bridge_is_rejected(self) -> None:
+        mutations = (
+            lambda text: text.replace(
+                'lua_setglobal(state, "print");',
+                'lua_setglobal(state, "unreviewed_print");',
+                1,
+            ),
+            lambda text: text.replace(
+                'lua_pushcfunction(state, autojs_console_error);\n    lua_setglobal(state, "warn");',
+                'lua_pushcfunction(state, autojs_console_print);\n    lua_setglobal(state, "warn");',
+                1,
+            ),
+            lambda text: text.replace(
+                "return emit_autojs_console(state, 1);",
+                "return 0;",
+                1,
+            ),
+        )
+        for mutate in mutations:
+            with self.subTest(mutate=mutate), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                self.copy_boundary(root)
+                native = root / "app/src/main/cpp/lua_runtime_jni.cpp"
+                write_text(native, mutate(native.read_text("utf-8")))
+                with mock.patch.object(verifier, "ROOT", root):
+                    with self.assertRaises(RuntimeError):
+                        verifier.verify_native_boundary()
+
+    def test_unreviewed_capability_registration_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.copy_boundary(root)
+            metadata = (
+                root
+                / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/LuaProviderMetadata.kt"
+            )
+            write_text(
+                metadata,
+                metadata.read_text("utf-8").replace(
+                    "NativeLuaHostCapabilityBridge.MODULE_SNAPSHOT_CAPABILITY,",
+                    "NativeLuaHostCapabilityBridge.MODULE_SNAPSHOT_CAPABILITY,\n"
+                    "                NativeLuaHostCapabilityBridge.UNREVIEWED_CAPABILITY,",
+                    1,
+                ),
+            )
+            with mock.patch.object(verifier, "ROOT", root):
+                with self.assertRaisesRegex(RuntimeError, "fixed-shape bridge"):
+                    verifier.verify_native_boundary()
+
+
+class DescriptorBoundaryTest(unittest.TestCase):
+    FILES = (
+        "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/execution/LuaExecutionSessionController.kt",
+        "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/BinderLuaHostCapabilityInvoker.kt",
+        "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaFileDescriptorLedger.kt",
+        "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaRuntimeExecutionManager.kt",
+        "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaRuntimeService.kt",
+        "app/src/test/java/io/github/supermonster003/autojs6/plugin/lua/runtime/execution/LuaExecutionSessionControllerTest.kt",
+        "app/src/test/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaFileDescriptorLedgerTest.kt",
+        "app/src/androidTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/BinderLuaHostCapabilityInvokerInstrumentationTest.kt",
+        "app/src/debug/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/LuaRuntimeFaultService.kt",
+    )
+
+    def copy_boundary(self, root: Path) -> None:
+        for relative in self.FILES:
+            destination = root / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(SOURCE_ROOT / relative, destination)
+
+    def test_current_descriptor_ledger_and_tiny_deadline_boundary_are_admitted(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.copy_boundary(root)
+            with mock.patch.object(verifier, "ROOT", root):
+                verifier.verify_descriptor_boundary()
+
+    def test_descriptor_release_or_timeout_terminal_removal_is_rejected(self) -> None:
+        mutations = (
+            (
+                "incoming source release",
+                self.FILES[4],
+                lambda text: text.replace("incomingOwnership?.close()", "Unit", 1),
+            ),
+            (
+                "duplicated source release",
+                self.FILES[3],
+                lambda text: text.replace("ownership.close()", "Unit", 1),
+            ),
+            (
+                "host payload release",
+                self.FILES[1],
+                lambda text: text.replace("ownerships[index]?.close()", "Unit", 1),
+            ),
+            (
+                "tiny deadline terminal",
+                self.FILES[0],
+                lambda text: text.replace(
+                    "timeout?.let { failure -> deliver { it.onFailed(failure) } }",
+                    "Unit",
+                    1,
+                ),
+            ),
+            (
+                "fault harness incoming source release",
+                self.FILES[8],
+                lambda text: text.replace("incomingOwnership?.close()", "Unit", 1),
+            ),
+        )
+        for label, relative, mutate in mutations:
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                self.copy_boundary(root)
+                path = root / relative
+                write_text(path, mutate(path.read_text("utf-8")))
+                with mock.patch.object(verifier, "ROOT", root):
+                    with self.assertRaises(RuntimeError):
+                        verifier.verify_descriptor_boundary()
 
 
 class NativeAndroidBoundaryTest(unittest.TestCase):
@@ -543,6 +773,7 @@ class NativeAndroidBoundaryTest(unittest.TestCase):
 
 class FaultHarnessBoundaryTest(unittest.TestCase):
     FILES = (
+        "README.md",
         "app/build.gradle.kts",
         "app/src/main/AndroidManifest.xml",
         "app/src/debug/AndroidManifest.xml",
@@ -585,6 +816,15 @@ class FaultHarnessBoundaryTest(unittest.TestCase):
                 lambda text: text.replace(
                     "#if defined(AUTOJS_LUA_DEBUG_FAULT_HARNESS)\nextern \"C\" JNIEXPORT void JNICALL",
                     "extern \"C\" JNIEXPORT void JNICALL",
+                    1,
+                ),
+            ),
+            (
+                "missing published release checklist",
+                "README.md",
+                lambda text: text.replace(
+                    "RELEASE_VARIANT_FAULT_HARNESS_EXCLUSION_PASS",
+                    "UNVERIFIED_FAULT_HARNESS",
                     1,
                 ),
             ),

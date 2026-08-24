@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <queries>
+        <package android:name="io.github.supermonster003.autojs6.plugin.lua.runtime" />
+    </queries>
+
+    <application
+        android:allowBackup="false"
+        android:hasCode="true"
+        android:label="Lua Host Lifecycle Test" />
+
+    <instrumentation
+        android:name=".LuaHostLifecycleInstrumentation"
+        android:functionalTest="true"
+        android:handleProfiling="false"
+        android:label="Lua Host Lifecycle Test"
+        android:targetPackage="org.autojs.autojs6" />
+
+</manifest>

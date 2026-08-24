@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "autojs6-plugin-lua-runtime"
 include(":app")
+include(":host-lifecycle-test")

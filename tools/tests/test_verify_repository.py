@@ -1137,6 +1137,103 @@ class FaultHarnessBoundaryTest(unittest.TestCase):
                         verifier.verify_fault_harness_boundary()
 
 
+class HostLifecycleBoundaryTest(unittest.TestCase):
+    FILES = (
+        "settings.gradle.kts",
+        "app/build.gradle.kts",
+        "app/src/main/AndroidManifest.xml",
+        "host-lifecycle-test/build.gradle.kts",
+        "host-lifecycle-test/src/main/AndroidManifest.xml",
+        "host-lifecycle-test/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/host/"
+        "lifecycle/test/LuaHostLifecycleInstrumentation.kt",
+        "docs/host-lifecycle-matrix.md",
+        "tools/verify_host_lifecycle_matrix.ps1",
+    )
+
+    def copy_boundary(self, root: Path) -> None:
+        for relative in self.FILES:
+            destination = root / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(SOURCE_ROOT / relative, destination)
+
+    def test_current_host_lifecycle_matrix_targets_real_host_and_emulators_only(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.copy_boundary(root)
+            with mock.patch.object(verifier, "ROOT", root):
+                verifier.verify_host_lifecycle_boundary()
+
+    def test_target_package_emulator_guard_pid_or_watchdog_proof_drift_is_rejected(self) -> None:
+        mutations = (
+            (
+                "module inclusion",
+                "settings.gradle.kts",
+                lambda text: text.replace('include(":host-lifecycle-test")', "", 1),
+            ),
+            (
+                "real Host target",
+                "host-lifecycle-test/src/main/AndroidManifest.xml",
+                lambda text: text.replace(
+                    'android:targetPackage="org.autojs.autojs6"',
+                    'android:targetPackage="synthetic.host"',
+                    1,
+                ),
+            ),
+            (
+                "stale watchdog window",
+                "host-lifecycle-test/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/host/"
+                "lifecycle/test/LuaHostLifecycleInstrumentation.kt",
+                lambda text: text.replace(
+                    "const val STALE_WATCHDOG_PROOF_MILLIS = 7_000L",
+                    "const val STALE_WATCHDOG_PROOF_MILLIS = 1_000L",
+                    1,
+                ),
+            ),
+            (
+                "same Binder survival",
+                "host-lifecycle-test/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/host/"
+                "lifecycle/test/LuaHostLifecycleInstrumentation.kt",
+                lambda text: text.replace(
+                    "providerBinder.isBinderAlive && providerBinder.pingBinder()",
+                    "true",
+                    1,
+                ),
+            ),
+            (
+                "emulator serial guard",
+                "tools/verify_host_lifecycle_matrix.ps1",
+                lambda text: text.replace(
+                    "$Serial -notmatch '^emulator-[0-9]+$'",
+                    "$false",
+                    1,
+                ),
+            ),
+            (
+                "qemu property guard",
+                "tools/verify_host_lifecycle_matrix.ps1",
+                lambda text: text.replace("$isQemu -ne '1'", "$false", 1),
+            ),
+            (
+                "runtime PID continuity",
+                "tools/verify_host_lifecycle_matrix.ps1",
+                lambda text: text.replace(
+                    "$afterPid -ne $ExpectedRuntimePid",
+                    "$false",
+                    1,
+                ),
+            ),
+        )
+        for label, relative, mutate in mutations:
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                self.copy_boundary(root)
+                path = root / relative
+                write_text(path, mutate(path.read_text("utf-8")))
+                with mock.patch.object(verifier, "ROOT", root):
+                    with self.assertRaises(RuntimeError):
+                        verifier.verify_host_lifecycle_boundary()
+
+
 class WatchdogBoundaryTest(unittest.TestCase):
     WATCHDOG_FILES = (
         "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/execution/LuaExecutionWatchdog.kt",

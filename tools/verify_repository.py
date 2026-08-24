@@ -1824,6 +1824,158 @@ def verify_fault_harness_boundary() -> None:
     )
 
 
+def verify_host_lifecycle_boundary() -> None:
+    settings = (ROOT / "settings.gradle.kts").read_text("utf-8")
+    require(
+        settings.count('include(":host-lifecycle-test")') == 1,
+        "Host lifecycle test module is not included exactly once",
+    )
+
+    build = (ROOT / "host-lifecycle-test/build.gradle.kts").read_text("utf-8")
+    require_tokens(
+        build,
+        (
+            'id("com.android.application")',
+            'applicationId = "io.github.supermonster003.autojs6.plugin.lua.runtime.host.lifecycle.test"',
+            '"autojs.lua.hostLifecycle.signingPropertiesFile"',
+            '"autojs.lua.hostLifecycle.signingStoreFile"',
+            "Host lifecycle signing paths must be absolute",
+            'create("hostLifecycle")',
+            'signingConfigs.findByName("hostLifecycle")?.let { signingConfig = it }',
+            'rootProject.file("protocol/common-plugin-api.aar")',
+            'rootProject.file("protocol/protocol-wire-api.aar")',
+            'rootProject.file("protocol/lua-runtime-api.aar")',
+        ),
+        "Standalone Host lifecycle test build boundary",
+    )
+    require(
+        'project(":app")' not in build,
+        "Host lifecycle test must not package or compile against the runtime app module",
+    )
+
+    manifest_path = ROOT / "host-lifecycle-test/src/main/AndroidManifest.xml"
+    manifest = ET.parse(manifest_path).getroot()
+    queries = manifest.find("queries")
+    query_packages = [] if queries is None else [
+        node.get(ANDROID + "name") for node in queries.findall("package")
+    ]
+    require(
+        query_packages == ["io.github.supermonster003.autojs6.plugin.lua.runtime"],
+        "Host lifecycle package visibility boundary drift",
+    )
+    application = manifest.find("application")
+    require(application is not None and len(list(application)) == 0, "Host lifecycle APK gained an app component")
+    instrumentations = manifest.findall("instrumentation")
+    require(len(instrumentations) == 1, "Host lifecycle instrumentation inventory drift")
+    instrumentation_manifest = instrumentations[0]
+    require(
+        instrumentation_manifest.get(ANDROID + "name") == ".LuaHostLifecycleInstrumentation"
+        and instrumentation_manifest.get(ANDROID + "targetPackage") == "org.autojs.autojs6"
+        and instrumentation_manifest.get(ANDROID + "functionalTest") == "true"
+        and instrumentation_manifest.get(ANDROID + "handleProfiling") == "false",
+        "Host lifecycle instrumentation no longer targets the real AutoJs6 package",
+    )
+
+    instrumentation = (
+        ROOT
+        / "host-lifecycle-test/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/host/"
+        "lifecycle/test/LuaHostLifecycleInstrumentation.kt"
+    ).read_text("utf-8")
+    require_tokens(
+        instrumentation,
+        (
+            "check(targetContext.packageName == HOST_PACKAGE)",
+            'MODE_ARM -> arm(runId)',
+            'MODE_VERIFY -> verify(runId)',
+            'source = INFINITE_SOURCE',
+            'session.start()',
+            'callback.awaitStarted()',
+            'CountDownLatch(1).await()',
+            '"$ARMED_MARKER runId=$runId',
+            'ComponentName(PROVIDER_PACKAGE, PROVIDER_SERVICE)',
+            'provider.createExecution(',
+            'ILuaExecutionCallback.Stub()',
+            'ILuaHostCapabilityBroker.Stub()',
+            'providerBinder.linkToDeath(providerDeathRecipient, 0)',
+            'SystemClock.sleep(STALE_WATCHDOG_PROOF_MILLIS)',
+            'providerBinder.isBinderAlive && providerBinder.pingBinder()',
+            'providerBinder.unlinkToDeath(providerDeathRecipient, 0)',
+            '"$VERIFY_MARKER runId=$runId',
+            'val INFINITE_SOURCE = "while true do end"',
+            'val RETURN_SEVEN_SOURCE = "return 7"',
+        ),
+        "Real-Host lifecycle instrumentation matrix",
+    )
+    require(
+        instrumentation.count("executeReturnSeven(targetContext, binding.provider") == 2,
+        "Host lifecycle verification must execute both before and after the stale-watchdog window",
+    )
+    arm_timeout = re.search(r"const val ARM_TIMEOUT_MILLIS = ([0-9_]+)L", instrumentation)
+    stale_proof = re.search(r"const val STALE_WATCHDOG_PROOF_MILLIS = ([0-9_]+)L", instrumentation)
+    require(arm_timeout is not None and stale_proof is not None, "Host lifecycle timing constants are missing")
+    arm_timeout_millis = int(arm_timeout.group(1).replace("_", ""))
+    stale_proof_millis = int(stale_proof.group(1).replace("_", ""))
+    require(
+        stale_proof_millis > arm_timeout_millis + 2_000,
+        "Host lifecycle proof does not cross the armed deadline plus cleanup grace",
+    )
+    require(
+        "Process.killProcess" not in instrumentation,
+        "Host lifecycle instrumentation must die only through actual package lifecycle",
+    )
+
+    orchestrator = (ROOT / "tools/verify_host_lifecycle_matrix.ps1").read_text("utf-8")
+    require_tokens(
+        orchestrator,
+        (
+            "$Serial -notmatch '^emulator-[0-9]+$'",
+            "'ro.kernel.qemu'",
+            "$isQemu -ne '1'",
+            "$baselineIdentity.VersionCode -ge $updatedIdentity.VersionCode",
+            "$signers.Count -ne 1",
+            "'lua_runtime_provider_enabled'",
+            "Install-Apk $updatedHost -Replace",
+            "$uninstallOutput = (Invoke-Adb @('uninstall', $HostPackage))",
+            "Lua provider was removed with the Host package",
+            "Invoke-RecoveryVerification",
+            "$beforePid -ne $ExpectedRuntimePid",
+            "$afterPid -ne $ExpectedRuntimePid",
+            "HOST_LIFECYCLE_MATRIX_PASS",
+            "update=pass uninstallReinstall=pass recoveryExecutions=4",
+        ),
+        "Emulator-only Host update/uninstall orchestrator",
+    )
+    for physical_serial in ("968e9f18", "BH900ASK9E", "QV710AF65F"):
+        require(
+            physical_serial not in orchestrator,
+            "Host lifecycle orchestrator contains a physical-device serial",
+        )
+    app_build = (ROOT / "app/build.gradle.kts").read_text("utf-8")
+    main_manifest = (ROOT / "app/src/main/AndroidManifest.xml").read_text("utf-8")
+    require(
+        "host-lifecycle-test" not in app_build
+        and "LuaHostLifecycleInstrumentation" not in main_manifest,
+        "Host lifecycle fixture entered the runtime app boundary",
+    )
+    design = (ROOT / "docs/host-lifecycle-matrix.md").read_text("utf-8")
+    require_tokens(
+        design,
+        (
+            "accepts only an online `emulator-*` serial",
+            "target package is the real `org.autojs.autojs6` package",
+            "Both the callback and",
+            "Binder objects live in the actual AutoJs6 process",
+            "strictly higher-version Host",
+            "uninstall the Host package",
+            "immediately executes `return 7`",
+            "same provider Binder alive for seven seconds",
+            "HOST_LIFECYCLE_MATRIX_PASS",
+            "does not publish the provider",
+        ),
+        "Published Host lifecycle matrix boundary",
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--github-output", action="store_true")
@@ -1854,6 +2006,7 @@ def main() -> int:
     verify_descriptor_boundary()
     verify_native_android_test_boundary()
     verify_fault_harness_boundary()
+    verify_host_lifecycle_boundary()
     build_ready = protocol_ready and vendor_ready
     if args.require_build_ready:
         require(

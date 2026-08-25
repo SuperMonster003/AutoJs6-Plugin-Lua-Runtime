@@ -47,7 +47,9 @@ import java.util.concurrent.atomic.AtomicReference
  * target package, so both callback and broker Binder objects die with the actual Host UID.
  * After the Host is available again, `verify` proves that the abandoned session was released
  * and that its old watchdog cannot terminate later executions. The non-destructive `smoke` mode
- * runs the real Host Lua engine against an explicitly version-pinned release candidate.
+ * runs the real Host Lua engine against an explicitly version-pinned release candidate. The
+ * non-destructive `incompatible` mode proves that an older Host rejects a newer Provider during
+ * engine initialization, before any script execution can be dispatched.
  */
 class LuaHostLifecycleInstrumentation : Instrumentation() {
     private lateinit var arguments: Bundle
@@ -74,6 +76,7 @@ class LuaHostLifecycleInstrumentation : Instrumentation() {
                 MODE_ARM -> arm(runId)
                 MODE_VERIFY -> verify(runId)
                 MODE_SMOKE -> smoke(runId)
+                MODE_INCOMPATIBLE -> incompatible(runId)
                 else -> error("Unknown lifecycle mode: $mode")
             }
         } catch (failure: Throwable) {
@@ -251,6 +254,91 @@ class LuaHostLifecycleInstrumentation : Instrumentation() {
                 putString("discovery", "pass")
                 putString("result", "pass")
                 putString("console", "pass")
+            },
+        )
+    }
+
+    private fun incompatible(runId: String) {
+        val context = targetContext
+        check(Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            "Official Provider compatibility proof requires API 24 or newer"
+        }
+        check(Looper.myLooper() != Looper.getMainLooper()) {
+            "Official Provider compatibility proof must not block the Android main thread"
+        }
+        val expectedHostVersionCode = requiredVersionArgument(ARG_EXPECTED_HOST_VERSION_CODE)
+        val expectedProviderVersionCode = requiredVersionArgument(ARG_EXPECTED_PROVIDER_VERSION_CODE)
+        val packageManager = context.packageManager
+        val hostVersionCode = packageVersionCode(packageManager, HOST_PACKAGE)
+        val providerVersionCode = packageVersionCode(packageManager, PROVIDER_PACKAGE)
+        check(hostVersionCode == expectedHostVersionCode) {
+            "Host versionCode mismatch: expected=$expectedHostVersionCode actual=$hostVersionCode"
+        }
+        check(providerVersionCode == expectedProviderVersionCode) {
+            "Provider versionCode mismatch: expected=$expectedProviderVersionCode actual=$providerVersionCode"
+        }
+
+        val infoService = singleEnabledService(context, LuaPluginActions.INFO)
+        val runtimeService = singleEnabledService(context, LuaRuntimeContract.SERVICE_ACTION)
+        requireOfficialService(infoService, LuaPluginActions.INFO)
+        requireOfficialService(runtimeService, LuaRuntimeContract.SERVICE_ACTION)
+        check(packageManager.checkSignatures(HOST_PACKAGE, PROVIDER_PACKAGE) == PackageManager.SIGNATURE_MATCH) {
+            "Official Provider and Host do not have the same signer"
+        }
+
+        val engineClass = context.classLoader.loadClass(HOST_ENGINE_CLASS)
+        val engine = engineClass.getConstructor(Context::class.java).newInstance(context)
+        val initFailure = try {
+            runCatching { invokeReflective(engineClass.getMethod("init"), engine) }
+                .exceptionOrNull()
+                ?: error("Older Host unexpectedly accepted the release candidate")
+        } finally {
+            invokeReflective(engineClass.getMethod("destroy"), engine)
+        }
+        val hostFailure = generateSequence(initFailure as Throwable?) { failure -> failure.cause }
+            .firstOrNull { failure -> failure.javaClass.name == HOST_EXCEPTION_CLASS }
+            ?: throw IllegalStateException(
+                "Host rejection did not expose $HOST_EXCEPTION_CLASS",
+                initFailure,
+            )
+        val outerCode = invokeReflective(
+            hostFailure.javaClass.getMethod("getCode"),
+            hostFailure,
+        ).toString()
+        val evaluations = invokeReflective(
+            hostFailure.javaClass.getMethod("getEvaluations"),
+            hostFailure,
+        ) as? List<*> ?: throw IllegalStateException(
+            "Host rejection evaluations are unavailable",
+            initFailure,
+        )
+        val rejectionCodes = evaluations.map { evaluation ->
+            val value = checkNotNull(evaluation) { "Host rejection contains a null evaluation" }
+            invokeReflective(value.javaClass.getMethod("getRejection"), value).toString()
+        }
+        check(outerCode == EXPECTED_HOST_FAILURE_CODE) {
+            "Unexpected Host failure code: expected=$EXPECTED_HOST_FAILURE_CODE actual=$outerCode"
+        }
+        check(rejectionCodes == listOf(EXPECTED_PROVIDER_REJECTION)) {
+            "Unexpected Provider rejection set: expected=$EXPECTED_PROVIDER_REJECTION actual=$rejectionCodes"
+        }
+
+        Log.i(
+            TAG,
+            "$INCOMPATIBLE_MARKER runId=$runId hostPid=${Process.myPid()} hostUid=${Process.myUid()} " +
+                "hostVersionCode=$hostVersionCode providerVersionCode=$providerVersionCode " +
+                "outerCode=$outerCode rejection=${rejectionCodes.single()} dispatch=not-entered",
+        )
+        finish(
+            Activity.RESULT_OK,
+            Bundle().apply {
+                putString("stream", "$INCOMPATIBLE_MARKER runId=$runId\n")
+                putString("runId", runId)
+                putLong("hostVersionCode", hostVersionCode)
+                putLong("providerVersionCode", providerVersionCode)
+                putString("outerCode", outerCode)
+                putString("rejection", rejectionCodes.single())
+                putString("dispatch", "not-entered")
             },
         )
     }
@@ -594,6 +682,7 @@ class LuaHostLifecycleInstrumentation : Instrumentation() {
         const val RECOVERY_MARKER = "LUA_HOST_LIFECYCLE_RECOVERY"
         const val VERIFY_MARKER = "LUA_HOST_LIFECYCLE_VERIFY_PASS"
         const val SMOKE_MARKER = "LUA_HOST_OFFICIAL_SMOKE_PASS"
+        const val INCOMPATIBLE_MARKER = "LUA_HOST_INCOMPATIBLE_REJECT_PASS"
         const val FAIL_MARKER = "LUA_HOST_LIFECYCLE_FAIL"
         const val ARG_MODE = "mode"
         const val ARG_RUN_ID = "runId"
@@ -602,6 +691,7 @@ class LuaHostLifecycleInstrumentation : Instrumentation() {
         const val MODE_ARM = "arm"
         const val MODE_VERIFY = "verify"
         const val MODE_SMOKE = "smoke"
+        const val MODE_INCOMPATIBLE = "incompatible"
         const val HOST_PACKAGE = "org.autojs.autojs6"
         const val PROVIDER_PACKAGE = "io.github.supermonster003.autojs6.plugin.lua.runtime"
         const val RUNTIME_PROCESS = "$PROVIDER_PACKAGE:lua_runtime"
@@ -612,7 +702,11 @@ class LuaHostLifecycleInstrumentation : Instrumentation() {
         const val HOST_SCRIPT_SOURCE_CLASS = "org.autojs.autojs.script.LuaScriptSource"
         const val HOST_SCRIPT_ENGINE_SERVICE_CLASS = "org.autojs.autojs.engine.ScriptEngineService"
         const val HOST_CONSOLE_CLASS = "org.autojs.autojs.core.console.ConsoleImpl"
+        const val HOST_EXCEPTION_CLASS =
+            "org.autojs.autojs.core.plugin.lua.LuaRuntimeHostException"
         const val LUA_INT64_VALUE_CLASS = "org.autojs.plugin.lua.runtime.api.LuaValue\$Int64Value"
+        const val EXPECTED_HOST_FAILURE_CODE = "LUA_RUNTIME_UNAVAILABLE"
+        const val EXPECTED_PROVIDER_REJECTION = "HOST_VERSION_UNSUPPORTED"
         const val ARM_TIMEOUT_MILLIS = 4_000L
         const val RETURN_TIMEOUT_MILLIS = 5_000L
         const val STALE_WATCHDOG_PROOF_MILLIS = 7_000L

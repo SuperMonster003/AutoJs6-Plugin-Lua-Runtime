@@ -1550,7 +1550,9 @@ class HostLifecycleBoundaryTest(unittest.TestCase):
         "host-lifecycle-test/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/host/"
         "lifecycle/test/LuaHostLifecycleInstrumentation.kt",
         "docs/host-lifecycle-matrix.md",
+        "docs/release-upgrade-matrix.md",
         "tools/verify_host_lifecycle_matrix.ps1",
+        "tools/verify_release_upgrade_matrix.ps1",
     )
 
     def copy_boundary(self, root: Path) -> None:
@@ -1609,6 +1611,28 @@ class HostLifecycleBoundaryTest(unittest.TestCase):
                 lambda text: text.replace("MODE_SMOKE -> smoke(runId)", "MODE_SMOKE -> Unit", 1),
             ),
             (
+                "older Host deterministic rejection",
+                "host-lifecycle-test/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/host/"
+                "lifecycle/test/LuaHostLifecycleInstrumentation.kt",
+                lambda text: text.replace(
+                    "MODE_INCOMPATIBLE -> incompatible(runId)",
+                    "MODE_INCOMPATIBLE -> Unit",
+                    1,
+                ),
+            ),
+            (
+                "older Host rejection enters dispatch",
+                "host-lifecycle-test/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/host/"
+                "lifecycle/test/LuaHostLifecycleInstrumentation.kt",
+                lambda text: text.replace(
+                    "private fun incompatible(runId: String) {\n        val context = targetContext",
+                    "private fun incompatible(runId: String) {\n"
+                    "        val context = targetContext\n"
+                    "        executeHostLua(context, Any(), \"forbidden\", \"return 7\")",
+                    1,
+                ),
+            ),
+            (
                 "API 26 reflection call enters minSdk smoke",
                 "host-lifecycle-test/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/host/"
                 "lifecycle/test/LuaHostLifecycleInstrumentation.kt",
@@ -1627,6 +1651,24 @@ class HostLifecycleBoundaryTest(unittest.TestCase):
                 "qemu property guard",
                 "tools/verify_host_lifecycle_matrix.ps1",
                 lambda text: text.replace("$isQemu -ne '1'", "$false", 1),
+            ),
+            (
+                "release matrix emulator guard",
+                "tools/verify_release_upgrade_matrix.ps1",
+                lambda text: text.replace(
+                    "$Serial -notmatch '^emulator-[0-9]+$'",
+                    "$false",
+                    1,
+                ),
+            ),
+            (
+                "release matrix deterministic error code",
+                "tools/verify_release_upgrade_matrix.ps1",
+                lambda text: text.replace(
+                    "$ExpectedRejection = 'HOST_VERSION_UNSUPPORTED'",
+                    "$ExpectedRejection = 'UNSPECIFIED'",
+                    1,
+                ),
             ),
             (
                 "runtime PID continuity",

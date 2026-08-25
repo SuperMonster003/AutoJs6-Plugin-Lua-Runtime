@@ -2795,6 +2795,7 @@ def verify_host_lifecycle_boundary() -> None:
             'MODE_ARM -> arm(runId)',
             'MODE_VERIFY -> verify(runId)',
             'MODE_SMOKE -> smoke(runId)',
+            'MODE_INCOMPATIBLE -> incompatible(runId)',
             'source = INFINITE_SOURCE',
             'session.start()',
             'callback.awaitStarted()',
@@ -2820,6 +2821,15 @@ def verify_host_lifecycle_boundary() -> None:
             'requireInt64Result(deviceResult, Build.VERSION.SDK_INT.toLong(), "device.info")',
             'awaitConsoleMarker(context, stdout)',
             '"$SMOKE_MARKER runId=$runId',
+            'runCatching { invokeReflective(engineClass.getMethod("init"), engine) }',
+            'failure.javaClass.name == HOST_EXCEPTION_CLASS',
+            'hostFailure.javaClass.getMethod("getCode")',
+            'hostFailure.javaClass.getMethod("getEvaluations")',
+            'value.javaClass.getMethod("getRejection")',
+            'EXPECTED_HOST_FAILURE_CODE = "LUA_RUNTIME_UNAVAILABLE"',
+            'EXPECTED_PROVIDER_REJECTION = "HOST_VERSION_UNSUPPORTED"',
+            '"$INCOMPATIBLE_MARKER runId=$runId',
+            '"dispatch", "not-entered"',
             'val INFINITE_SOURCE = "while true do end"',
             'val RETURN_SEVEN_SOURCE = "return 7"',
         ),
@@ -2832,6 +2842,13 @@ def verify_host_lifecycle_boundary() -> None:
     require(
         "method.parameterCount" not in instrumentation,
         "Host smoke reflection must remain callable on API 24",
+    )
+    incompatible_start = instrumentation.index("private fun incompatible(runId: String)")
+    incompatible_end = instrumentation.index("private fun requiredVersionArgument", incompatible_start)
+    incompatible = instrumentation[incompatible_start:incompatible_end]
+    require(
+        "executeHostLua(" not in incompatible and 'getMethod("execute")' not in incompatible,
+        "Older-Host rejection proof must not enter script dispatch",
     )
     arm_timeout = re.search(r"const val ARM_TIMEOUT_MILLIS = ([0-9_]+)L", instrumentation)
     stale_proof = re.search(r"const val STALE_WATCHDOG_PROOF_MILLIS = ([0-9_]+)L", instrumentation)
@@ -2873,6 +2890,47 @@ def verify_host_lifecycle_boundary() -> None:
             physical_serial not in orchestrator,
             "Host lifecycle orchestrator contains a physical-device serial",
         )
+
+    release_orchestrator = (ROOT / "tools/verify_release_upgrade_matrix.ps1").read_text("utf-8")
+    require_tokens(
+        release_orchestrator,
+        (
+            "$Serial -notmatch '^emulator-[0-9]+$'",
+            "'ro.kernel.qemu'",
+            "$isQemu -ne '1'",
+            "$ExpectedCurrentHostVersionCode = 5276L",
+            "$ExpectedRc1VersionName = '0.1.0-rc.1'",
+            "$ExpectedRc2VersionName = '0.1.0-rc.2'",
+            "$ExpectedOuterCode = 'LUA_RUNTIME_UNAVAILABLE'",
+            "$ExpectedRejection = 'HOST_VERSION_UNSUPPORTED'",
+            "$signers.Count -ne 1",
+            "foreach ($provider in @($rc1Provider, $rc2Provider))",
+            "'lua_runtime_provider_enabled'",
+            "Install-Apk $rc1Provider",
+            "Install-Apk $rc2Provider -Replace",
+            "$rc2Upgraded.Uid -ne $rc1Installed.Uid",
+            "$rc2Upgraded.FirstInstallTime -ne $rc1Installed.FirstInstallTime",
+            "$uninstallOutput = (Invoke-Adb @('uninstall', $ProviderPackage))",
+            "$runtimeAbsent = (Read-OptionalPid $RuntimeProcess) -eq $null",
+            "Install-Apk $olderHost -Replace -AllowDowngrade",
+            "-Mode 'incompatible'",
+            '"outerCode=$ExpectedOuterCode"',
+            '"rejection=$ExpectedRejection"',
+            "'dispatch=not-entered'",
+            "Install-Apk $currentHost -Replace",
+            "RELEASE_UPGRADE_CASE_PASS case=rc1-to-rc2",
+            "RELEASE_UPGRADE_CASE_PASS case=rc2-uninstall-reinstall",
+            "RELEASE_UPGRADE_CASE_PASS case=older-host-rejection",
+            "RELEASE_UPGRADE_MATRIX_PASS",
+            "upgrade=pass uninstallReinstall=pass olderHostRejection=pass currentHostRestore=pass",
+        ),
+        "Emulator-only release upgrade and rollback matrix",
+    )
+    for physical_serial in ("968e9f18", "BH900ASK9E", "QV710AF65F"):
+        require(
+            physical_serial not in release_orchestrator,
+            "Release upgrade orchestrator contains a physical-device serial",
+        )
     app_build = (ROOT / "app/build.gradle.kts").read_text("utf-8")
     main_manifest = (ROOT / "app/src/main/AndroidManifest.xml").read_text("utf-8")
     require(
@@ -2896,6 +2954,26 @@ def verify_host_lifecycle_boundary() -> None:
             "does not publish the provider",
         ),
         "Published Host lifecycle matrix boundary",
+    )
+    release_design = (ROOT / "docs/release-upgrade-matrix.md").read_text("utf-8")
+    require_tokens(
+        release_design,
+        (
+            "accepts only an online",
+            "`emulator-*` serial",
+            "rc.1 to rc.2 package replacement",
+            "firstInstallTime` must remain unchanged",
+            "rc.2 uninstall and clean reinstall",
+            "`:lua_runtime` PID to be absent",
+            "`LUA_RUNTIME_UNAVAILABLE`",
+            "`HOST_VERSION_UNSUPPORTED`",
+            "records `dispatch=not-entered`",
+            "real runtime-info probe",
+            "5276 restoration",
+            "RELEASE_UPGRADE_MATRIX_PASS",
+            "It is not physical-device or public-release evidence",
+        ),
+        "Published release upgrade and rollback boundary",
     )
     roadmap = (ROOT / "ROADMAP-R4.md").read_text("utf-8")
     require_tokens(

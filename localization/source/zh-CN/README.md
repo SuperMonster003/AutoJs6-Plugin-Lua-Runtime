@@ -81,6 +81,8 @@ dispatch 前的运行时信息超时继续落在原绑定预算内；更早的 L
 此后已在 API 37、16 KiB 模拟器通过安装、真实宿主发现/执行、结果、`device.info`
 与 console 验证；该制品专属记录见
 [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md)。
+同一精确 split 还通过了 API 24、31、36 的安装、真实宿主执行与 Provider 卸载；见
+[`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md)。
 arm64 物理设备半程仍待完成。
 
 ## 协议输入

@@ -304,9 +304,14 @@ observer → logger → terminator”；observer/logger 异常均被独立遏制
   (x86_64) 各完成一次: 安装 → Plugin Center 发现 → 一次真实 Lua 脚本
   执行 → 结果/console 回传正确。
   完成判据: 归档带日期与 APK SHA-256 的证据记录 (沿用 R3 证据文体)。
-- [ ] **API 兼容矩阵扩展**。在 API 24 (minSdk)、31、36 (targetSdk) 三档
+- [x] **API 兼容矩阵扩展**。在 API 24 (minSdk)、31、36 (targetSdk) 三档
   完成安装/执行/卸载回归 (R3 曾做 24/31/37 样本, 需对齐当前 targetSdk=36)。
   完成判据: 三档证据归档; 发现的兼容问题各开独立勾选项。
+- [x] **API 24 冒烟入口反射兼容修正**。矩阵预检发现独立 Host smoke APK 使用
+  API 26 才加入的 `Method.getParameterCount()`；改为 minSdk-safe 的
+  `method.parameterTypes.size`，避免把测试入口 `NoSuchMethodError` 误判为 Provider
+  回归。完成判据: 敌意静态测试锁定禁用调用；测试模块 lint/assemble 与 API 24
+  真机前置模拟器冒烟通过。
 - [ ] **升级/回滚路径证据**。rc.1 → rc.2 覆盖安装升级、rc.2 卸载重装、
   以及宿主 5276 与更早版本 (应拒绝 dispatch) 的组合行为。
   完成判据: 每个组合一条归档记录; 早宿主拒绝路径给出确定性错误码。
@@ -348,6 +353,20 @@ fixed-shape device、INFO console 均通过，最终输出
 [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md)。
 arm64-v8a 真机未获授权且未触碰，因此“设备安装 + 宿主端到端冒烟归档”总项继续保持
 未勾选，canonical universal receipt 也不改写。
+
+R4-E rc.2 API 兼容矩阵证据 (2026-08-25): clean revision
+`52e41233705d20275945b88589b501af4e4a36c1` 先移除 API 26-only
+`Method.getParameterCount()`，以 `method.parameterTypes.size` 保持 API 24 可调用，并
+通过 44/44 Python、59/59 JVM、host-lifecycle lint/assemble。随后同一个
+`emulator-5564` 端口按顺序、非并发地启动 `DEX_R1_API24_X64`、`AVD_API_31_Play`、
+`DEX_R1_API36_X64` 三个 x86_64 AVD；每档均安装 Host 5276、精确 rc.2 Provider 43
+`c92fbea3c878d7b2ba1c28bdca168201b98c28c6bf62a953f63e2c9771f45a12` 与同签名 smoke
+APK 47 `19a4a0f0ffae07b08682f87a50e8c6625bfeeab737b51419ecf23f084dceb59f`。三档真实
+Host 结果分别为 `rc2api24-20260825052417`、`rc2api31-20260825052654`、
+`rc2api36-20260825052833`，均 `executions=2 discovery=pass result=pass console=pass`；
+随后 Provider 卸载均确认 `packageAbsent=true runtimeAbsent=true`，专用 AVD 均已关闭，
+物理设备未触碰。完整指纹、PID、制品与清理记录见
+[`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md)。
 
 ## R4-F — 门禁与 CI 强化 (全程可离线)
 

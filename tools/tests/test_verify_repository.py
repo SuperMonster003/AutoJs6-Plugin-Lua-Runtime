@@ -674,6 +674,7 @@ class InputWorkflowTest(unittest.TestCase):
         "tools/verify_lua_archive.ps1",
         "docs/release-candidate-rc2.md",
         "docs/release-candidate-rc2-emulator-smoke.md",
+        "docs/release-candidate-rc2-api-matrix.md",
         "ROADMAP-R4.md",
         "README.md",
     )
@@ -863,6 +864,11 @@ class InputWorkflowTest(unittest.TestCase):
                     "c92fbea3c878d7b2ba1c28bdca168201b98c28c6bf62a953f63e2c9771f45a12",
                     "0" * 64,
                 ),
+            ),
+            (
+                "API matrix target run ID drifts",
+                "docs/release-candidate-rc2-api-matrix.md",
+                lambda text: text.replace("rc2api36-20260825052833", "rc2api36-unverified"),
             ),
         )
         for label, relative, mutate in mutations:

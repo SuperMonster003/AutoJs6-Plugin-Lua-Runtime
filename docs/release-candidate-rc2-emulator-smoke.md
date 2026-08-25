@@ -115,7 +115,9 @@ The matching Android log receipt was:
 LUA_HOST_OFFICIAL_SMOKE_PASS runId=rc2emu-install-20260825051216 hostPid=6122 hostUid=10298 hostVersionCode=5276 providerVersionCode=43 executions=2 discovery=pass result=pass console=pass
 ```
 
-This evidence proves only the exact rc.2 x86_64 split on the named emulator. It
-does not prove arm64-v8a installation, visual Plugin Center UI rendering, API
-24/31/36 compatibility, upgrade/rollback combinations, publication, or
-production soak.
+This evidence proves only the exact rc.2 x86_64 split on the named emulator. By
+itself it does not prove arm64-v8a installation, visual Plugin Center UI
+rendering, API 24/31/36 compatibility, upgrade/rollback combinations,
+publication, or production soak. The API 24/31/36 matrix was subsequently
+proved and archived separately in
+[`release-candidate-rc2-api-matrix.md`](release-candidate-rc2-api-matrix.md).

@@ -949,6 +949,40 @@ def verify_input_workflows() -> None:
         ),
         "R4-E candidate-to-emulator-evidence link",
     )
+    api_matrix = (ROOT / "docs/release-candidate-rc2-api-matrix.md").read_text("utf-8")
+    require_tokens(
+        api_matrix,
+        (
+            "Status: **COMPLETE — API 24 / 31 / 36**",
+            "52e41233705d20275945b88589b501af4e4a36c1",
+            "a0ae189ac8cba042848412a671c91b0b8a7c44e1",
+            "0303d66688beff27ed512b952b084f409b349abb908b049d64157ec07c6ceeb4",
+            "c92fbea3c878d7b2ba1c28bdca168201b98c28c6bf62a953f63e2c9771f45a12",
+            "19a4a0f0ffae07b08682f87a50e8c6625bfeeab737b51419ecf23f084dceb59f",
+            "DEX_R1_API24_X64",
+            "AVD_API_31_Play",
+            "DEX_R1_API36_X64",
+            "rc2api24-20260825052417",
+            "rc2api31-20260825052654",
+            "rc2api36-20260825052833",
+            "executions=2 discovery=pass result=pass console=pass",
+            "UNINSTALL_PROVIDER Success packageAbsent=true runtimeAbsent=true",
+            "Method.getParameterCount()",
+            "method.parameterTypes.size",
+            "Physical devices were not touched",
+            "No API-specific Provider compatibility defect",
+        ),
+        "R4-E rc.2 API 24/31/36 compatibility evidence",
+    )
+    require_tokens(
+        candidate_doc,
+        (
+            "release-candidate-rc2-api-matrix.md",
+            "API 24, 31,",
+            "and 36 install / real-Host execute / Provider uninstall matrix",
+        ),
+        "R4-E candidate-to-API-matrix link",
+    )
     roadmap = (ROOT / "ROADMAP-R4.md").read_text("utf-8")
     require_tokens(
         roadmap,
@@ -965,6 +999,14 @@ def verify_input_workflows() -> None:
             "LUA_HOST_OFFICIAL_SMOKE_PASS runId=rc2emu-install-20260825051216",
             "arm64-v8a 真机未获授权且未触碰",
             "docs/release-candidate-rc2-emulator-smoke.md",
+            "- [x] **API 兼容矩阵扩展**",
+            "- [x] **API 24 冒烟入口反射兼容修正**",
+            "R4-E rc.2 API 兼容矩阵证据 (2026-08-25)",
+            "52e41233705d20275945b88589b501af4e4a36c1",
+            "rc2api24-20260825052417",
+            "rc2api31-20260825052654",
+            "rc2api36-20260825052833",
+            "docs/release-candidate-rc2-api-matrix.md",
         ),
         "R4-E rc.2 completion ledger",
     )
@@ -979,6 +1021,9 @@ def verify_input_workflows() -> None:
             "docs/release-candidate-rc2.md",
             "docs/release-candidate-rc2-emulator-smoke.md",
             "arm64 physical-device half remains pending",
+            "docs/release-candidate-rc2-api-matrix.md",
+            "install, real-Host execution, and Provider",
+            "uninstall on API 24, 31, and 36",
         ),
         "Published current release-candidate identity",
     )

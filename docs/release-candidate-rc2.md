@@ -112,3 +112,10 @@ ID `rc2emu-install-20260825051216`. The separately archived evidence is
 This does not rewrite the immutable packaging receipts above. Their universal
 artifact flags remain false, and the combined R4-E device item remains open
 until the authorized arm64-v8a physical-device half is also archived.
+
+The same exact x86_64 split subsequently passed the target-aligned API 24, 31,
+and 36 install / real-Host execute / Provider uninstall matrix. That evidence is
+archived in
+[`release-candidate-rc2-api-matrix.md`](release-candidate-rc2-api-matrix.md).
+It completes the emulator API-compatibility item without changing the pending
+arm64-v8a physical-device boundary.

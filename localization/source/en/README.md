@@ -91,6 +91,9 @@ x86_64 split has separately passed installation, real Host discovery/execution,
 result, `device.info`, and console verification on the API 37 16 KiB emulator;
 that artifact-specific record is
 [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md).
+The same exact split also passed install, real-Host execution, and Provider
+uninstall on API 24, 31, and 36; see
+[`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md).
 The arm64 physical-device half remains pending.
 
 ## Protocol inputs

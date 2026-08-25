@@ -1671,6 +1671,20 @@ class HostLifecycleBoundaryTest(unittest.TestCase):
                 ),
             ),
             (
+                "release matrix API 36 appId support",
+                "tools/verify_release_upgrade_matrix.ps1",
+                lambda text: text.replace("(?:userId|appId)=", "userId=", 1),
+            ),
+            (
+                "release matrix failure restores rc2",
+                "tools/verify_release_upgrade_matrix.ps1",
+                lambda text: text.replace(
+                    "& $script:Adb -s $Serial install -r $rc2Provider 2>&1 | Out-Null",
+                    "Write-Host 'rc2 restore skipped'",
+                    1,
+                ),
+            ),
+            (
                 "runtime PID continuity",
                 "tools/verify_host_lifecycle_matrix.ps1",
                 lambda text: text.replace(

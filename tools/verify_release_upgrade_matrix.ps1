@@ -152,7 +152,7 @@ function Read-DevicePackageIdentity {
 
     $report = (Invoke-Adb @('shell', 'dumpsys', 'package', $PackageName)) -join "`n"
     $versionMatch = [regex]::Match($report, 'versionCode=([0-9]+)')
-    $uidMatch = [regex]::Match($report, '(?m)^\s*userId=([0-9]+)\s*$')
+    $uidMatch = [regex]::Match($report, '(?m)^\s*(?:userId|appId)=([0-9]+)\s*$')
     $firstInstallMatch = [regex]::Match($report, '(?m)^\s*firstInstallTime=(.+?)\s*$')
     if (-not $versionMatch.Success -or -not $uidMatch.Success -or -not $firstInstallMatch.Success) {
         throw "Unable to read installed package identity for $PackageName"
@@ -509,9 +509,7 @@ try {
 } finally {
     if ($script:MutationStarted -and -not $script:MatrixComplete) {
         & $script:Adb -s $Serial install -r $currentHost 2>&1 | Out-Null
-        if (-not (Test-PackageInstalled $ProviderPackage)) {
-            & $script:Adb -s $Serial install $rc2Provider 2>&1 | Out-Null
-        }
+        & $script:Adb -s $Serial install -r $rc2Provider 2>&1 | Out-Null
         & $script:Adb -s $Serial install -r $lifecycle 2>&1 | Out-Null
     }
 }

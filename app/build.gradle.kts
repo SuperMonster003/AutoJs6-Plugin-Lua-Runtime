@@ -154,7 +154,10 @@ android {
         if (luaNativeEnabled.get()) {
             externalNativeBuild {
                 cmake {
-                    arguments += "-DAUTOJS_LUA_RUNTIME_SLOT=lua54"
+                    arguments += listOf(
+                        "-DAUTOJS_LUA_RUNTIME_SLOT=lua54",
+                        "-DANDROID_STL=c++_static",
+                    )
                     cppFlags += listOf("-std=c++20", "-fvisibility=hidden")
                 }
             }

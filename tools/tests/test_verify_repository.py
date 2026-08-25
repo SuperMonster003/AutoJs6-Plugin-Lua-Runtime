@@ -1539,6 +1539,114 @@ class FaultHarnessBoundaryTest(unittest.TestCase):
                         verifier.verify_fault_harness_boundary()
 
 
+class PublicReleaseMaterialsTest(unittest.TestCase):
+    FILES = (
+        "protocol/protocol-artifacts.lock.json",
+        "app/build.gradle.kts",
+        "tools/verify_release_candidate_artifacts.ps1",
+        "THIRD_PARTY_NOTICES.md",
+        "README.md",
+        "README.zh-CN.md",
+        "docs/public-release-policy.md",
+        "docs/release-v0.1.0-rc.2-draft.md",
+        "third_party/apache-2.0/LICENSE.txt",
+        "third_party/lua-5.4/LICENSE.txt",
+        "third_party/android-ndk-r28c/NOTICE.toolchain.txt",
+    )
+
+    def copy_boundary(self, root: Path) -> None:
+        for relative in self.FILES:
+            destination = root / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(SOURCE_ROOT / relative, destination)
+        shutil.copytree(
+            SOURCE_ROOT / "third_party/autojs6-protocol-source",
+            root / "third_party/autojs6-protocol-source",
+        )
+
+    def test_current_public_materials_bind_notices_source_release_draft_and_tag_policy(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.copy_boundary(root)
+            with mock.patch.object(verifier, "ROOT", root):
+                verifier.verify_public_release_materials()
+
+    def test_license_source_native_inventory_or_publication_guard_drift_is_rejected(self) -> None:
+        mutations = (
+            (
+                "corresponding source content",
+                "third_party/autojs6-protocol-source/plugin-api/common-plugin-api/consumer-rules.pro",
+                lambda text: text + "# untracked modification\n",
+            ),
+            (
+                "corresponding source revision",
+                "third_party/autojs6-protocol-source/SOURCE_PROVENANCE.json",
+                lambda text: text.replace(
+                    "3b7378758c5a4f68e8680a78cf2c541c23628489",
+                    "0" * 40,
+                    1,
+                ),
+            ),
+            (
+                "transitive annotations notice",
+                "THIRD_PARTY_NOTICES.md",
+                lambda text: text.replace("## JetBrains Annotations 13.0", "## Omitted annotations", 1),
+            ),
+            (
+                "exact NDK notice",
+                "third_party/android-ndk-r28c/NOTICE.toolchain.txt",
+                lambda text: text.replace("The LLVM Project", "An unknown project", 1),
+            ),
+            (
+                "static LLVM runtime selection",
+                "app/build.gradle.kts",
+                lambda text: text.replace('"-DANDROID_STL=c++_static",', "", 1),
+            ),
+            (
+                "unexpected native library exclusion",
+                "tools/verify_release_candidate_artifacts.ps1",
+                lambda text: text.replace(
+                    "$allNativeEntries.Count -ne $nativeEntries.Count",
+                    "$false",
+                    1,
+                ),
+            ),
+            (
+                "release draft universal digest",
+                "docs/release-v0.1.0-rc.2-draft.md",
+                lambda text: text.replace(
+                    "93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd",
+                    "0" * 64,
+                    1,
+                ),
+            ),
+            (
+                "do-not-publish guard",
+                "docs/release-v0.1.0-rc.2-draft.md",
+                lambda text: text.replace("DRAFT — DO NOT PUBLISH", "READY TO PUBLISH", 1),
+            ),
+            (
+                "immutable tag policy",
+                "docs/public-release-policy.md",
+                lambda text: text.replace("Tags are annotated and immutable", "Tags may move", 1),
+            ),
+            (
+                "published license summary",
+                "README.md",
+                lambda text: text.replace("Android NDK LLVM", "native", 1),
+            ),
+        )
+        for label, relative, mutate in mutations:
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                self.copy_boundary(root)
+                path = root / relative
+                write_text(path, mutate(path.read_text("utf-8")))
+                with mock.patch.object(verifier, "ROOT", root):
+                    with self.assertRaises(RuntimeError):
+                        verifier.verify_public_release_materials()
+
+
 class HostLifecycleBoundaryTest(unittest.TestCase):
     FILES = (
         "settings.gradle.kts",

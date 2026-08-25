@@ -58,6 +58,10 @@
 - 从干净 revision `a0ae189ac8cba042848412a671c91b0b8a7c44e1` 重建
   0.1.0-rc.2 签名打包候选；59 项 JVM、单签名 split/universal ABI 身份、fault
   harness 排除及 16 KiB ZIP/ELF 对齐通过，设备/runtime 验证仍明确保持 false。
+- 形成公开发布许可证清单、不可变 `v0.1.0` tag 规则、处于阻断状态的 rc.2
+  GitHub Release 草稿，并为三份冻结 AutoJs6 协议 AAR 保留精确指纹绑定的
+  MPL-2.0 对应源码快照；审计同时保留了静态链接 LLVM runtime 所对应的精确
+  NDK r28c notice。
 
 ## 0.1.0-rc.1 — 历史本地候选版本
 

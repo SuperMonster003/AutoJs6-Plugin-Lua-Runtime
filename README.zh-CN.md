@@ -347,5 +347,8 @@ fail-stop、远端 `/proc/self/fd` 精确基线、callback/broker 独立死亡�
 
 ## 许可证
 
-仓库代码采用 MIT License。PUC Lua 同样使用 MIT 许可证；参见
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 和保留的 Lua 许可证文本。
+仓库自有代码采用 MIT License。打包或暂存的第三方组件还包括采用 MIT 的 PUC
+Lua、采用 Apache-2.0 的 Kotlin 与 JetBrains annotations、按其 LLVM 条款静态
+链接的 Android NDK LLVM runtime 部分，以及采用 MPL-2.0 的冻结 AutoJs6 协议
+API。参见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)、
+保留的完整许可证文本及精确对应的协议源码。

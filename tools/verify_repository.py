@@ -33,6 +33,23 @@ PROTOCOL_LOCK_KEYS = {
     "artifacts",
 }
 PROTOCOL_ARTIFACT_KEYS = {"file", "sourceModule", "sha256"}
+PROTOCOL_SOURCE_PROVENANCE_KEYS = {
+    "schemaVersion",
+    "sourceRepository",
+    "sourceRevision",
+    "license",
+    "licenseFile",
+    "sourceTreeRoot",
+    "sourceModules",
+    "sourceFileCount",
+    "sourceTreeSha256",
+    "artifacts",
+}
+PROTOCOL_SOURCE_TREE_SHA256 = "0f845025cc46041a138de869fefcbcdbcc742e7e0d2f2c08eeffe1f375b97a69"
+MPL_2_LICENSE_SHA256 = "1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5"
+APACHE_2_LICENSE_SHA256 = "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+LUA_LICENSE_SHA256 = "34ebc6be1c5c6be98c975f77aa7e76acf86ef0718e33e8635d7c982a8e43a9fc"
+NDK_R28C_NOTICE_SHA256 = "f96f763beb66a7ba7a667647fc64c0226ace875e590c831fdd9579ec1c1d91e1"
 VENDOR_LOCK_KEYS = {
     "schemaVersion",
     "status",
@@ -3010,6 +3027,179 @@ def verify_host_lifecycle_boundary() -> None:
     )
 
 
+def verify_public_release_materials() -> None:
+    protocol_lock = require_exact_keys(
+        load_json_strict(ROOT / "protocol/protocol-artifacts.lock.json"),
+        PROTOCOL_LOCK_KEYS,
+        "Protocol lock",
+    )
+    require(protocol_lock["status"] == "staged", "Public materials require staged protocol AARs")
+
+    snapshot_root = ROOT / "third_party/autojs6-protocol-source"
+    require(
+        snapshot_root.is_dir() and not snapshot_root.is_symlink(),
+        "Missing regular AutoJs6 corresponding-source directory",
+    )
+    require(
+        {path.name for path in snapshot_root.iterdir()}
+        == {"LICENSE", "README.md", "SOURCE_PROVENANCE.json", "plugin-api"},
+        "AutoJs6 corresponding-source top-level inventory drift",
+    )
+    provenance = require_exact_keys(
+        load_json_strict(snapshot_root / "SOURCE_PROVENANCE.json"),
+        PROTOCOL_SOURCE_PROVENANCE_KEYS,
+        "AutoJs6 corresponding-source provenance",
+    )
+    require_schema_one(provenance["schemaVersion"], "AutoJs6 corresponding-source provenance")
+    require(
+        provenance["sourceRepository"] == "https://github.com/SuperMonster003/AutoJs6",
+        "AutoJs6 corresponding-source repository drift",
+    )
+    require(
+        provenance["sourceRevision"] == protocol_lock["sourceRevision"]
+        == "3b7378758c5a4f68e8680a78cf2c541c23628489",
+        "AutoJs6 corresponding-source revision drift",
+    )
+    require(provenance["license"] == "MPL-2.0", "Protocol source license drift")
+    require(provenance["licenseFile"] == "LICENSE", "Protocol source license path drift")
+    require(provenance["sourceTreeRoot"] == "plugin-api", "Protocol source-tree root drift")
+    require(
+        provenance["sourceModules"]
+        == [
+            ":plugin-api:common-plugin-api",
+            ":plugin-api:protocol-wire-api",
+            ":plugin-api:lua-runtime-api",
+        ],
+        "Protocol corresponding-source module inventory drift",
+    )
+    require(
+        provenance["artifacts"] == protocol_lock["artifacts"],
+        "Protocol AAR and corresponding-source bindings disagree",
+    )
+    source_tree = snapshot_root / str(provenance["sourceTreeRoot"])
+    require(
+        source_tree.resolve().parent == snapshot_root.resolve(),
+        "Protocol corresponding-source tree escaped its snapshot",
+    )
+    source_count, source_digest = source_tree_fingerprint(source_tree)
+    require(
+        type(provenance["sourceFileCount"]) is int
+        and provenance["sourceFileCount"] == source_count == 35,
+        "Protocol corresponding-source file count drift",
+    )
+    require(
+        provenance["sourceTreeSha256"]
+        == source_digest
+        == PROTOCOL_SOURCE_TREE_SHA256,
+        "Protocol corresponding-source tree digest drift",
+    )
+
+    frozen_texts = {
+        snapshot_root / "LICENSE": MPL_2_LICENSE_SHA256,
+        ROOT / "third_party/apache-2.0/LICENSE.txt": APACHE_2_LICENSE_SHA256,
+        ROOT / "third_party/lua-5.4/LICENSE.txt": LUA_LICENSE_SHA256,
+        ROOT / "third_party/android-ndk-r28c/NOTICE.toolchain.txt": NDK_R28C_NOTICE_SHA256,
+    }
+    for path, expected_digest in frozen_texts.items():
+        require(path.is_file() and not path.is_symlink(), f"Missing regular license/notice: {path}")
+        require(sha256(path) == expected_digest, f"License/notice digest drift: {path}")
+
+    notices = (ROOT / "THIRD_PARTY_NOTICES.md").read_text("utf-8")
+    require_tokens(
+        notices,
+        (
+            "## AutoJs6 protocol APIs",
+            "3b7378758c5a4f68e8680a78cf2c541c23628489",
+            "Mozilla Public License 2.0 (MPL-2.0)",
+            "third_party/autojs6-protocol-source",
+            "## Kotlin Standard Library 2.3.20",
+            "org.jetbrains.kotlin:kotlin-stdlib:2.3.20",
+            "## JetBrains Annotations 13.0",
+            "org.jetbrains:annotations:13.0",
+            "## Android NDK r28c LLVM runtimes",
+            "-static-libstdc++",
+            "97a699bf4812a18fb657c2779f5296a4ab2694d2",
+            "f96f763beb66a7ba7a667647fc64c0226ace875e590c831fdd9579ec1c1d91e1",
+            "## PUC Lua 5.4.8",
+            "copyright 1994-2025 Lua.org, PUC-Rio",
+        ),
+        "Complete third-party notice inventory",
+    )
+
+    app_build = (ROOT / "app/build.gradle.kts").read_text("utf-8")
+    require_tokens(
+        app_build,
+        (
+            '"-DANDROID_STL=c++_static"',
+            'implementation("org.jetbrains.kotlin:kotlin-stdlib:2.3.20")',
+            'resources.excludes += setOf("META-INF/LICENSE*", "META-INF/NOTICE*")',
+        ),
+        "Release dependency and native-license boundary",
+    )
+    artifact_gate = (ROOT / "tools/verify_release_candidate_artifacts.ps1").read_text("utf-8")
+    require_tokens(
+        artifact_gate,
+        (
+            "$allNativeEntries.Count -ne $nativeEntries.Count",
+            "Unexpected packaged native library",
+            "$readelf --dynamic $destination",
+            "$expectedNeeded = @('libc.so', 'libdl.so', 'liblog.so', 'libm.so')",
+            "ELF dependency drift",
+        ),
+        "Release native dependency inventory gate",
+    )
+
+    policy = (ROOT / "docs/public-release-policy.md").read_text("utf-8")
+    require_tokens(
+        policy,
+        (
+            "MATERIAL PREPARED — PUBLICATION NOT AUTHORIZED",
+            "No Git remote is configured",
+            "`v0.1.0-rc.N`",
+            "stable release: `v0.1.0`",
+            "Tags are annotated and immutable",
+            "never force-update, delete",
+            "tag target must be the clean source revision named by the final runnable",
+            "arm64-v8a physical-device",
+            "production soak standard and first complete run",
+            "A human explicitly authorizes",
+            "NDK r28c toolchain notice",
+        ),
+        "Public release and tag policy",
+    )
+
+    draft = (ROOT / "docs/release-v0.1.0-rc.2-draft.md").read_text("utf-8")
+    require_tokens(
+        draft,
+        (
+            "DRAFT — DO NOT PUBLISH",
+            "tag: `v0.1.0-rc.2`",
+            "versionCode **5276**",
+            "API **24+**",
+            "arm64-v8a` and `x86_64",
+            "93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd",
+            "257f4c4a9dceed4fc58e089651370abaaa1384cf09c5f69e6fb21f244d409210",
+            "c92fbea3c878d7b2ba1c28bdca168201b98c28c6bf62a953f63e2c9771f45a12",
+            "31a681fcfffb3e428420cae280ded89292b12a3b0f59e19b7a73e32a8ae4c213",
+            "deviceVerified=false",
+            "runtimeVerified=false",
+            "arm64-v8a physical-device",
+            "first complete production soak",
+            "third_party/autojs6-protocol-source",
+            "Android NDK r28c",
+        ),
+        "Blocked GitHub Release draft",
+    )
+
+    for relative in ("README.md", "README.zh-CN.md"):
+        readme = (ROOT / relative).read_text("utf-8")
+        require_tokens(
+            readme,
+            ("THIRD_PARTY_NOTICES.md", "Apache-2.0", "MPL-2.0", "Android NDK LLVM"),
+            f"Published license summary in {relative}",
+        )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--github-output", action="store_true")
@@ -3042,6 +3232,7 @@ def main() -> int:
     verify_native_android_test_boundary()
     verify_fault_harness_boundary()
     verify_host_lifecycle_boundary()
+    verify_public_release_materials()
     build_ready = protocol_ready and vendor_ready
     if args.require_build_ready:
         require(

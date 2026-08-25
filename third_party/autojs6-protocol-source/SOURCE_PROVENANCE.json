@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "sourceRepository": "https://github.com/SuperMonster003/AutoJs6",
+  "sourceRevision": "3b7378758c5a4f68e8680a78cf2c541c23628489",
+  "license": "MPL-2.0",
+  "licenseFile": "LICENSE",
+  "sourceTreeRoot": "plugin-api",
+  "sourceModules": [
+    ":plugin-api:common-plugin-api",
+    ":plugin-api:protocol-wire-api",
+    ":plugin-api:lua-runtime-api"
+  ],
+  "sourceFileCount": 35,
+  "sourceTreeSha256": "0f845025cc46041a138de869fefcbcdbcc742e7e0d2f2c08eeffe1f375b97a69",
+  "artifacts": [
+    {
+      "file": "common-plugin-api.aar",
+      "sourceModule": ":plugin-api:common-plugin-api",
+      "sha256": "d745bb24d6a6995e68ebea27d592faec162f0bad4f9bf70cb038a480ad8c6df2"
+    },
+    {
+      "file": "protocol-wire-api.aar",
+      "sourceModule": ":plugin-api:protocol-wire-api",
+      "sha256": "a850d2d649638e9131b68a0a3806c950e6be8aa0fa5c5f1e7a575c9260ebf202"
+    },
+    {
+      "file": "lua-runtime-api.aar",
+      "sourceModule": ":plugin-api:lua-runtime-api",
+      "sha256": "a40a0fff299f60520d07a2739a8f0c9ab004d3f307ff016bab35dc902635b851"
+    }
+  ]
+}

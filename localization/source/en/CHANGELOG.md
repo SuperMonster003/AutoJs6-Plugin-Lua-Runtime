@@ -69,6 +69,10 @@ not published availability.
   `a0ae189ac8cba042848412a671c91b0b8a7c44e1`; 59 JVM tests, single-signer
   split/universal ABI identity, fault-harness exclusion, and 16 KiB ZIP/ELF
   alignment passed, while device/runtime verification remains explicitly false.
+- Prepared the public-release license inventory, immutable `v0.1.0` tag policy,
+  blocked rc.2 GitHub Release draft, and an exact fingerprinted MPL-2.0 source
+  snapshot corresponding to all three frozen AutoJs6 protocol AARs; the audit
+  also preserves the exact NDK r28c notice for statically linked LLVM runtimes.
 
 ## 0.1.0-rc.1 — historical local candidate
 

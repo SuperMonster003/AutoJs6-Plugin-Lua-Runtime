@@ -396,6 +396,9 @@ are not implied by the artifact receipt.
 
 ## License
 
-Repository code is distributed under the MIT License. PUC Lua is also
-MIT-licensed; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and the
-preserved Lua license text.
+Repository-owned code is distributed under the MIT License. Packaged or staged
+third-party components additionally include PUC Lua under MIT, Kotlin and
+JetBrains annotations under Apache-2.0, statically linked Android NDK LLVM
+runtime portions under their recorded LLVM terms, and the frozen AutoJs6
+protocol APIs under MPL-2.0. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), the
+preserved full license texts, and the exact protocol corresponding source.

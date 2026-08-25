@@ -258,9 +258,15 @@ try {
         $expectedAbis = @($expectedApks[$element.outputFile])
         $archive = [IO.Compression.ZipFile]::OpenRead($apk.FullName)
         try {
+            $allNativeEntries = @($archive.Entries | Where-Object {
+                $_.FullName -match '^lib/[^/]+/[^/]+$'
+            })
             $nativeEntries = @($archive.Entries | Where-Object {
                 $_.FullName -match '^lib/([^/]+)/libautojs_lua_runtime\.so$'
             })
+            if ($allNativeEntries.Count -ne $nativeEntries.Count) {
+                throw "Unexpected packaged native library in $($element.outputFile): $($allNativeEntries.FullName -join ',')"
+            }
             $actualAbis = @($nativeEntries | ForEach-Object {
                 [regex]::Match($_.FullName, '^lib/([^/]+)/').Groups[1].Value
             } | Sort-Object)
@@ -293,6 +299,18 @@ try {
                 if ($LASTEXITCODE -ne 0 -or
                     @($symbols | Select-String 'NativeLuaFaults_native(?:Crash|Wedge)').Count -ne 0) {
                     throw "Debug fault JNI entered release ELF: $($entry.FullName)"
+                }
+                $dynamic = @(& $readelf --dynamic $destination)
+                if ($LASTEXITCODE -ne 0) { throw "ELF dynamic inspection failed: $($entry.FullName)" }
+                $needed = @(
+                    $dynamic |
+                        Select-String '\(NEEDED\).*Shared library: \[([^]]+)\]' |
+                        ForEach-Object { $_.Matches[0].Groups[1].Value } |
+                        Sort-Object
+                )
+                $expectedNeeded = @('libc.so', 'libdl.so', 'liblog.so', 'libm.so')
+                if (Compare-Object $expectedNeeded $needed) {
+                    throw "ELF dependency drift: $($entry.FullName) needed=$($needed -join ',')"
                 }
                 $digest = (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant()
                 if ($nativeDigests.ContainsKey($abi) -and $nativeDigests[$abi] -ne $digest) {

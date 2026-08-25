@@ -345,6 +345,18 @@ PID 12691、FD 83，watchdog fail-stop、相关 ANR/`am_crash` 均为 0。按冻
 [`docs/production-soak-round-1.md`](docs/production-soak-round-1.md) 与
 [`docs/production-soak-round-2.md`](docs/production-soak-round-2.md)。
 
+R4-E 生产 soak Round 2 Day 1 证据 (2026-08-25): 新 boot ID
+`47e07ea5-0187-4553-871a-6c713deab71c`，冻结 lifecycle-test versionCode 57 / SHA-256
+`7f5bc019367e46aa4533bb6ae71ec7f339cea20d1efb2a988f7f2060d3e07604`；资格
+20 次执行先以 PID 4345、FD `83→83` 通过。正式 Day 1 在 PID 8080 完成 250 次
+measured smoke / 500 次 Lua 执行，连同 10 次 warmup 共 260 个确定性 PASS marker；
+0/25/.../250 的全部 FD 样本及首尾三连稳定采样均为 83，fail-stop、相关 ANR/crash、
+instrumentation failure 均为 0。Day-1 receipt SHA-256 为
+`6b7ce09b221c3165428adff234cede20b7bb61b5aad215a3e491c180ebe3d4d8`，state 诚实保持
+`in_progress` / `completedDays=1`，Day 2 只能在 2026-08-26 Asia/Shanghai 运行；本项
+仍保持未勾选。完整回执摘要见
+[`docs/production-soak-round-2.md`](docs/production-soak-round-2.md)。
+
 R4-E rc.2 签名打包证据 (2026-08-25): 干净 implementation revision
 `a0ae189ac8cba042848412a671c91b0b8a7c44e1` 的提交数/versionCode 同为 43；强化后的
 `build_runnable_provider.ps1` 强制 `:app:clean`、`--rerun-tasks`、`--offline`，并

@@ -1829,8 +1829,17 @@ class ProductionSoakBoundaryTest(unittest.TestCase):
                 "round-two premature pass",
                 "docs/production-soak-round-2.md",
                 lambda text: text.replace(
-                    "ROUND 2 NOT STARTED",
+                    "ROUND 2 IN PROGRESS — DAY 1/7 PASSED",
                     "ROUND 2 COMPLETE",
+                    1,
+                ),
+            ),
+            (
+                "round-two day-one receipt",
+                "docs/production-soak-round-2.md",
+                lambda text: text.replace(
+                    "6b7ce09b221c3165428adff234cede20b7bb61b5aad215a3e491c180ebe3d4d8",
+                    "0" * 64,
                     1,
                 ),
             ),

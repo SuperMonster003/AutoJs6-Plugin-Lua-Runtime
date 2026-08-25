@@ -34,6 +34,8 @@ constexpr jint kStderrStreamWireCode = 2;
 constexpr size_t kMaxScalarStringBytes = 64 * 1024;
 constexpr size_t kMaxModuleNameBytes = 64;
 constexpr jsize kMaxModuleSourceBytes = 64 * 1024;
+constexpr size_t kMaxToastTextBytes = 1024;
+constexpr uint32_t kMaxToastCallsPerExecution = 4U;
 constexpr jsize kMaxArgumentSnapshotBytes = 256 * 1024 + 17 * 4096 + 16;
 constexpr size_t kMaxArgumentDepth = 32;
 constexpr size_t kMaxArgumentNodes = 4096;
@@ -194,7 +196,9 @@ struct ExecutionControl {
     jobject host_capability_bridge;
     jmethodID device_info_method;
     jmethodID load_module_method;
+    jmethodID show_toast_method;
     jmethodID host_failure_method;
+    uint32_t toast_dispatches;
     std::chrono::steady_clock::time_point deadline;
     TerminationReason termination_reason;
 };
@@ -610,6 +614,11 @@ void record_host_call_failure(ExecutionControl* control) {
         control->termination_reason = TerminationReason::kCancelled;
     } else if (failure_kind == 2) {
         control->termination_reason = TerminationReason::kDeadlineExceeded;
+    } else if (failure_kind == 4) {
+        // A defensive Kotlin input check found a local request defect. The Lua C function that
+        // made the call raises its own ordinary runtime error without misclassifying it as a Host
+        // rejection. This path must remain unreachable for inputs admitted by the native mirror.
+        return;
     } else if (poll_execution_control(control)) {
         control->termination_reason = TerminationReason::kHostCallRejected;
     }
@@ -711,6 +720,115 @@ int autojs_device_info(lua_State* state) {
         return luaL_error(state, "AutoJs Lua execution interrupted");
     }
     return 1;
+}
+
+bool is_strict_utf8(const char* text, size_t length) {
+    if (text == nullptr) {
+        return false;
+    }
+    const auto* bytes = reinterpret_cast<const uint8_t*>(text);
+    size_t index = 0U;
+    while (index < length) {
+        const uint8_t first = bytes[index++];
+        if (first <= 0x7FU) {
+            continue;
+        }
+
+        size_t continuation_count = 0U;
+        uint8_t second_min = 0x80U;
+        uint8_t second_max = 0xBFU;
+        if (first >= 0xC2U && first <= 0xDFU) {
+            continuation_count = 1U;
+        } else if (first >= 0xE0U && first <= 0xEFU) {
+            continuation_count = 2U;
+            if (first == 0xE0U) {
+                second_min = 0xA0U;
+            } else if (first == 0xEDU) {
+                second_max = 0x9FU;
+            }
+        } else if (first >= 0xF0U && first <= 0xF4U) {
+            continuation_count = 3U;
+            if (first == 0xF0U) {
+                second_min = 0x90U;
+            } else if (first == 0xF4U) {
+                second_max = 0x8FU;
+            }
+        } else {
+            return false;
+        }
+
+        if (continuation_count > length - index) {
+            return false;
+        }
+        const uint8_t second = bytes[index];
+        if (second < second_min || second > second_max) {
+            return false;
+        }
+        ++index;
+        for (size_t offset = 1U; offset < continuation_count; ++offset) {
+            const uint8_t continuation = bytes[index++];
+            if (continuation < 0x80U || continuation > 0xBFU) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+int autojs_ui_toast(lua_State* state) {
+    ExecutionControl* control = execution_control(state);
+    if (control == nullptr || lua_gettop(state) != 1 || lua_type(state, 1) != LUA_TSTRING) {
+        return luaL_error(state, "autojs.ui.toast expects exactly one string");
+    }
+    size_t text_length = 0U;
+    const char* text = lua_tolstring(state, 1, &text_length);
+    if (text == nullptr || text_length == 0U || text_length > kMaxToastTextBytes ||
+        !is_strict_utf8(text, text_length)) {
+        return luaL_error(state, "autojs.ui.toast expects 1-1024 bytes of valid UTF-8");
+    }
+    if (!poll_execution_control(control)) {
+        return luaL_error(state, "AutoJs Lua execution interrupted");
+    }
+    if (control->toast_dispatches >= kMaxToastCallsPerExecution) {
+        return luaL_error(state, "autojs.ui.toast per-execution limit exceeded");
+    }
+
+    // Charge before JNI allocation and before the sole Host dispatch. Any ambiguous failure keeps
+    // the slot consumed, and a fifth call cannot cross JNI even when a coroutine catches the error.
+    ++control->toast_dispatches;
+    auto* text_bytes = control->environment->NewByteArray(static_cast<jsize>(text_length));
+    if (text_bytes == nullptr) {
+        if (control->environment->ExceptionCheck()) {
+            control->environment->ExceptionClear();
+        }
+        control->termination_reason = TerminationReason::kControlFailure;
+        return luaL_error(state, "AutoJs UI toast bridge allocation failed");
+    }
+    control->environment->SetByteArrayRegion(
+        text_bytes,
+        0,
+        static_cast<jsize>(text_length),
+        reinterpret_cast<const jbyte*>(text));
+    if (control->environment->ExceptionCheck()) {
+        control->environment->ExceptionClear();
+        control->environment->DeleteLocalRef(text_bytes);
+        control->termination_reason = TerminationReason::kControlFailure;
+        return luaL_error(state, "AutoJs UI toast bridge copy failed");
+    }
+    control->environment->CallVoidMethod(
+        control->host_capability_bridge,
+        control->show_toast_method,
+        text_bytes);
+    control->environment->DeleteLocalRef(text_bytes);
+    if (control->environment->ExceptionCheck()) {
+        control->environment->ExceptionClear();
+        record_host_call_failure(control);
+        return luaL_error(state, "AutoJs UI toast host call failed");
+    }
+    if (!poll_execution_control(control)) {
+        return luaL_error(state, "AutoJs Lua execution interrupted");
+    }
+    return 0;
 }
 
 bool is_flat_ascii_module_name(const char* name, size_t length) {
@@ -1006,6 +1124,11 @@ int install_autojs_module(lua_State* state) {
     lua_pushcfunction(state, autojs_device_info);
     lua_setfield(state, -2, "info");
     lua_setfield(state, -2, "device");
+
+    lua_newtable(state);
+    lua_pushcfunction(state, autojs_ui_toast);
+    lua_setfield(state, -2, "toast");
+    lua_setfield(state, -2, "ui");
 
     lua_pushcfunction(state, autojs_now);
     lua_setfield(state, -2, "now");
@@ -1355,6 +1478,17 @@ Java_io_github_supermonster003_autojs6_plugin_lua_runtime_NativeLuaRuntime_nativ
         environment->DeleteLocalRef(host_capability_class);
         return fail(environment, "INTERNAL", "Lua module snapshot bridge contract is unavailable");
     }
+    jmethodID show_toast_method = environment->GetMethodID(
+        host_capability_class,
+        "showToast",
+        "([B)V");
+    if (show_toast_method == nullptr) {
+        if (environment->ExceptionCheck()) {
+            environment->ExceptionClear();
+        }
+        environment->DeleteLocalRef(host_capability_class);
+        return fail(environment, "INTERNAL", "Lua UI toast bridge contract is unavailable");
+    }
     jmethodID host_failure_method = environment->GetMethodID(
         host_capability_class,
         "takeFailureKind",
@@ -1376,7 +1510,9 @@ Java_io_github_supermonster003_autojs6_plugin_lua_runtime_NativeLuaRuntime_nativ
         host_capability_bridge,
         device_info_method,
         load_module_method,
+        show_toast_method,
         host_failure_method,
+        0U,
         std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_millis),
         TerminationReason::kNone,
     };

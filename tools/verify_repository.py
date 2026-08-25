@@ -696,6 +696,31 @@ def verify_r4_design_records() -> None:
         "R4 console level decision",
     )
 
+    toast_decision = (ROOT / "docs/ui-toast-v1.md").read_text("utf-8")
+    require_tokens(
+        toast_decision,
+        (
+            "Status: **IMPLEMENTED PROVIDER-SIDE — HOST FOLLOW-UP REQUIRED**",
+            '`ui.toast.v1`',
+            'require("autojs").ui.toast("Saved")',
+            'arguments  -> {text=string}',
+            'result     -> {accepted=true}',
+            "1 through 1,024 bytes inclusive",
+            "strict UTF-8",
+            "at most four valid toast dispatches",
+            "slot is charged",
+            "does not refund the slot",
+            "performs exactly one Provider-to-",
+            "`broker.invoke(...)`",
+            "Neither layer contains a retry loop",
+            "DENIED`/`HOST_CAPABILITY",
+            "no Lua `ui.toast.v1` dispatcher",
+            "visual delivery therefore remains a coordinated Host follow-up",
+            "## Required evidence",
+        ),
+        "R4 UI toast V1 decision",
+    )
+
     storage_design = (ROOT / "docs/storage-kv-v1.md").read_text("utf-8")
     require(
         isinstance(source_revision, str) and source_revision in storage_design,
@@ -1011,6 +1036,10 @@ def verify_native_boundary() -> None:
         'module->chunk_name,\n        "t")': "Frozen modules are not pinned to text-only mode",
         'Lua module snapshot dependency cycle rejected': "Frozen module cycles do not fail closed",
         'lua_pushvalue(state, lua_upvalueindex(2))': "The execution-local module cache is missing",
+        'constexpr size_t kMaxToastTextBytes = 1024;': "The UI toast byte limit drifted",
+        'constexpr uint32_t kMaxToastCallsPerExecution = 4U;': "The UI toast execution quota drifted",
+        'int autojs_ui_toast(lua_State* state)': "The fixed UI toast native bridge is missing",
+        'control->show_toast_method': "The fixed UI toast JNI call is missing",
         'lua_setfield(state, -2, "console")': "The controlled console module is missing",
         'constexpr jint kStdoutStreamWireCode = 1;': "The stdout wire constant drifted",
         'constexpr jint kStderrStreamWireCode = 2;': "The stderr wire constant drifted",
@@ -1061,6 +1090,59 @@ def verify_native_boundary() -> None:
         ),
         "Controlled math.randomseed boundary",
     )
+    strict_utf8_start = native.index("bool is_strict_utf8(const char* text, size_t length)")
+    strict_utf8_end = native.index("int autojs_ui_toast(lua_State* state)", strict_utf8_start)
+    strict_utf8_boundary = native[strict_utf8_start:strict_utf8_end]
+    require_tokens(
+        strict_utf8_boundary,
+        (
+            "first >= 0xC2U && first <= 0xDFU",
+            "first == 0xE0U",
+            "second_min = 0xA0U",
+            "first == 0xEDU",
+            "second_max = 0x9FU",
+            "first == 0xF0U",
+            "second_min = 0x90U",
+            "first == 0xF4U",
+            "second_max = 0x8FU",
+            "continuation < 0x80U || continuation > 0xBFU",
+        ),
+        "Strict native UI toast UTF-8 validator",
+    )
+    toast_start = native.index("int autojs_ui_toast(lua_State* state)")
+    toast_end = native.index("bool is_flat_ascii_module_name(", toast_start)
+    toast_boundary = native[toast_start:toast_end]
+    require_tokens(
+        toast_boundary,
+        (
+            "lua_gettop(state) != 1",
+            "lua_type(state, 1) != LUA_TSTRING",
+            "text_length == 0U",
+            "text_length > kMaxToastTextBytes",
+            "!is_strict_utf8(text, text_length)",
+            "control->toast_dispatches >= kMaxToastCallsPerExecution",
+            "++control->toast_dispatches;",
+            "NewByteArray(static_cast<jsize>(text_length))",
+            "CallVoidMethod(",
+            "control->show_toast_method",
+            "record_host_call_failure(control)",
+            "return 0;",
+        ),
+        "Fixed native UI toast boundary",
+    )
+    toast_quota_check = toast_boundary.index(
+        "control->toast_dispatches >= kMaxToastCallsPerExecution"
+    )
+    toast_quota_charge = toast_boundary.index("++control->toast_dispatches;")
+    toast_jni_allocation = toast_boundary.index("NewByteArray(")
+    toast_dispatch = toast_boundary.index("CallVoidMethod(")
+    require(
+        toast_quota_check < toast_quota_charge < toast_jni_allocation < toast_dispatch
+        and toast_boundary.count("CallVoidMethod(") == 1
+        and "for (" not in toast_boundary
+        and "while (" not in toast_boundary,
+        "UI toast quota is charged late or its native bridge can retry a dispatch",
+    )
     install_start = native.index("int install_autojs_module(lua_State* state)")
     install_end = native.index("bool throw_bridge_exception(", install_start)
     install_boundary = native[install_start:install_end]
@@ -1085,6 +1167,16 @@ def verify_native_boundary() -> None:
         )
         == 1,
         "Console info/warn aliases are not installed as the reviewed two-stream bridges",
+    )
+    require(
+        install_boundary.count(
+            'lua_newtable(state);\n'
+            '    lua_pushcfunction(state, autojs_ui_toast);\n'
+            '    lua_setfield(state, -2, "toast");\n'
+            '    lua_setfield(state, -2, "ui");'
+        )
+        == 1,
+        "The fixed autojs.ui.toast table shape drifted",
     )
     require_tokens(
         install_boundary,
@@ -1219,6 +1311,7 @@ def verify_native_boundary() -> None:
         "NativeLuaHostCapabilityBridge" in proguard_rules
         and "byte[] invokeDeviceInfo();" in proguard_rules
         and "byte[] loadModule(byte[]);" in proguard_rules
+        and "void showToast(byte[]);" in proguard_rules
         and "int takeFailureKind();" in proguard_rules,
         "R8 can rename a JNI-reflected host capability bridge member",
     )
@@ -1240,8 +1333,27 @@ def verify_native_boundary() -> None:
         'const val MODULE_SNAPSHOT_CAPABILITY = "module.snapshot.v1"',
         "internal fun validateModuleSnapshot(value: LuaValue): ByteArray?",
         'MessageDigest.getInstance("SHA-256").digest(source)',
+        "fun showToast(textUtf8: ByteArray)",
+        'const val UI_TOAST_CAPABILITY = "ui.toast.v1"',
+        "const val MAX_TOAST_TEXT_BYTES = 1024",
+        "const val MAX_TOAST_CALLS_PER_EXECUTION = 4",
+        "internal fun validateToastAcknowledgement(value: LuaValue)",
+        "require(accepted.value)",
+        "HOST_FAILURE_INVALID_INPUT = 4",
     ):
         require(token in kotlin_boundary, f"Native Kotlin execution boundary drift: {token}")
+    kotlin_toast_start = kotlin_boundary.index("fun showToast(textUtf8: ByteArray)")
+    kotlin_toast_end = kotlin_boundary.index("private fun invokeHostCapability(", kotlin_toast_start)
+    kotlin_toast_boundary = kotlin_boundary[kotlin_toast_start:kotlin_toast_end]
+    require(
+        kotlin_toast_boundary.count("invokeHostCapability(") == 1
+        and 'capability = UI_TOAST_CAPABILITY' in kotlin_toast_boundary
+        and 'mapOf(TOAST_TEXT_KEY to LuaValue.StringValue(text))' in kotlin_toast_boundary
+        and "validateToastAcknowledgement(value)" in kotlin_toast_boundary
+        and "for (" not in kotlin_toast_boundary
+        and "while (" not in kotlin_toast_boundary,
+        "Kotlin UI toast bridge is not fixed-shape or can retry",
+    )
     provider_metadata = (
         ROOT
         / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/LuaProviderMetadata.kt"
@@ -1254,7 +1366,7 @@ def verify_native_boundary() -> None:
     )
     require(
         advertised_capabilities
-        == ["DEVICE_INFO_CAPABILITY", "MODULE_SNAPSHOT_CAPABILITY"],
+        == ["DEVICE_INFO_CAPABILITY", "MODULE_SNAPSHOT_CAPABILITY", "UI_TOAST_CAPABILITY"],
         f"Provider capability registry lacks a reviewed fixed-shape bridge: {advertised_capabilities}",
     )
     capability_boundaries = {
@@ -1270,6 +1382,12 @@ def verify_native_boundary() -> None:
             "validateModuleSnapshot(value)",
             'assertEquals("module.snapshot.v1", capability)',
         ),
+        "UI_TOAST_CAPABILITY": (
+            'const val UI_TOAST_CAPABILITY = "ui.toast.v1"',
+            "fun showToast(textUtf8: ByteArray)",
+            "validateToastAcknowledgement(value)",
+            'assertEquals("ui.toast.v1", capability)',
+        ),
     }
     boundary_tests = (
         ROOT
@@ -1284,21 +1402,24 @@ def verify_native_boundary() -> None:
             "assertEquals(2, LuaOutputStream.STDERR.wireCode)",
             "deviceInfoCapabilityGrantAndDenialStayDeterministic",
             "moduleSnapshotCapabilityGrantAndDenialStayDeterministic",
+            "toastCapabilityGrantDenialAndClosedShapesStayDeterministic",
+            "NativeLuaHostCapabilityBridge.validateToastAcknowledgement",
+            "HOST_FAILURE_INVALID_INPUT = 4",
             "LuaHostCapabilityFailureKind.DENIED",
             "HOST_FAILURE_REJECTED = 3",
         ),
         "Console and Host-capability JVM boundary",
     )
     require(
-        boundary_tests.count("hostCapabilityInvoker = LuaHostCapabilityInvoker.REJECTING") == 2
+        boundary_tests.count("hostCapabilityInvoker = LuaHostCapabilityInvoker.REJECTING") == 3
         and boundary_tests.count(
             "assertEquals(LuaHostCapabilityFailureKind.DENIED, denial.kind)"
         )
-        == 2
+        == 3
         and boundary_tests.count(
             "assertEquals(HOST_FAILURE_REJECTED, deniedBridge.takeFailureKind())"
         )
-        == 2,
+        == 3,
         "Registered Host capabilities lack symmetric grant/denial JVM evidence",
     )
     for capability in advertised_capabilities:
@@ -1589,12 +1710,24 @@ def verify_descriptor_boundary() -> None:
     require_tokens(
         host_invoker,
         (
+            "It never retries a dispatched host call.",
             "descriptorLedger.acquire(LuaFileDescriptorKind.HOST_CALLBACK_PAYLOAD)",
             "descriptors.forEachIndexed { index, descriptor ->",
             "runCatching { descriptor?.close() }",
             "ownerships[index]?.close()",
         ),
         "Host callback PFD ownership",
+    )
+    invoke_start = host_invoker.index("override fun invoke(")
+    invoke_end = host_invoker.index("override fun close()", invoke_start)
+    invoke_boundary = host_invoker[invoke_start:invoke_end]
+    broker_dispatch = invoke_boundary.index("broker.invoke(")
+    callback_wait = invoke_boundary.index("while (terminal.get() == null)")
+    require(
+        invoke_boundary.count("broker.invoke(") == 1
+        and broker_dispatch < callback_wait
+        and "broker.invoke(" not in invoke_boundary[callback_wait:],
+        "Binder Host capability invoker can retry a dispatched call",
     )
 
     controller = (
@@ -1687,6 +1820,23 @@ def verify_native_android_test_boundary() -> None:
             "nativeRunnerLoadsFrozenModulesOnceAndRejectsDependencyCycles",
             "runnerRequest(\"return require('autojs').device.info()\")",
             "assertEquals(LuaRunnerFailureKind.HOST_CAPABILITY, denial.kind)",
+            "nativeRunnerMapsTheFixedToastCapabilityWithoutAResultOrRetry",
+            "assert(autojs.ui.toast('保存完成') == nil)",
+            "assert(autojs.ui.toast('A' .. string.char(0) .. 'B') == nil)",
+            "assertEquals(1, malformedCalls)",
+            "nativeRunnerEnforcesToastTextAndExecutionQuotasBeforeHostDispatch",
+            "for index = 1, 4 do toast('accepted-' .. index) end",
+            "local child = coroutine.create(function() toast('fifth') end)",
+            "toast('sixth')",
+            "string.rep('x', 1025)",
+            "string.char(0xc3, 0x28)",
+            "string.char(0xc0, 0x80)",
+            "string.char(0xed, 0xa0, 0x80)",
+            "string.char(0xf4, 0x90, 0x80, 0x80)",
+            "string.char(0xf0, 0x90)",
+            "string.rep('x', 1024)",
+            "assertEquals(4, calls)",
+            "assertEquals(5, calls)",
             "syntaxAndRuntimeErrorsAreClassified",
             "infiniteLoopIsCancelledByHook",
             "infiniteLoopHonoursDeadline",

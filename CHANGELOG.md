@@ -37,6 +37,10 @@ not published availability.
 - Added symmetric grant/deny JVM coverage for every registered Host capability;
   rejected grants remain bounded and map through `DENIED` to
   `HOST_CAPABILITY`.
+- Added the Provider-side `ui.toast.v1` fixed bridge with a closed
+  `{text=string}` / `{accepted=true}` shape, a 1,024-byte strict UTF-8 limit,
+  four charged calls per execution, and a single never-retried Host dispatch;
+  visible delivery remains a coordinated Host follow-up.
 - Specified a design-only, non-advertised `storage.kv.v1` contract with stable
   script-principal isolation, bounded keys/values/operations, atomic Host-side
   persistence, explicit clear semantics, and no Provider mutation retries.

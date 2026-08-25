@@ -271,6 +271,7 @@ class R4DesignRecordTest(unittest.TestCase):
         "docs/storage-kv-v1.md",
         "protocol/protocol-artifacts.lock.json",
         "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/LuaProviderMetadata.kt",
+        "docs/ui-toast-v1.md",
     )
 
     def copy_records(self, root: Path) -> None:
@@ -362,6 +363,24 @@ class R4DesignRecordTest(unittest.TestCase):
                 "storage mutation retry",
                 self.FILES[5],
                 lambda text: text.replace("Provider never retries", "Provider retries mutations", 1),
+            ),
+            (
+                "toast dispatch retry",
+                self.FILES[8],
+                lambda text: text.replace(
+                    "Neither layer contains a retry loop",
+                    "Both layers may retry",
+                    1,
+                ),
+            ),
+            (
+                "toast Host boundary",
+                self.FILES[8],
+                lambda text: text.replace(
+                    "visual delivery therefore remains a coordinated Host follow-up",
+                    "Provider smoke proves end-to-end delivery",
+                    1,
+                ),
             ),
         )
         for label, relative, mutate in mutations:
@@ -913,6 +932,75 @@ class NativeBoundaryTest(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "fixed-shape bridge"):
                     verifier.verify_native_boundary()
 
+    def test_toast_shape_quota_or_acknowledgement_drift_is_rejected(self) -> None:
+        mutations = (
+            (
+                "native byte limit",
+                "app/src/main/cpp/lua_runtime_jni.cpp",
+                lambda text: text.replace(
+                    "constexpr size_t kMaxToastTextBytes = 1024;",
+                    "constexpr size_t kMaxToastTextBytes = 2048;",
+                    1,
+                ),
+            ),
+            (
+                "native call quota",
+                "app/src/main/cpp/lua_runtime_jni.cpp",
+                lambda text: text.replace(
+                    "constexpr uint32_t kMaxToastCallsPerExecution = 4U;",
+                    "constexpr uint32_t kMaxToastCallsPerExecution = 8U;",
+                    1,
+                ),
+            ),
+            (
+                "pre-dispatch quota charge",
+                "app/src/main/cpp/lua_runtime_jni.cpp",
+                lambda text: text.replace("++control->toast_dispatches;", "", 1),
+            ),
+            (
+                "single native dispatch",
+                "app/src/main/cpp/lua_runtime_jni.cpp",
+                lambda text: text.replace("CallVoidMethod(", "CallObjectMethod(", 1),
+            ),
+            (
+                "Lua table shape",
+                "app/src/main/cpp/lua_runtime_jni.cpp",
+                lambda text: text.replace(
+                    'lua_setfield(state, -2, "ui");',
+                    'lua_setfield(state, -2, "unreviewedUi");',
+                    1,
+                ),
+            ),
+            (
+                "Kotlin byte limit",
+                "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/NativeLuaRuntime.kt",
+                lambda text: text.replace("const val MAX_TOAST_TEXT_BYTES = 1024", "const val MAX_TOAST_TEXT_BYTES = 2048", 1),
+            ),
+            (
+                "closed acknowledgement",
+                "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/NativeLuaRuntime.kt",
+                lambda text: text.replace("require(accepted.value)", "checkNotNull(accepted)", 1),
+            ),
+            (
+                "JVM grant and denial evidence",
+                "app/src/test/java/io/github/supermonster003/autojs6/plugin/lua/runtime/NativeLuaRuntimeBoundaryTest.kt",
+                lambda text: text.replace(
+                    "toastCapabilityGrantDenialAndClosedShapesStayDeterministic",
+                    "toastBoundaryUnreviewed",
+                    1,
+                ),
+            ),
+        )
+        for label, relative, mutate in mutations:
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                self.copy_boundary(root)
+                path = root / relative
+                write_text(path, mutate(path.read_text("utf-8")))
+                with mock.patch.object(verifier, "ROOT", root):
+                    with self.assertRaises(RuntimeError):
+                        verifier.verify_native_boundary()
+
     def test_coroutine_control_or_inventory_drift_is_rejected(self) -> None:
         mutations = (
             (
@@ -1036,6 +1124,20 @@ class DescriptorBoundaryTest(unittest.TestCase):
                 self.FILES[8],
                 lambda text: text.replace("incomingOwnership?.close()", "Unit", 1),
             ),
+            (
+                "host capability retry",
+                self.FILES[1],
+                lambda text: text.replace(
+                    "val deadlineNanos = deadlineAfter(timeoutMillis)",
+                    "broker.invoke(\n"
+                    "            LuaRuntimeCodec.encodeHostRequest(request),\n"
+                    "            emptyArray<ParcelFileDescriptor>(),\n"
+                    "            callback,\n"
+                    "        )\n\n"
+                    "        val deadlineNanos = deadlineAfter(timeoutMillis)",
+                    1,
+                ),
+            ),
         )
         for label, relative, mutate in mutations:
             with self.subTest(label=label), tempfile.TemporaryDirectory() as directory:
@@ -1114,6 +1216,74 @@ class NativeAndroidBoundaryTest(unittest.TestCase):
                     "error('OOM outcome unverified')",
                     1,
                 ),
+            ),
+        )
+        for label, mutate in mutations:
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                for relative in self.FILES:
+                    destination = root / relative
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(SOURCE_ROOT / relative, destination)
+                test_path = root / self.FILES[1]
+                write_text(test_path, mutate(test_path.read_text("utf-8")))
+                with mock.patch.object(verifier, "ROOT", root):
+                    with self.assertRaises(RuntimeError):
+                        verifier.verify_native_android_test_boundary()
+
+    def test_toast_smoke_or_quota_evidence_drift_is_rejected(self) -> None:
+        mutations = (
+            (
+                "successful fixed-shape smoke",
+                lambda text: text.replace(
+                    "nativeRunnerMapsTheFixedToastCapabilityWithoutAResultOrRetry",
+                    "nativeRunnerToastSmokeRemoved",
+                    1,
+                ),
+            ),
+            (
+                "four-call quota",
+                lambda text: text.replace(
+                    "for index = 1, 4 do toast('accepted-' .. index) end",
+                    "for index = 1, 5 do toast('accepted-' .. index) end",
+                    1,
+                ),
+            ),
+            (
+                "fifth call caught by coroutine",
+                lambda text: text.replace(
+                    "local child = coroutine.create(function() toast('fifth') end)",
+                    "local child = coroutine.create(function() return true end)",
+                    1,
+                ),
+            ),
+            (
+                "oversized text",
+                lambda text: text.replace("string.rep('x', 1025)", "string.rep('x', 1024)", 1),
+            ),
+            (
+                "malformed UTF-8",
+                lambda text: text.replace("string.char(0xc3, 0x28)", "'valid'", 1),
+            ),
+            (
+                "overlong UTF-8",
+                lambda text: text.replace("string.char(0xc0, 0x80)", "'valid'", 1),
+            ),
+            (
+                "surrogate UTF-8",
+                lambda text: text.replace("string.char(0xed, 0xa0, 0x80)", "'valid'", 1),
+            ),
+            (
+                "out-of-range UTF-8",
+                lambda text: text.replace(
+                    "string.char(0xf4, 0x90, 0x80, 0x80)",
+                    "'valid'",
+                    1,
+                ),
+            ),
+            (
+                "truncated UTF-8",
+                lambda text: text.replace("string.char(0xf0, 0x90)", "'valid'", 1),
             ),
         )
         for label, mutate in mutations:

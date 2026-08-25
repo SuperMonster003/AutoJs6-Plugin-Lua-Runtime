@@ -139,9 +139,10 @@ contains callback/terminal/close races. Native-enabled builds now select
 `DisabledLuaExecutionRunner`. Provider discovery remains an independent,
 default-off gate. A controlled `require("autojs")` exposes
 `console.log(string)`, `console.info(string)`, `console.error(string)`,
-`console.warn(string)`, zero-argument `now()`, and an execution-local
-`arguments` snapshot. The snapshot maps the complete bounded V1 value model to
-Lua scalars, 1-based dense arrays, and string-key tables; strings and bytes use
+`console.warn(string)`, `ui.toast(string)`, zero-argument `now()`, and an
+execution-local `arguments` snapshot. The snapshot maps the complete bounded
+V1 value model to Lua scalars, 1-based dense arrays, and string-key tables;
+strings and bytes use
 binary-safe Lua strings. `now()` returns signed 64-bit Unix epoch milliseconds
 without a Host call. The existing `string.format` and pseudo-random
 `math.random` remain admitted, while `math.randomseed` now requires one or two
@@ -155,8 +156,14 @@ retain the existing sequence, credit, chunk, and total-output limits without a
 new wire stream. Flat ASCII module names may additionally resolve through the
 fixed `module.snapshot.v1` capability to execution-local UTF-8 text snapshots.
 Path/package search and binary or dynamic C modules remain unavailable. Both
-registered Host capabilities have Android-free grant/deny regression coverage;
-a missing grant terminates deterministically as `DENIED`/`HOST_CAPABILITY`.
+existing data capabilities and the new `ui.toast.v1` capability have
+Android-free grant/deny regression coverage; a missing grant terminates
+deterministically as `DENIED`/`HOST_CAPABILITY`.
+Toast accepts one non-empty strict UTF-8 string of at most 1,024 bytes, uses the
+closed `{text=string}` / `{accepted=true}` shape, and permits four charged,
+never-retried attempts per execution. The adjacent Host does not yet enable
+this capability, so current Provider instrumentation proves dispatch,
+validation, quota, and denial behavior rather than visible delivery.
 
 A process-wide watchdog is bound to each admitted execution token. It arms only
 immediately before worker dispatch, shortens its grace window on cancel, close,
@@ -193,6 +200,8 @@ does not modify the frozen V1 protocol artifacts or the current scalar result
 boundary. The reviewed utility subset and console mapping are recorded in
 [`docs/safe-standard-library-subset.md`](docs/safe-standard-library-subset.md)
 and [`docs/console-levels-decision.md`](docs/console-levels-decision.md).
+The implemented Provider-side toast contract and coordinated Host follow-up are
+recorded in [`docs/ui-toast-v1.md`](docs/ui-toast-v1.md).
 Dotted module names, aggregate source quotas, and cache metrics are specified
 only as a non-advertised V2 proposal in
 [`docs/module-snapshot-v2.md`](docs/module-snapshot-v2.md). A persistent,

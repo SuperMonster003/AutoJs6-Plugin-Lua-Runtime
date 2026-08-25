@@ -26,6 +26,9 @@
   错误修正为 `HOST_CAPABILITY`。
 - 为所有已注册 Host capability 增加对称的授予/拒绝 JVM 覆盖；拒绝路径保持有界，
   并从 `DENIED` 稳定映射为 `HOST_CAPABILITY`。
+- 新增 Provider 侧 `ui.toast.v1` 固定桥：请求/回执闭合为
+  `{text=string}` / `{accepted=true}`，严格 UTF-8 上限 1,024 字节，每执行扣取四次
+  额度，并且 Host 派发单次且绝不重试；可见交付仍需 Host 协同实现。
 - 形成仅设计且不广告的 `storage.kv.v1` 契约，固定稳定脚本 principal 隔离、有界
   键/值/操作、Host 侧原子持久化、显式清除语义，以及 Provider 不重试 mutation。
 - 增加仅限 debug 的远端 `/proc/self/fd` 记账，证明批量成功、digest 失败、取消、

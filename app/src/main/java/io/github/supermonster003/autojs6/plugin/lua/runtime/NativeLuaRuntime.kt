@@ -278,6 +278,29 @@ internal class NativeLuaHostCapabilityBridge private constructor(
         return validateModuleSnapshot(value)
     }
 
+    @Suppress("unused") // Called by JNI with an exact private method contract.
+    fun showToast(textUtf8: ByteArray) {
+        val arguments = try {
+            require(textUtf8.isNotEmpty()) { "Lua toast text must not be empty" }
+            require(textUtf8.size <= MAX_TOAST_TEXT_BYTES) {
+                "Lua toast text exceeds its UTF-8 byte limit"
+            }
+            val text = decodeStrictUtf8(textUtf8, "Lua toast text")
+            LuaValue.MapValue(
+                mapOf(TOAST_TEXT_KEY to LuaValue.StringValue(text)),
+            )
+        } catch (failure: Throwable) {
+            lastFailure.set(HOST_FAILURE_INVALID_INPUT)
+            throw failure
+        }
+        val value = invokeHostCapability(
+            label = "UI toast",
+            capability = UI_TOAST_CAPABILITY,
+            arguments = arguments,
+        )
+        validateToastAcknowledgement(value)
+    }
+
     private fun invokeHostCapability(
         label: String,
         capability: String,
@@ -317,18 +340,22 @@ internal class NativeLuaHostCapabilityBridge private constructor(
         }
     }
 
-    @Suppress("unused") // Read by JNI immediately after a failed invokeDeviceInfo call.
+    @Suppress("unused") // Read by JNI immediately after a failed fixed-shape Host call.
     fun takeFailureKind(): Int = lastFailure.getAndSet(HOST_FAILURE_NONE)
 
     companion object {
         const val DEVICE_INFO_CAPABILITY = "device.info"
         const val MODULE_SNAPSHOT_CAPABILITY = "module.snapshot.v1"
+        const val UI_TOAST_CAPABILITY = "ui.toast.v1"
+        const val MAX_TOAST_TEXT_BYTES = 1024
+        const val MAX_TOAST_CALLS_PER_EXECUTION = 4
         val REJECTING = NativeLuaHostCapabilityBridge(null, 0L)
         private const val NANOS_PER_MILLI = 1_000_000L
         private const val HOST_FAILURE_NONE = 0
         private const val HOST_FAILURE_CANCELLED = 1
         private const val HOST_FAILURE_DEADLINE = 2
         private const val HOST_FAILURE_REJECTED = 3
+        private const val HOST_FAILURE_INVALID_INPUT = 4
 
         private val STRING_KEYS = setOf("brand", "manufacturer", "model", "device", "product")
         private val ALL_KEYS = STRING_KEYS + "sdkInt"
@@ -338,6 +365,8 @@ internal class NativeLuaHostCapabilityBridge private constructor(
         private const val MODULE_SHA256_KEY = "sha256"
         private const val MAX_MODULE_SOURCE_BYTES = 64 * 1024
         private val MODULE_NAME_PATTERN = Regex("[A-Za-z_][A-Za-z0-9_]{0,63}")
+        private const val TOAST_TEXT_KEY = "text"
+        private const val TOAST_ACCEPTED_KEY = "accepted"
 
         internal fun validateDeviceInfo(value: LuaValue) {
             LuaValueValidation.validate(value)
@@ -384,6 +413,18 @@ internal class NativeLuaHostCapabilityBridge private constructor(
                 "Lua module snapshot SHA-256 mismatch"
             }
             return source
+        }
+
+        internal fun validateToastAcknowledgement(value: LuaValue) {
+            LuaValueValidation.validate(value)
+            val fields = (value as? LuaValue.MapValue)?.values
+                ?: throw IllegalArgumentException("ui.toast.v1 must return a map")
+            require(fields.keys == setOf(TOAST_ACCEPTED_KEY)) {
+                "ui.toast.v1 returned unexpected fields"
+            }
+            val accepted = fields[TOAST_ACCEPTED_KEY] as? LuaValue.BooleanValue
+                ?: throw IllegalArgumentException("ui.toast.v1 field accepted must be a boolean")
+            require(accepted.value) { "ui.toast.v1 did not accept the toast" }
         }
 
         private fun deadlineAfter(timeoutMillis: Long): Long {

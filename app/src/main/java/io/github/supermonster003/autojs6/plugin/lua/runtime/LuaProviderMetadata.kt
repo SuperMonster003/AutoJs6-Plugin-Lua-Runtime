@@ -42,6 +42,7 @@ internal object LuaProviderMetadata {
             capabilities = listOf(
                 NativeLuaHostCapabilityBridge.DEVICE_INFO_CAPABILITY,
                 NativeLuaHostCapabilityBridge.MODULE_SNAPSHOT_CAPABILITY,
+                NativeLuaHostCapabilityBridge.UI_TOAST_CAPABILITY,
             ),
             limits = LuaRuntimeLimits(
                 maxSourceBytes = LuaRuntimeContract.MAX_SOURCE_BYTES,

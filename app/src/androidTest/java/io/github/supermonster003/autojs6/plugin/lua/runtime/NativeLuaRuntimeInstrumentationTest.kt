@@ -224,6 +224,111 @@ class NativeLuaRuntimeInstrumentationTest {
     }
 
     @Test
+    fun nativeRunnerMapsTheFixedToastCapabilityWithoutAResultOrRetry() {
+        val observedTexts = mutableListOf<String>()
+        val value = NativeLuaExecutionRunner.execute(
+            runnerRequest(
+                source = """
+                    local autojs = require('autojs')
+                    assert(type(autojs.ui) == 'table')
+                    assert(autojs.ui.toast('保存完成') == nil)
+                    assert(autojs.ui.toast('A' .. string.char(0) .. 'B') == nil)
+                    return 9
+                """.trimIndent(),
+                hostCapabilityInvoker = LuaHostCapabilityInvoker { capability, arguments, _, _ ->
+                    assertEquals("ui.toast.v1", capability)
+                    val fields = (arguments as LuaValue.MapValue).values
+                    assertEquals(setOf("text"), fields.keys)
+                    observedTexts += (fields["text"] as LuaValue.StringValue).value
+                    toastAccepted()
+                },
+            ),
+        )
+
+        assertEquals(LuaValue.Int64Value(9L), value)
+        assertEquals(listOf("保存完成", "A\u0000B"), observedTexts)
+
+        var malformedCalls = 0
+        val malformedAcknowledgement = assertThrows(LuaRunnerException::class.java) {
+            NativeLuaExecutionRunner.execute(
+                runnerRequest(
+                    source = "require('autojs').ui.toast('bad ack')",
+                    hostCapabilityInvoker = LuaHostCapabilityInvoker { _, _, _, _ ->
+                        malformedCalls += 1
+                        LuaValue.MapValue(mapOf("accepted" to LuaValue.BooleanValue(false)))
+                    },
+                ),
+            )
+        }
+        assertEquals(LuaRunnerFailureKind.HOST_CAPABILITY, malformedAcknowledgement.kind)
+        assertEquals(1, malformedCalls)
+
+        val denial = assertThrows(LuaRunnerException::class.java) {
+            NativeLuaExecutionRunner.execute(
+                runnerRequest("require('autojs').ui.toast('denied')"),
+            )
+        }
+        assertEquals(LuaRunnerFailureKind.HOST_CAPABILITY, denial.kind)
+    }
+
+    @Test
+    fun nativeRunnerEnforcesToastTextAndExecutionQuotasBeforeHostDispatch() {
+        var calls = 0
+        val invoker = LuaHostCapabilityInvoker { capability, arguments, _, _ ->
+            assertEquals("ui.toast.v1", capability)
+            assertTrue((arguments as LuaValue.MapValue).values["text"] is LuaValue.StringValue)
+            calls += 1
+            toastAccepted()
+        }
+
+        val quotaFailure = assertThrows(LuaRunnerException::class.java) {
+            NativeLuaExecutionRunner.execute(
+                runnerRequest(
+                    source = """
+                        local toast = require('autojs').ui.toast
+                        for index = 1, 4 do toast('accepted-' .. index) end
+                        local child = coroutine.create(function() toast('fifth') end)
+                        local resumed = coroutine.resume(child)
+                        assert(resumed == false)
+                        toast('sixth')
+                    """.trimIndent(),
+                    hostCapabilityInvoker = invoker,
+                ),
+            )
+        }
+        assertEquals(LuaRunnerFailureKind.RUNTIME, quotaFailure.kind)
+        assertEquals(4, calls)
+
+        listOf(
+            "require('autojs').ui.toast(string.rep('x', 1025))",
+            "require('autojs').ui.toast(string.char(0xc3, 0x28))",
+            "require('autojs').ui.toast(string.char(0xc0, 0x80))",
+            "require('autojs').ui.toast(string.char(0xed, 0xa0, 0x80))",
+            "require('autojs').ui.toast(string.char(0xf4, 0x90, 0x80, 0x80))",
+            "require('autojs').ui.toast(string.char(0xf0, 0x90))",
+        ).forEach { source ->
+            val failure = assertThrows(LuaRunnerException::class.java) {
+                NativeLuaExecutionRunner.execute(
+                    runnerRequest(source = source, hostCapabilityInvoker = invoker),
+                )
+            }
+            assertEquals(LuaRunnerFailureKind.RUNTIME, failure.kind)
+            assertEquals(4, calls)
+        }
+
+        assertEquals(
+            LuaValue.BooleanValue(true),
+            NativeLuaExecutionRunner.execute(
+                runnerRequest(
+                    source = "require('autojs').ui.toast(string.rep('x', 1024)); return true",
+                    hostCapabilityInvoker = invoker,
+                ),
+            ),
+        )
+        assertEquals(5, calls)
+    }
+
+    @Test
     fun nativeRunnerLoadsFrozenModulesOnceAndRejectsDependencyCycles() {
         val calls = linkedMapOf<String, Int>()
         val invoker = LuaHostCapabilityInvoker { capability, arguments, _, _ ->
@@ -473,6 +578,10 @@ class NativeLuaRuntimeInstrumentationTest {
             "product" to LuaValue.StringValue("native_product"),
             "sdkInt" to LuaValue.Int64Value(36L),
         ),
+    )
+
+    private fun toastAccepted() = LuaValue.MapValue(
+        mapOf("accepted" to LuaValue.BooleanValue(true)),
     )
 
     private fun assertNativeFailure(

@@ -129,9 +129,9 @@ Binder/session 骨架。它会复制并关闭源描述符，在进程级零队�
 Provider 发现仍是独立的默认关闭门禁。
 
 受控的 `require("autojs")` 暴露 `console.log(string)`、
-`console.info(string)`、`console.error(string)`、`console.warn(string)`、零参数
-`now()` 和执行本地的 `arguments` 快照。该快照把完整有界 V1 值模型映射为 Lua
-标量、从 1 开始的稠密数组和字符串键表；字符串与字节使用 binary-safe Lua
+`console.info(string)`、`console.error(string)`、`console.warn(string)`、
+`ui.toast(string)`、零参数 `now()` 和执行本地的 `arguments` 快照。该快照把完整
+有界 V1 值模型映射为 Lua 标量、从 1 开始的稠密数组和字符串键表；字符串与字节使用 binary-safe Lua
 string。`now()` 无需 Host 调用，返回有符号 64 位 Unix epoch 毫秒。现有的
 `string.format` 与伪随机 `math.random` 继续开放，而 `math.randomseed` 现在要求
 显式传入一到两个整数 seed；完整的 `os` 库仍不可用。
@@ -142,8 +142,13 @@ string。`now()` 无需 Host 调用，返回有符号 64 位 Unix epoch 毫秒�
 都保留已有的序列、credit、分块与总输出上限，不增加 wire stream。平面 ASCII
 模块名还可通过固定的 `module.snapshot.v1` capability 解析为执行本地 UTF-8 文本
 快照。路径/package 搜索、二进制模块和动态 C 模块仍不可用。两个已注册 Host
-capability 都有 Android-free 的授予/拒绝回归覆盖；缺少授权时会稳定终止为
+数据 capability 与新增 `ui.toast.v1` 都有 Android-free 的授予/拒绝回归覆盖；
+缺少授权时会稳定终止为
 `DENIED`/`HOST_CAPABILITY`。
+Toast 只接受一个 1–1024 字节的非空严格 UTF-8 字符串，请求/回执固定为
+`{text=string}` / `{accepted=true}`；每次执行最多扣取四次额度，Provider 绝不重试。
+相邻 Host 当前尚未启用该 capability，因此现有 Provider instrumentation 只证明
+派发、校验、配额与拒绝行为，不代表已经完成可见 Toast 的端到端交付。
 
 进程级 watchdog 绑定到每个获准执行的 token。它只在 worker 即将派发前启动，
 在 cancel、close 或 callback 死亡时缩短宽限期，并在正常结束时清除 token。如果
@@ -173,7 +178,9 @@ R4 继续保持 Lua 层 `pcall` 和 `xpcall` 不可用；审阅后的理由与�
 [`docs/result-model-v2.md`](docs/result-model-v2.md)；它目前只是设计，不会修改
 冻结的 V1 协议制品或当前标量结果边界。审阅后的工具子集与 console 映射分别记录
 在 [`docs/safe-standard-library-subset.md`](docs/safe-standard-library-subset.md)
-和 [`docs/console-levels-decision.md`](docs/console-levels-decision.md)。点分模块名、
+和 [`docs/console-levels-decision.md`](docs/console-levels-decision.md)。
+已实现的 Provider 侧 Toast 契约及需要协同的 Host 后续记录在
+[`docs/ui-toast-v1.md`](docs/ui-toast-v1.md)。点分模块名、
 聚合源码配额与缓存指标仅作为不广告能力的 V2 提案记录在
 [`docs/module-snapshot-v2.md`](docs/module-snapshot-v2.md)。持久化、按 principal
 隔离的 KV 提案仅作为设计记录在

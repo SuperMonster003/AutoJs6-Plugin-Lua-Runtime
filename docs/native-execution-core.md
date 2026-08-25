@@ -149,6 +149,16 @@ with global `print`/`warn`, all six entry points still use only the frozen
 `LuaOutputStream.STDOUT`/`STDERR` wire values. No protocol enum or capability
 was added. See [console-levels-decision.md](console-levels-decision.md).
 
+`require("autojs").ui.toast(text)` is the fixed `ui.toast.v1` Host-capability
+bridge. It accepts exactly one non-empty strict UTF-8 string of at most 1,024
+bytes, sends the closed request `{text=string}`, and accepts only the closed
+acknowledgement `{accepted=true}`. One execution may attempt four toast calls;
+the shared main/coroutine counter is charged before the sole JNI/Binder
+dispatch and is never refunded or retried. Success returns no Lua values and
+means accepted for Host enqueueing, not visibly displayed. The Provider
+contract and current Host follow-up boundary are recorded in
+[ui-toast-v1.md](ui-toast-v1.md).
+
 ## Known limits before enablement
 
 - The admitted modules are the built-in `autojs` module and flat ASCII names
@@ -170,6 +180,13 @@ was added. See [console-levels-decision.md](console-levels-decision.md).
   by M3.3. Binder dispatch is never retried. Its worker-side wait polls cancel
   and deadline, and callback UID, execution ID, call ID, terminal uniqueness,
   and zero descriptors are validated before the response reaches JNI.
+- `ui.toast.v1` is advertised by Provider metadata, but it is available only
+  when the Host/provider capability intersection grants it. A Host without the
+  matching dispatcher produces deterministic `DENIED`/`HOST_CAPABILITY`; there
+  is no Provider-process Android toast fallback. The adjacent Host workspace
+  audited for this implementation does not yet enable this capability, so the
+  fake-invoker native smoke proves Provider dispatch/validation/quota behavior,
+  not end-to-end visual delivery.
 - Console output is synchronous and must be accepted by the session's existing
   sequence, credit, chunk, and total-byte limits. Global `print` plus
   `console.log`/`console.info` route to controlled stdout; global `warn` plus
@@ -195,9 +212,12 @@ was added. See [console-levels-decision.md](console-levels-decision.md).
 
 `NativeLuaRuntimeBoundaryTest` records defensive source and argument snapshots,
 UTF-8, scalar mapping, the exact two-stream console wire boundary, and
-result-limit expectations. Focused native instrumentation additionally covers
+result-limit expectations, plus every registered capability's grant/denial
+boundary and the closed toast request/acknowledgement. Focused native
+instrumentation additionally covers
 `autojs.now()`, `string.format`, explicit PRNG seeds, zero-seed rejection, and
-the four `autojs.console` names, plus coroutine deadline, cancellation,
+the four `autojs.console` names, fixed toast dispatch, toast input/quota
+rejection before Host invocation, plus coroutine deadline, cancellation,
 yield/resume allocator accounting, and OOM recovery.
 The complete 15-test class passed on the API 37, 16 KiB x86_64 emulator for
 implementation revision `fc964d448c85f950c27667e7891fbb7d337fe73e`; exact

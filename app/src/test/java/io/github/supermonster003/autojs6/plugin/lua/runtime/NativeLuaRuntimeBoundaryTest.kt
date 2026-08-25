@@ -237,6 +237,77 @@ class NativeLuaRuntimeBoundaryTest {
     }
 
     @Test(timeout = 1_000L)
+    fun toastCapabilityGrantDenialAndClosedShapesStayDeterministic() {
+        val observedTexts = mutableListOf<String>()
+        val bridge = NativeLuaHostCapabilityBridge(
+            LuaRunnerRequest(
+                sourceUtf8 = "return 1".toByteArray(),
+                sourceName = "ui-toast.lua",
+                arguments = LuaValue.Nil,
+                memoryLimitBytes = LuaRuntimeContract.DEFAULT_MEMORY_BYTES,
+                timeoutMillis = LuaRuntimeContract.DEFAULT_TIMEOUT_MILLIS,
+                cancellationProbe = LuaCancellationProbe { false },
+                hostCapabilityInvoker = LuaHostCapabilityInvoker { capability, arguments, _, _ ->
+                    assertEquals("ui.toast.v1", capability)
+                    val fields = (arguments as LuaValue.MapValue).values
+                    assertEquals(setOf("text"), fields.keys)
+                    observedTexts += (fields["text"] as LuaValue.StringValue).value
+                    toastAccepted()
+                },
+            ),
+        )
+
+        bridge.showToast("保存完成".toByteArray())
+        bridge.showToast(ByteArray(NativeLuaHostCapabilityBridge.MAX_TOAST_TEXT_BYTES) { 'x'.code.toByte() })
+        assertEquals(listOf("保存完成", "x".repeat(1024)), observedTexts)
+
+        listOf(
+            LuaValue.Nil,
+            LuaValue.MapValue(mapOf("accepted" to LuaValue.BooleanValue(false))),
+            LuaValue.MapValue(mapOf("accepted" to LuaValue.StringValue("yes"))),
+            LuaValue.MapValue(
+                mapOf(
+                    "accepted" to LuaValue.BooleanValue(true),
+                    "extra" to LuaValue.BooleanValue(true),
+                ),
+            ),
+        ).forEach { acknowledgement ->
+            assertThrows(IllegalArgumentException::class.java) {
+                NativeLuaHostCapabilityBridge.validateToastAcknowledgement(acknowledgement)
+            }
+        }
+
+        listOf(
+            byteArrayOf(),
+            ByteArray(NativeLuaHostCapabilityBridge.MAX_TOAST_TEXT_BYTES + 1),
+            byteArrayOf(0xc3.toByte(), 0x28),
+        ).forEach { invalidText ->
+            assertThrows(IllegalArgumentException::class.java) {
+                bridge.showToast(invalidText)
+            }
+            assertEquals(HOST_FAILURE_INVALID_INPUT, bridge.takeFailureKind())
+        }
+        assertEquals(2, observedTexts.size)
+
+        val deniedBridge = NativeLuaHostCapabilityBridge(
+            LuaRunnerRequest(
+                sourceUtf8 = "return 1".toByteArray(),
+                sourceName = "ui-toast-denied.lua",
+                arguments = LuaValue.Nil,
+                memoryLimitBytes = LuaRuntimeContract.DEFAULT_MEMORY_BYTES,
+                timeoutMillis = LuaRuntimeContract.DEFAULT_TIMEOUT_MILLIS,
+                cancellationProbe = LuaCancellationProbe { false },
+                hostCapabilityInvoker = LuaHostCapabilityInvoker.REJECTING,
+            ),
+        )
+        val denial = assertThrows(LuaHostCapabilityException::class.java) {
+            deniedBridge.showToast("denied".toByteArray())
+        }
+        assertEquals(LuaHostCapabilityFailureKind.DENIED, denial.kind)
+        assertEquals(HOST_FAILURE_REJECTED, deniedBridge.takeFailureKind())
+    }
+
+    @Test(timeout = 1_000L)
     fun moduleSnapshotCapabilityGrantAndDenialStayDeterministic() {
         val observedNames = mutableListOf<String>()
         val runnerRequest = LuaRunnerRequest(
@@ -340,7 +411,12 @@ class NativeLuaRuntimeBoundaryTest {
         ),
     )
 
+    private fun toastAccepted() = LuaValue.MapValue(
+        mapOf("accepted" to LuaValue.BooleanValue(true)),
+    )
+
     private companion object {
         const val HOST_FAILURE_REJECTED = 3
+        const val HOST_FAILURE_INVALID_INPUT = 4
     }
 }

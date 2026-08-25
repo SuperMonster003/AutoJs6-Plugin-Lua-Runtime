@@ -247,7 +247,7 @@ Host 端到端交付。完整回执见 [`docs/ui-toast-v1.md`](docs/ui-toast-v1.
   (failure kind、阶段、脚本 hash 前 8 字节) 写入进程私有目录, 下次
   `getRuntimeInfo` 可上报"上次异常终止"标志。
   完成判据: 仪器测试注入 fault harness 崩溃, 重启后读到诊断标志。
-- [ ] **watchdog 事件可追溯**。为 `DEADLINE_CLEANUP_EXPIRED`/
+- [x] **watchdog 事件可追溯**。为 `DEADLINE_CLEANUP_EXPIRED`/
   `STOP_CLEANUP_EXPIRED`/`WATCHDOG_CONTROL_FAILURE` 三类 fail-stop 附带
   logcat 结构化标签, 便于宿主侧聚合。
   完成判据: 标签常量 + 单测断言日志路径被调用 (可注入 logger)。
@@ -281,6 +281,18 @@ x86_64、16 KiB `emulator-5554` 上完整 fault instrumentation 4/4 (7.984 秒)
 `return 7` 均清除文件与标志，最终私有目录为空。完整契约与回执见
 [`docs/crash-diagnostic-v1.md`](docs/crash-diagnostic-v1.md)；所有 ADB 命令显式指定
 `emulator-5554`，未运行 `connectedAndroidTest`，未操作物理设备。
+
+R4-D watchdog 日志证据 (2026-08-25): 固定 Android logcat tag
+`AutoJs6LuaWatchdog`，消息恰好为
+`event=lua_runtime_fail_stop reason=<closed_reason_tag>`；三类 reason 分别闭合映射为
+`deadline_cleanup_expired`、`stop_cleanup_expired`、`watchdog_control_failure`，不含
+token、hash、脚本内容或任意动态字段。所有 fail-stop 经统一终止汇合点执行“诊断
+observer → logger → terminator”；observer/logger 异常均被独立遏制，不能阻断 kill。
+注入式 JVM recorder 精确覆盖三类路径，并固定异常用例顺序为
+`diagnostic, log, terminate`；静态敌意门禁会拒绝 logger 调用、reason 常量、Android
+`Log.e` 适配器或生产注入被移除。仓库离线门禁 44/44 Python、59/59 JVM 通过；本项
+完成判据不要求新增设备声明。完整契约见
+[`docs/watchdog-event-logging.md`](docs/watchdog-event-logging.md)。
 
 ## R4-E — 发布工程收敛 (从 rc 走向可公开发布)
 

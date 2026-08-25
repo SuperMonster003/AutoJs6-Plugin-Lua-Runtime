@@ -245,6 +245,7 @@ private object ProcessExecutionResources {
         scheduler = LuaRuntimeWatchdogScheduler,
         terminator = AndroidLuaRuntimeProcessTerminator,
         terminationObserver = LuaRuntimeCrashDiagnostics,
+        eventLogger = AndroidLuaWatchdogEventLogger,
         cleanupGraceMillis = WATCHDOG_CLEANUP_GRACE_MILLIS,
     )
     private val retainedSessions = RetainedExecutionGate(MAX_RETAINED_SESSIONS)

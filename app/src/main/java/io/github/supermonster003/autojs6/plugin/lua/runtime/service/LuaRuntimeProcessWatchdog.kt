@@ -1,8 +1,11 @@
 package io.github.supermonster003.autojs6.plugin.lua.runtime.service
 
 import android.os.Process
+import android.util.Log
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaProcessTerminationReason
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaRuntimeProcessTerminator
+import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaWatchdogEventLogger
+import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaWatchdogLogContract
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaWatchdogScheduler
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaWatchdogTask
 import java.util.concurrent.ScheduledThreadPoolExecutor
@@ -45,4 +48,11 @@ internal object AndroidLuaRuntimeProcessTerminator : LuaRuntimeProcessTerminator
     }
 
     private const val HALT_STATUS_BASE = 70
+}
+
+/** Emits one fixed-shape event immediately before the dedicated process is terminated. */
+internal object AndroidLuaWatchdogEventLogger : LuaWatchdogEventLogger {
+    override fun logFailStop(reason: LuaProcessTerminationReason) {
+        Log.e(LuaWatchdogLogContract.LOGCAT_TAG, LuaWatchdogLogContract.message(reason))
+    }
 }

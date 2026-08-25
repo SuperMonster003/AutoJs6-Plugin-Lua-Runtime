@@ -61,6 +61,7 @@ internal class LuaExecutionWatchdog(
     private val scheduler: LuaWatchdogScheduler,
     private val terminator: LuaRuntimeProcessTerminator,
     private val terminationObserver: LuaProcessTerminationObserver = LuaProcessTerminationObserver.NONE,
+    private val eventLogger: LuaWatchdogEventLogger = LuaWatchdogEventLogger.NONE,
     cleanupGraceMillis: Long,
 ) {
     data class Snapshot(
@@ -236,6 +237,7 @@ internal class LuaExecutionWatchdog(
     }
 
     private fun terminateProcess(reason: LuaProcessTerminationReason) {
+        runCatching { eventLogger.logFailStop(reason) }
         runCatching { terminator.terminate(reason) }
     }
 

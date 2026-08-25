@@ -193,6 +193,10 @@ JVM 边界证据记录在
 隐私、竞态与恢复契约固定在
 [`docs/crash-diagnostic-v1.md`](docs/crash-diagnostic-v1.md)，其中归档了 API 37、
 16 KiB `emulator-5554` 上 4/4 通过的 crash/watchdog 恢复矩阵；未操作物理设备。
+watchdog 还会为每次拥有 token 的 deadline、stop 或 control-failure fail-stop 发送
+一条不含内容且形状固定的 logcat 事件；精确 tag/reason 映射、隐私边界及“诊断—
+日志—终止”顺序记录在
+[`docs/watchdog-event-logging.md`](docs/watchdog-event-logging.md)。
 
 仓库 JVM 套件的准确数量只在 `verification.properties` 中声明一次，本地、CI、
 debug 制品和 release 制品门禁都从这里读取。原生、Binder/PFD、进程恢复与

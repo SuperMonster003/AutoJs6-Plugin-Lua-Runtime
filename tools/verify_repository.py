@@ -1700,6 +1700,8 @@ def verify_watchdog_boundary() -> None:
             "terminationObserver: LuaProcessTerminationObserver = LuaProcessTerminationObserver.NONE",
             "observeTerminationLocked(token, reason)",
             "runCatching { terminationObserver.beforeTermination(token, reason) }",
+            "eventLogger: LuaWatchdogEventLogger = LuaWatchdogEventLogger.NONE",
+            "runCatching { eventLogger.logFailStop(reason) }",
             "execution.stopRequestedNanos?.let",
             "tasks.forEach { task -> runCatching { task.cancel() } }",
         ),
@@ -1717,6 +1719,28 @@ def verify_watchdog_boundary() -> None:
         "Session lifecycle no longer arms, shortens, and revokes its watchdog lease",
     )
 
+    log_contract = (
+        ROOT
+        / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/execution/"
+        "LuaWatchdogEventLogging.kt"
+    ).read_text("utf-8")
+    require_tokens(
+        log_contract,
+        (
+            'const val LOGCAT_TAG = "AutoJs6LuaWatchdog"',
+            'const val FAIL_STOP_EVENT_TAG = "lua_runtime_fail_stop"',
+            'const val DEADLINE_CLEANUP_EXPIRED_TAG = "deadline_cleanup_expired"',
+            'const val STOP_CLEANUP_EXPIRED_TAG = "stop_cleanup_expired"',
+            'const val WATCHDOG_CONTROL_FAILURE_TAG = "watchdog_control_failure"',
+            '"event=$FAIL_STOP_EVENT_TAG reason=${reason.tag()}"',
+            "LuaProcessTerminationReason.DEADLINE_CLEANUP_EXPIRED -> DEADLINE_CLEANUP_EXPIRED_TAG",
+            "LuaProcessTerminationReason.STOP_CLEANUP_EXPIRED -> STOP_CLEANUP_EXPIRED_TAG",
+            "LuaProcessTerminationReason.WATCHDOG_CONTROL_FAILURE -> WATCHDOG_CONTROL_FAILURE_TAG",
+            "internal fun interface LuaWatchdogEventLogger",
+        ),
+        "Closed content-free watchdog log contract",
+    )
+
     manager = (
         ROOT
         / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaRuntimeExecutionManager.kt"
@@ -1728,6 +1752,7 @@ def verify_watchdog_boundary() -> None:
             "watchdog = watchdogLease",
             "terminator = AndroidLuaRuntimeProcessTerminator",
             "terminationObserver = LuaRuntimeCrashDiagnostics",
+            "eventLogger = AndroidLuaWatchdogEventLogger",
             "cleanupGraceMillis = WATCHDOG_CLEANUP_GRACE_MILLIS",
             "WATCHDOG_CLEANUP_GRACE_MILLIS = 2_000L",
         ),
@@ -1741,6 +1766,18 @@ def verify_watchdog_boundary() -> None:
     kill_at = process_guard.index("Process.killProcess(pid)")
     halt_at = process_guard.index("Runtime.getRuntime().halt(")
     require(kill_at < halt_at, "Dedicated-process termination fallback ordering drift")
+    require_tokens(
+        process_guard,
+        (
+            "internal object AndroidLuaWatchdogEventLogger : LuaWatchdogEventLogger",
+            "Log.e(LuaWatchdogLogContract.LOGCAT_TAG, LuaWatchdogLogContract.message(reason))",
+        ),
+        "Android watchdog logcat adapter",
+    )
+    terminate_start = watchdog.index("private fun terminateProcess(reason: LuaProcessTerminationReason)")
+    log_at = watchdog.index("eventLogger.logFailStop(reason)", terminate_start)
+    terminate_at = watchdog.index("terminator.terminate(reason)", log_at)
+    require(log_at < terminate_at, "Watchdog can terminate before emitting its structured event")
 
     tests = (
         ROOT
@@ -1756,9 +1793,55 @@ def verify_watchdog_boundary() -> None:
     require(
         "terminationObserverRunsBeforeTerminatorAndCannotSuppressFailStop" in tests
         and 'events += "diagnostic"' in tests
+        and 'events += "log"' in tests
         and 'events += "terminate"' in tests
-        and 'assertEquals(listOf("diagnostic", "terminate"), events)' in tests,
+        and 'assertEquals(listOf("diagnostic", "log", "terminate"), events)' in tests,
         "Watchdog diagnostic-before-termination ordering evidence is missing",
+    )
+    require_tokens(
+        tests,
+        (
+            "everyFailStopReasonUsesTheClosedStructuredLogContract",
+            "assertEquals(LuaProcessTerminationReason.entries, logged)",
+            '"event=lua_runtime_fail_stop reason=deadline_cleanup_expired"',
+            '"event=lua_runtime_fail_stop reason=stop_cleanup_expired"',
+            '"event=lua_runtime_fail_stop reason=watchdog_control_failure"',
+            'error("injected log failure")',
+        ),
+        "Three-reason watchdog structured-log JVM coverage",
+    )
+
+    logging_doc = (ROOT / "docs/watchdog-event-logging.md").read_text("utf-8")
+    require_tokens(
+        logging_doc,
+        (
+            "Status: **IMPLEMENTED — PROVIDER DEFAULT-OFF**",
+            "event=lua_runtime_fail_stop reason=<closed_reason_tag>",
+            "`DEADLINE_CLEANUP_EXPIRED` | `deadline_cleanup_expired`",
+            "`STOP_CLEANUP_EXPIRED` | `stop_cleanup_expired`",
+            "`WATCHDOG_CONTROL_FAILURE` | `watchdog_control_failure`",
+            "`Log.e(LOGCAT_TAG, message)`",
+            "diagnostic`, `log`, `terminate`",
+            "no execution token, request ID, PID, UID, source name, source body",
+            "44/44 Python tests and 59/59 JVM",
+            "no new device claim is made",
+        ),
+        "Watchdog event logging documentation",
+    )
+    roadmap = (ROOT / "ROADMAP-R4.md").read_text("utf-8")
+    require_tokens(
+        roadmap,
+        (
+            "- [x] **watchdog 事件可追溯**",
+            "R4-D watchdog 日志证据 (2026-08-25)",
+            "`AutoJs6LuaWatchdog`",
+            "`event=lua_runtime_fail_stop reason=<closed_reason_tag>`",
+            "`deadline_cleanup_expired`、`stop_cleanup_expired`、`watchdog_control_failure`",
+            "`diagnostic, log, terminate`",
+            "44/44 Python、59/59 JVM",
+            "docs/watchdog-event-logging.md",
+        ),
+        "R4 watchdog event logging completion evidence",
     )
 
 

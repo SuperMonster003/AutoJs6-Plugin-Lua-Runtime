@@ -52,6 +52,9 @@ not published availability.
   closed failure kind, execution phase, eight-byte source SHA-256 prefix, and
   checksum. A restarted runtime exposes only a content-free runtime-info marker,
   while the next healthy verified native return clears both marker and record.
+- Added one fixed `AutoJs6LuaWatchdog` logcat event before every owned watchdog
+  fail-stop, with closed deadline/stop/control reason tags, no execution content,
+  injectable JVM coverage, and logger-failure containment before termination.
 - Added debug-only remote `/proc/self/fd` accounting and proved exact baseline
   recovery across batched success, digest-failure, cancellation, callback-death,
   and broker-death paths.

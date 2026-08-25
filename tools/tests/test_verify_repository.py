@@ -1572,10 +1572,13 @@ class HostLifecycleBoundaryTest(unittest.TestCase):
 class WatchdogBoundaryTest(unittest.TestCase):
     WATCHDOG_FILES = (
         "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/execution/LuaExecutionWatchdog.kt",
+        "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/execution/LuaWatchdogEventLogging.kt",
         "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/execution/LuaExecutionSessionController.kt",
         "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaRuntimeExecutionManager.kt",
         "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaRuntimeProcessWatchdog.kt",
         "app/src/test/java/io/github/supermonster003/autojs6/plugin/lua/runtime/execution/LuaExecutionWatchdogTest.kt",
+        "docs/watchdog-event-logging.md",
+        "ROADMAP-R4.md",
     )
 
     def copy_watchdog_boundary(self, root: Path) -> None:
@@ -1591,15 +1594,60 @@ class WatchdogBoundaryTest(unittest.TestCase):
             with mock.patch.object(verifier, "ROOT", root):
                 verifier.verify_watchdog_boundary()
 
-    def test_removing_stale_token_check_is_rejected(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            self.copy_watchdog_boundary(root)
-            path = root / self.WATCHDOG_FILES[0]
-            write_text(path, path.read_text("utf-8").replace("execution.token !== token", "false"))
-            with mock.patch.object(verifier, "ROOT", root):
-                with self.assertRaisesRegex(RuntimeError, "execution.token !== token"):
-                    verifier.verify_watchdog_boundary()
+    def test_stale_token_or_structured_logger_removal_is_rejected(self) -> None:
+        mutations = (
+            (
+                "stale token",
+                self.WATCHDOG_FILES[0],
+                lambda text: text.replace("execution.token !== token", "false"),
+            ),
+            (
+                "logger call",
+                self.WATCHDOG_FILES[0],
+                lambda text: text.replace("eventLogger.logFailStop(reason)", "Unit", 1),
+            ),
+            (
+                "reason tag",
+                self.WATCHDOG_FILES[1],
+                lambda text: text.replace("stop_cleanup_expired", "deadline_cleanup_expired", 1),
+            ),
+            (
+                "Android adapter",
+                self.WATCHDOG_FILES[4],
+                lambda text: text.replace(
+                    "Log.e(LuaWatchdogLogContract.LOGCAT_TAG, LuaWatchdogLogContract.message(reason))",
+                    "Unit",
+                    1,
+                ),
+            ),
+            (
+                "production injection",
+                self.WATCHDOG_FILES[3],
+                lambda text: text.replace(
+                    "eventLogger = AndroidLuaWatchdogEventLogger",
+                    "eventLogger = LuaWatchdogEventLogger.NONE",
+                    1,
+                ),
+            ),
+            (
+                "Roadmap completion",
+                self.WATCHDOG_FILES[7],
+                lambda text: text.replace(
+                    "- [x] **watchdog 事件可追溯**",
+                    "- [ ] **watchdog 事件可追溯**",
+                    1,
+                ),
+            ),
+        )
+        for label, relative, mutate in mutations:
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                self.copy_watchdog_boundary(root)
+                path = root / relative
+                write_text(path, mutate(path.read_text("utf-8")))
+                with mock.patch.object(verifier, "ROOT", root):
+                    with self.assertRaises(RuntimeError):
+                        verifier.verify_watchdog_boundary()
 
 
 class CrashDiagnosticBoundaryTest(unittest.TestCase):

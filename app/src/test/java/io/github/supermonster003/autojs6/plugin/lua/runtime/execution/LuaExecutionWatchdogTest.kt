@@ -151,6 +151,11 @@ class LuaExecutionWatchdogTest {
                 events += "diagnostic"
                 error("injected diagnostic failure")
             },
+            eventLogger = LuaWatchdogEventLogger { reason ->
+                assertEquals(LuaProcessTerminationReason.DEADLINE_CLEANUP_EXPIRED, reason)
+                events += "log"
+                error("injected log failure")
+            },
             cleanupGraceMillis = DEFAULT_GRACE_MILLIS,
         )
         val lease = checkNotNull(watchdog.tryAcquire(token, 0L, 100L))
@@ -158,8 +163,58 @@ class LuaExecutionWatchdogTest {
         assertTrue(lease.executionDispatched())
         scheduler.run(0)
 
-        assertEquals(listOf("diagnostic", "terminate"), events)
+        assertEquals(listOf("diagnostic", "log", "terminate"), events)
         assertTrue(watchdog.snapshot().poisoned)
+    }
+
+    @Test
+    fun everyFailStopReasonUsesTheClosedStructuredLogContract() {
+        val logged = mutableListOf<LuaProcessTerminationReason>()
+        val logger = LuaWatchdogEventLogger(logged::add)
+
+        val deadlineScheduler = ManualScheduler()
+        val deadlineWatchdog = watchdog(
+            now = AtomicLong(0L),
+            scheduler = deadlineScheduler,
+            terminations = mutableListOf(),
+            eventLogger = logger,
+        )
+        val deadlineLease = checkNotNull(deadlineWatchdog.tryAcquire(Any(), 0L, 100L))
+        assertTrue(deadlineLease.executionDispatched())
+        deadlineScheduler.run(0)
+
+        val stopScheduler = ManualScheduler()
+        val stopWatchdog = watchdog(
+            now = AtomicLong(0L),
+            scheduler = stopScheduler,
+            terminations = mutableListOf(),
+            eventLogger = logger,
+        )
+        val stopLease = checkNotNull(stopWatchdog.tryAcquire(Any(), 0L, 100L))
+        assertTrue(stopLease.executionDispatched())
+        stopLease.stopRequested()
+        stopScheduler.run(1)
+
+        val controlWatchdog = LuaExecutionWatchdog(
+            clock = LuaMonotonicClock { 0L },
+            scheduler = LuaWatchdogScheduler { _, _ -> error("scheduler rejected") },
+            terminator = LuaRuntimeProcessTerminator { _ -> Unit },
+            eventLogger = logger,
+            cleanupGraceMillis = DEFAULT_GRACE_MILLIS,
+        )
+        val controlLease = checkNotNull(controlWatchdog.tryAcquire(Any(), 0L, 100L))
+        assertFalse(controlLease.executionDispatched())
+
+        assertEquals(LuaProcessTerminationReason.entries, logged)
+        assertEquals("AutoJs6LuaWatchdog", LuaWatchdogLogContract.LOGCAT_TAG)
+        assertEquals(
+            listOf(
+                "event=lua_runtime_fail_stop reason=deadline_cleanup_expired",
+                "event=lua_runtime_fail_stop reason=stop_cleanup_expired",
+                "event=lua_runtime_fail_stop reason=watchdog_control_failure",
+            ),
+            logged.map(LuaWatchdogLogContract::message),
+        )
     }
 
     private fun watchdog(
@@ -167,10 +222,12 @@ class LuaExecutionWatchdogTest {
         scheduler: ManualScheduler,
         terminations: MutableList<LuaProcessTerminationReason>,
         cleanupGraceMillis: Long = DEFAULT_GRACE_MILLIS,
+        eventLogger: LuaWatchdogEventLogger = LuaWatchdogEventLogger.NONE,
     ) = LuaExecutionWatchdog(
         clock = LuaMonotonicClock(now::get),
         scheduler = scheduler,
         terminator = LuaRuntimeProcessTerminator(terminations::add),
+        eventLogger = eventLogger,
         cleanupGraceMillis = cleanupGraceMillis,
     )
 

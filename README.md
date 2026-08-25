@@ -226,6 +226,10 @@ healthy verified native return clears it. Its privacy, race, and recovery
 contract is fixed in [`docs/crash-diagnostic-v1.md`](docs/crash-diagnostic-v1.md),
 including the passing 4/4 crash/watchdog recovery matrix on the API 37, 16 KiB
 `emulator-5554`; no physical device was targeted.
+The watchdog now also emits one content-free, fixed-shape logcat event for each
+owned deadline, stop, or control-failure fail-stop. The exact tag/reason mapping,
+privacy boundary, and diagnostic-log-termination ordering are recorded in
+[`docs/watchdog-event-logging.md`](docs/watchdog-event-logging.md).
 
 The exact repository JVM-suite count is declared once in
 `verification.properties`; local, CI, debug-artifact, and release-artifact

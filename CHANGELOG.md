@@ -44,6 +44,10 @@ not published availability.
 - Specified a design-only, non-advertised `storage.kv.v1` contract with stable
   script-principal isolation, bounded keys/values/operations, atomic Host-side
   persistence, explicit clear semantics, and no Provider mutation retries.
+- Audited the frozen Lua terminal/runtime-info models, recorded per-execution
+  statistics as requiring Host protocol evolution, specified the exact nested
+  fields, validity mask, terminal tags, and protocol-1.1 capability negotiation,
+  and added a JVM guard proving no V1 statistics carrier is being assumed.
 - Added debug-only remote `/proc/self/fd` accounting and proved exact baseline
   recovery across batched success, digest-failure, cancellation, callback-death,
   and broker-death paths.

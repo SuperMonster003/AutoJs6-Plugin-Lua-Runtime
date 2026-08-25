@@ -755,6 +755,70 @@ def verify_r4_design_records() -> None:
         "Design-only storage KV capability was advertised before implementation",
     )
 
+    statistics_design = (ROOT / "docs/execution-statistics-v1.md").read_text("utf-8")
+    require(
+        isinstance(source_revision, str) and source_revision in statistics_design,
+        "Execution statistics design does not identify the frozen protocol revision",
+    )
+    require_tokens(
+        statistics_design,
+        (
+            "Status: **需宿主协议演进 — FIELD DESIGN COMPLETE, NOT IMPLEMENTED**",
+            "collects no otherwise-unobservable statistics",
+            "SCHEMA_EXECUTION_STATISTICS",
+            "`validityFlags`",
+            "`peakLuaAllocatorBytes`",
+            "`instructionHookInvocations`",
+            "`acceptedOutputUtf8Bytes`",
+            "`loadNanos`",
+            "`executeNanos`",
+            "`teardownNanos`",
+            "PEAK_LUA_ALLOCATOR_BYTES_VALID",
+            "TEARDOWN_NANOS_VALID",
+            "LuaExecutionResult.statistics: LuaExecutionStatistics?",
+            "LuaExecutionError.statistics: LuaExecutionStatistics?",
+            "LuaExecutionCancellation.statistics: LuaExecutionStatistics?",
+            "`SCHEMA_RESULT` | 4",
+            "`SCHEMA_ERROR` | 6",
+            "`SCHEMA_CANCELLATION` | 4",
+            "requiredForReader = true",
+            "LuaProtocolVersion(1, 1)",
+            "`execution.stats.v1`",
+            "`requiredCapabilities`",
+            "`getRuntimeInfo()` remains the discovery location",
+            "## Host-side changes required",
+            "## Provider-side changes required",
+            "## Current JVM guard",
+            "no script source or hash",
+        ),
+        "R4 execution statistics protocol-evolution design",
+    )
+    require(
+        "execution.stats.v1" not in metadata,
+        "Design-only execution statistics capability was advertised before implementation",
+    )
+
+    statistics_boundary_test = (
+        ROOT
+        / "app/src/test/java/io/github/supermonster003/autojs6/plugin/lua/runtime/"
+        "LuaExecutionStatisticsProtocolBoundaryTest.kt"
+    ).read_text("utf-8")
+    require_tokens(
+        statistics_boundary_test,
+        (
+            "frozenProtocolRequiresHostEvolutionForExecutionStatistics",
+            "assertEquals(0, LuaRuntimeContract.PROTOCOL_MINOR)",
+            "assertEquals(setOf(1, 2, 3), tags(LuaRuntimeCodec.encodeResult(result)))",
+            "assertEquals((1..5).toSet(), tags(LuaRuntimeCodec.encodeError(error)))",
+            "tags(LuaRuntimeCodec.encodeCancellation(cancellation))",
+            "tags(LuaRuntimeCodec.encodeRuntimeInfo(runtimeInfo))",
+            'getDeclaredMethod("getRuntimeInfo")',
+            "ILuaExecutionCallback::class.java.declaredMethods",
+            'it.name.contains("stat", ignoreCase = true)',
+        ),
+        "R4 frozen execution-statistics JVM boundary",
+    )
+
 
 def verify_input_workflows() -> None:
     expected_jvm_test_count()

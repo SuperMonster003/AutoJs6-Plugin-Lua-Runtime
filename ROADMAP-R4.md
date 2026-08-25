@@ -238,7 +238,7 @@ Host 端到端交付。完整回执见 [`docs/ui-toast-v1.md`](docs/ui-toast-v1.
 
 ## R4-D — 可观测性与诊断
 
-- [ ] **结构化执行统计**。在终态回调中附带 (或经 `getRuntimeInfo` 暴露)
+- [x] **结构化执行统计**。在终态回调中附带 (或经 `getRuntimeInfo` 暴露)
   每次执行的峰值内存、指令 hook 触发数、输出字节数、耗时分解
   (load/execute/teardown)。仅统计, 不含脚本内容。
   完成判据: 协议允许范围内的字段设计 + JVM 断言; 越界则记录为
@@ -251,6 +251,17 @@ Host 端到端交付。完整回执见 [`docs/ui-toast-v1.md`](docs/ui-toast-v1.
   `STOP_CLEANUP_EXPIRED`/`WATCHDOG_CONTROL_FAILURE` 三类 fail-stop 附带
   logcat 结构化标签, 便于宿主侧聚合。
   完成判据: 标签常量 + 单测断言日志路径被调用 (可注入 logger)。
+
+R4-D 结构化统计设计证据 (2026-08-25): 冻结 protocol 1.0 的成功终态仅有
+`requestId/value/elapsedMillis`，取消终态仅有
+`requestId/reason/elapsedMillis`，失败终态没有 elapsed/statistics 字段；
+`getRuntimeInfo()` 也没有 execution identity，不能安全充当“上一次执行”旁路。
+[`docs/execution-statistics-v1.md`](docs/execution-statistics-v1.md) 因此按判据标记
+“需宿主协议演进”，冻结 `SCHEMA_EXECUTION_STATISTICS` 的七字段清单、六位
+validity mask、三个终态父 tag、protocol 1.1 + `execution.stats.v1` 双重协商、
+V1 byte-for-byte 回退及 Host/Provider 分工。JVM 边界用例反射并编码断言冻结 AAR
+仍无合法统计承载位；静态敌意门禁绑定设计与测试。当前 metadata/JNI/终态编码均未
+广告、采集或伪装统计，不声称运行时实现或 Host 端到端交付。
 
 ## R4-E — 发布工程收敛 (从 rc 走向可公开发布)
 

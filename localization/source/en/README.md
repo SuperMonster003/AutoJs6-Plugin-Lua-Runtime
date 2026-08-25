@@ -207,7 +207,13 @@ only as a non-advertised V2 proposal in
 [`docs/module-snapshot-v2.md`](docs/module-snapshot-v2.md). A persistent,
 principal-isolated KV proposal is design-only in
 [`docs/storage-kv-v1.md`](docs/storage-kv-v1.md); no storage capability or Lua
-API is advertised.
+API is advertised. The frozen protocol has no consistent carrier for
+per-execution peak Lua memory, hook invocations, accepted output bytes, and
+load/execute/teardown timings. The exact terminal-field proposal, compatibility
+matrix, and current JVM boundary proof are recorded in
+[`docs/execution-statistics-v1.md`](docs/execution-statistics-v1.md) as requiring
+coordinated Host protocol evolution; no statistics capability is advertised or
+runtime data collected yet.
 
 The exact repository JVM-suite count is declared once in
 `verification.properties`; local, CI, debug-artifact, and release-artifact

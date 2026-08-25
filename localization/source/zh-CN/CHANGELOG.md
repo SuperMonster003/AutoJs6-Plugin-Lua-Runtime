@@ -31,6 +31,9 @@
   额度，并且 Host 派发单次且绝不重试；可见交付仍需 Host 协同实现。
 - 形成仅设计且不广告的 `storage.kv.v1` 契约，固定稳定脚本 principal 隔离、有界
   键/值/操作、Host 侧原子持久化、显式清除语义，以及 Provider 不重试 mutation。
+- 审计冻结的 Lua 终态/runtime-info 模型，将每执行统计明确标记为需要 Host 协议
+  演进，冻结嵌套字段、validity mask、终态 tag 与 protocol 1.1 capability 协商，
+  并加入 JVM 门禁，证明当前 V1 没有被误当作具备统计承载位。
 - 增加仅限 debug 的远端 `/proc/self/fd` 记账，证明批量成功、digest 失败、取消、
   callback 死亡和 broker 死亡路径均精确恢复到同一基线。
 - 增加悬挂 pipe 源的 fail-stop/rebind 覆盖，以及用于 callback/broker 独立死亡的

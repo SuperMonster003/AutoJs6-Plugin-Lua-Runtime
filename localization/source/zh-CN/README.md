@@ -181,7 +181,11 @@ R4 继续保持 Lua 层 `pcall` 和 `xpcall` 不可用；审阅后的理由与�
 [`docs/module-snapshot-v2.md`](docs/module-snapshot-v2.md)。持久化、按 principal
 隔离的 KV 提案仅作为设计记录在
 [`docs/storage-kv-v1.md`](docs/storage-kv-v1.md)；目前不广告 storage capability
-或 Lua API。
+或 Lua API。冻结协议没有能够一致承载每执行 Lua 峰值内存、hook 触发数、已接受
+输出字节及 load/execute/teardown 耗时的字段。精确终态字段提案、兼容矩阵与当前
+JVM 边界证据记录在
+[`docs/execution-statistics-v1.md`](docs/execution-statistics-v1.md)，并明确标记
+为需要 Host 协议协同演进；当前尚未广告统计 capability，也未采集运行时统计。
 
 仓库 JVM 套件的准确数量只在 `verification.properties` 中声明一次，本地、CI、
 debug 制品和 release 制品门禁都从这里读取。原生、Binder/PFD、进程恢复与

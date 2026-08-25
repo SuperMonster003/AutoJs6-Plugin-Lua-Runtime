@@ -272,6 +272,9 @@ class R4DesignRecordTest(unittest.TestCase):
         "protocol/protocol-artifacts.lock.json",
         "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/LuaProviderMetadata.kt",
         "docs/ui-toast-v1.md",
+        "docs/execution-statistics-v1.md",
+        "app/src/test/java/io/github/supermonster003/autojs6/plugin/lua/runtime/"
+        "LuaExecutionStatisticsProtocolBoundaryTest.kt",
     )
 
     def copy_records(self, root: Path) -> None:
@@ -379,6 +382,25 @@ class R4DesignRecordTest(unittest.TestCase):
                 lambda text: text.replace(
                     "visual delivery therefore remains a coordinated Host follow-up",
                     "Provider smoke proves end-to-end delivery",
+                    1,
+                ),
+            ),
+            (
+                "execution statistics protocol status",
+                self.FILES[9],
+                lambda text: text.replace("需宿主协议演进", "PROVIDER-LOCAL EXTENSION", 1),
+            ),
+            (
+                "execution statistics field inventory",
+                self.FILES[9],
+                lambda text: text.replace("instructionHookInvocations", "unboundedHookEvents"),
+            ),
+            (
+                "execution statistics JVM boundary",
+                self.FILES[10],
+                lambda text: text.replace(
+                    "frozenProtocolRequiresHostEvolutionForExecutionStatistics",
+                    "statisticsCarrierAssumedWithoutEvidence",
                     1,
                 ),
             ),

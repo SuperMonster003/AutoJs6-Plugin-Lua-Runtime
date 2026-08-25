@@ -29,6 +29,7 @@ set(LUA54_SOURCES
     src/lzio.c
     src/lauxlib.c
     src/lbaselib.c
+    src/lcorolib.c
     src/lmathlib.c
     src/lstrlib.c
     src/ltablib.c

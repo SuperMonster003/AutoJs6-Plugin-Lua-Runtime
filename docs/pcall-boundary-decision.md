@@ -75,12 +75,12 @@ error handler.
 
 ### Native wrapper around `lua_pcallk`
 
-Potentially viable later, but intentionally deferred. The current runtime has
-no coroutine library. A wrapper designed only around non-yielding `lua_pcall`
-would need to be reconsidered when coroutine resume/yield support is evaluated;
-using `lua_pcallk` now would introduce continuation behavior with no matching
-native/device conformance matrix. Nested protected calls and `xpcall` handler
-behavior would still require dedicated tests.
+Potentially viable later, but intentionally deferred. The controlled coroutine
+library is now admitted, and its outer control-plane/allocator matrix covers
+resume, yield, deadline, cancellation, and OOM without exposing Lua-level
+protected calls. That evidence does not validate a new `pcallk` continuation
+wrapper. Nested protected calls, yielded continuations, repeated catches, and
+`xpcall` handler behavior would still require their own native/device matrix.
 
 ## Required invariants
 

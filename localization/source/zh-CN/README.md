@@ -157,6 +157,12 @@ Android 原生 instrumentation 可以在 `native=true/provider=false` 下直接�
 allocator 恢复，而不会发现任一生产服务。另有显式 opt-in smoke 会经过正式
 INFO/RUNTIME Binder 路径，同时保持仓库默认值关闭。
 
+经过审阅的 PUC Lua 5.4.8 coroutine 库现已作为唯一新增的原生库源码纳入。子协程
+及嵌套协程继承 count hook 与私有执行控制，在 yield/resume 之间共享所属 allocator，
+并且不能把已经捕获的 deadline、取消或 allocator 配额失败转换为成功结果。精确边界
+与 Android 矩阵记录在
+[`docs/coroutine-control-boundary.md`](docs/coroutine-control-boundary.md)。
+
 R4 继续保持 Lua 层 `pcall` 和 `xpcall` 不可用；审阅后的理由与重新评估条件记录
 在 [`docs/pcall-boundary-decision.md`](docs/pcall-boundary-decision.md)。需要宿主
 协同的结构化与多返回值提案记录在

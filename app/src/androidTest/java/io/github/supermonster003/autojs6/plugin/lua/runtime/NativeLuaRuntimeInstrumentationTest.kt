@@ -321,6 +321,89 @@ class NativeLuaRuntimeInstrumentationTest {
     }
 
     @Test(timeout = 5_000L)
+    fun coroutineInfiniteLoopHonoursInheritedDeadlineHook() {
+        assertNativeFailure(NativeLuaFailureKind.DEADLINE_EXCEEDED) {
+            execute(
+                source = """
+                    local worker = coroutine.create(function()
+                        while true do end
+                    end)
+                    local resumed = coroutine.resume(worker)
+                    return resumed
+                """.trimIndent(),
+                timeoutMillis = 500L,
+            )
+        }
+    }
+
+    @Test(timeout = 5_000L)
+    fun coroutineCancellationCannotBeSwallowedByResume() {
+        val polls = AtomicInteger()
+        assertNativeFailure(NativeLuaFailureKind.CANCELLED) {
+            execute(
+                source = """
+                    local worker = coroutine.create(function()
+                        while true do end
+                    end)
+                    local resumed = coroutine.resume(worker)
+                    return resumed
+                """.trimIndent(),
+                timeoutMillis = 4_000L,
+                cancellationProbe = BooleanSupplier { polls.incrementAndGet() >= 5 },
+            )
+        }
+        assertTrue("The inherited coroutine hook was not polled", polls.get() >= 5)
+    }
+
+    @Test(timeout = 5_000L)
+    fun coroutineYieldResumeRetainsAllocatorAccounting() {
+        assertEquals(
+            NativeLuaExecutionValue.IntegerValue(6L),
+            execute(
+                """
+                    local worker = coroutine.create(function()
+                        local retained = {}
+                        for index = 1, 6 do
+                            retained[index] = string.rep(string.char(64 + index), 32 * 1024)
+                            coroutine.yield(index, #retained[index])
+                        end
+                        return #retained
+                    end)
+                    for expected = 1, 6 do
+                        local ok, observed, bytes = coroutine.resume(worker)
+                        assert(ok and observed == expected and bytes == 32 * 1024)
+                    end
+                    local ok, retained = coroutine.resume(worker)
+                    assert(ok and retained == 6 and coroutine.status(worker) == 'dead')
+                    return retained
+                """.trimIndent(),
+            ),
+        )
+    }
+
+    @Test(timeout = 5_000L)
+    fun coroutineOomCannotBecomeSuccessfulAndTheProcessRemainsReusable() {
+        assertNativeFailure(NativeLuaFailureKind.MEMORY_LIMIT) {
+            execute(
+                source = """
+                    local worker = coroutine.create(function()
+                        local retained = {}
+                        for index = 1, 256 do
+                            retained[index] = string.rep('x', 64 * 1024)
+                        end
+                        return #retained
+                    end)
+                    local resumed = coroutine.resume(worker)
+                    if resumed then return 1 end
+                    return 7
+                """.trimIndent(),
+                memoryLimitBytes = 1024L * 1024L,
+            )
+        }
+        assertEquals(NativeLuaExecutionValue.IntegerValue(7L), execute("return 7"))
+    }
+
+    @Test(timeout = 5_000L)
     fun allocatorLimitFailsClosedAndTheProcessRemainsReusable() {
         assertNativeFailure(NativeLuaFailureKind.MEMORY_LIMIT) {
             execute(

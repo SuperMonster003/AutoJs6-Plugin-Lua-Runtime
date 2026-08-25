@@ -41,7 +41,7 @@ Each JNI call:
 
 1. validates native hard ceilings and polls cancellation
 2. creates one `lua_State` with the bounded allocator
-3. opens only base, math, string, table, and UTF-8 libraries
+3. opens only base, coroutine, math, string, table, and UTF-8 libraries
 4. removes `dofile`, `load`, `loadfile`, `pcall`, `xpcall`, `getmetatable`,
    `setmetatable`, and `string.dump`
 5. installs controlled global `print`/`warn` output bridges, the reviewed
@@ -63,15 +63,33 @@ before exposing the result.
 
 The cancellation reason is stored outside the Lua stack. Lua-level `pcall` and
 `xpcall` are unavailable so a script cannot repeatedly swallow the hook error;
-the retained reason also overrides a later Lua result. The coroutine library is
-excluded until hook inheritance and interruption behavior have compiled native
-conformance evidence. R4's reviewed rejection and the conditions for reopening
-that decision are recorded in [pcall-boundary-decision.md](pcall-boundary-decision.md).
+the retained reason also overrides a later Lua result, including the
+`(false, error)` returned by `coroutine.resume`. R4's reviewed rejection and the
+conditions for reopening that decision are recorded in
+[pcall-boundary-decision.md](pcall-boundary-decision.md).
 
 Lua-level metatable discovery and mutation are also unavailable. This prevents
 an untrusted chunk from installing an infinite `__gc` or `__close` handler that
 would otherwise execute during teardown after the protected call and could make
 `lua_close` non-terminating.
+
+## Controlled coroutine boundary
+
+The inventory admits only PUC Lua 5.4.8 `lcorolib.c` and opens it explicitly;
+`linit.c` remains excluded. The pinned `lua_newthread` copies the active hook,
+count, and mask from its parent and copies `LUA_EXTRASPACE` from the main state.
+Because JNI stores the private `ExecutionControl*` in that main-state slot
+before untrusted execution, every child and nested child sees the same deadline,
+cancellation probe, and retained terminal reason.
+
+All coroutine stacks share the owning state's allocator. Bytes retained across
+yield/resume remain charged, and state close drains the main and child stacks
+through the same budget. A sticky allocator-limit marker prevents stock
+`coroutine.resume` from converting a child OOM into apparent script success;
+JNI closes the state, checks exact allocator release, and reports
+`MEMORY_LIMIT`. The complete rationale, source-level inheritance proof, test
+matrix, and limitations are recorded in
+[coroutine-control-boundary.md](coroutine-control-boundary.md).
 
 ## Deliberately narrow V1 result boundary
 
@@ -157,7 +175,8 @@ was added. See [console-levels-decision.md](console-levels-decision.md).
   `console.log`/`console.info` route to controlled stdout; global `warn` plus
   `console.error`/`console.warn` route to controlled stderr. No unrestricted
   Lua output fallback exists.
-- There is no coroutine library in the source-only MVP.
+- Coroutines are cooperative and execution-local. They create no Java thread,
+  cannot outlive the owning state, and remain unsupported V1 result values.
 - Lua hooks cannot preempt source parsing, time spent inside one long native
   C-library operation, or native heap teardown. The bridge polls immediately
   before and after loading and protected execution, while the allocator still
@@ -178,7 +197,8 @@ was added. See [console-levels-decision.md](console-levels-decision.md).
 UTF-8, scalar mapping, the exact two-stream console wire boundary, and
 result-limit expectations. Focused native instrumentation additionally covers
 `autojs.now()`, `string.format`, explicit PRNG seeds, zero-seed rejection, and
-the four `autojs.console` names.
+the four `autojs.console` names, plus coroutine deadline, cancellation,
+yield/resume allocator accounting, and OOM recovery.
 The repository JVM gate also covers watchdog token, stop, finish, and
 scheduler-failure races.
 Focused Android tests cover native execution; the official Provider smoke is

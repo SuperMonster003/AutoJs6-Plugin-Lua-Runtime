@@ -830,10 +830,12 @@ class NativeBoundaryTest(unittest.TestCase):
         "app/src/main/cpp/CMakeLists.txt",
         "app/src/main/cpp/cmake/lua54-sources.cmake",
         "app/src/main/cpp/lua_runtime_jni.cpp",
+        "app/src/main/cpp/vendor/lua-5.4.8/src/lstate.c",
         "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/LuaProviderMetadata.kt",
         "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/NativeLuaRuntime.kt",
         "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaRuntimeService.kt",
         "app/src/test/java/io/github/supermonster003/autojs6/plugin/lua/runtime/NativeLuaRuntimeBoundaryTest.kt",
+        "docs/coroutine-control-boundary.md",
         "docs/native-execution-core.md",
     )
 
@@ -909,6 +911,58 @@ class NativeBoundaryTest(unittest.TestCase):
             with mock.patch.object(verifier, "ROOT", root):
                 with self.assertRaisesRegex(RuntimeError, "fixed-shape bridge"):
                     verifier.verify_native_boundary()
+
+    def test_coroutine_control_or_inventory_drift_is_rejected(self) -> None:
+        mutations = (
+            (
+                "missing coroutine source",
+                "app/src/main/cpp/cmake/lua54-sources.cmake",
+                lambda text: text.replace("    src/lcorolib.c\n", "", 1),
+            ),
+            (
+                "unrestricted linit source",
+                "app/src/main/cpp/cmake/lua54-sources.cmake",
+                lambda text: text.replace("    src/lcorolib.c\n", "    src/lcorolib.c\n    src/linit.c\n", 1),
+            ),
+            (
+                "coroutine library not opened",
+                "app/src/main/cpp/lua_runtime_jni.cpp",
+                lambda text: text.replace(
+                    "        {LUA_COLIBNAME, luaopen_coroutine},\n",
+                    "",
+                    1,
+                ),
+            ),
+            (
+                "allocator breach not sticky",
+                "app/src/main/cpp/lua_runtime_jni.cpp",
+                lambda text: text.replace("budget->limit_exceeded = true;", "return nullptr;", 1),
+            ),
+            (
+                "sticky OOM result bypass",
+                "app/src/main/cpp/lua_runtime_jni.cpp",
+                lambda text: text.replace("if (budget.limit_exceeded) {", "if (false) {", 1),
+            ),
+            (
+                "child hook inheritance",
+                "app/src/main/cpp/vendor/lua-5.4.8/src/lstate.c",
+                lambda text: text.replace("L1->hook = L->hook;", "L1->hook = NULL;", 1),
+            ),
+            (
+                "allocator teardown proof",
+                "docs/coroutine-control-boundary.md",
+                lambda text: text.replace("accounting_failed == false", "accounting is unknown", 1),
+            ),
+        )
+        for label, relative, mutate in mutations:
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                self.copy_boundary(root)
+                path = root / relative
+                write_text(path, mutate(path.read_text("utf-8")))
+                with mock.patch.object(verifier, "ROOT", root):
+                    with self.assertRaises(RuntimeError):
+                        verifier.verify_native_boundary()
 
 
 class DescriptorBoundaryTest(unittest.TestCase):
@@ -999,6 +1053,53 @@ class NativeAndroidBoundaryTest(unittest.TestCase):
             (
                 "production bind",
                 lambda text: text + "\n// bindService( production provider )\n",
+            ),
+        )
+        for label, mutate in mutations:
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                for relative in self.FILES:
+                    destination = root / relative
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(SOURCE_ROOT / relative, destination)
+                test_path = root / self.FILES[1]
+                write_text(test_path, mutate(test_path.read_text("utf-8")))
+                with mock.patch.object(verifier, "ROOT", root):
+                    with self.assertRaises(RuntimeError):
+                        verifier.verify_native_android_test_boundary()
+
+    def test_coroutine_deadline_cancel_yield_or_oom_evidence_drift_is_rejected(self) -> None:
+        mutations = (
+            (
+                "deadline",
+                lambda text: text.replace(
+                    "coroutineInfiniteLoopHonoursInheritedDeadlineHook",
+                    "coroutineDeadlineUnverified",
+                    1,
+                ),
+            ),
+            (
+                "cancel resume",
+                lambda text: text.replace(
+                    "local resumed = coroutine.resume(worker)",
+                    "local resumed = true",
+                ),
+            ),
+            (
+                "yield accounting",
+                lambda text: text.replace(
+                    "coroutine.yield(index, #retained[index])",
+                    "return index",
+                    1,
+                ),
+            ),
+            (
+                "caught OOM",
+                lambda text: text.replace(
+                    "if resumed then return 1 end",
+                    "error('OOM outcome unverified')",
+                    1,
+                ),
             ),
         )
         for label, mutate in mutations:

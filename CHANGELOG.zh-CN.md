@@ -19,6 +19,9 @@
   V2 结构化及多返回值模型。
 - 新增零参数 `autojs.now()`，保留有界的 `string.format` 与伪随机能力，并要求
   `math.randomseed` 使用显式整数 seed，避免返回上游实现中的状态地址 seed。
+- 仅纳入 PUC Lua 5.4.8 `lcorolib.c`，在 coroutine yield/resume 之间保持继承的
+  deadline/取消 hook 与同一个 allocator；被子协程捕获的 OOM 仍会粘性映射为
+  `MEMORY_LIMIT`。
 - 将 `console.info`/`console.warn` 作为 stdout/stderr 别名加入，不扩展冻结的双流
   wire 枚举。
 - 形成仅设计且不广告的 `module.snapshot.v2`，明确点分 ASCII 名、每执行聚合配额

@@ -25,6 +25,9 @@ not published availability.
 - Added zero-argument `autojs.now()`, retained the bounded `string.format` and
   pseudo-random surface, and required explicit integer seeds for
   `math.randomseed` to avoid returning the upstream state-address seed.
+- Admitted only PUC Lua 5.4.8 `lcorolib.c`, preserving inherited deadline and
+  cancellation hooks plus one shared allocator across coroutine yield/resume;
+  caught child OOM now remains a sticky `MEMORY_LIMIT` failure.
 - Added `console.info`/`console.warn` as stdout/stderr aliases without expanding
   the frozen two-stream wire enum.
 - Specified a design-only, non-advertised `module.snapshot.v2` with dotted ASCII

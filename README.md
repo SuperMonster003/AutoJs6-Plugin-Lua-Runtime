@@ -181,6 +181,13 @@ output, failures, hooks, and allocator recovery without discovering either
 production service. A separate opt-in smoke exercises the production
 INFO/RUNTIME Binder path while keeping repository defaults disabled.
 
+The reviewed PUC Lua 5.4.8 coroutine library is now admitted as the only new
+native library source. Child and nested coroutines inherit the count hook and
+private execution control, share the owning allocator across yield/resume, and
+cannot turn a caught deadline, cancellation, or allocator-limit failure into a
+successful result. The exact boundary and Android matrix are recorded in
+[`docs/coroutine-control-boundary.md`](docs/coroutine-control-boundary.md).
+
 R4 keeps Lua-level `pcall` and `xpcall` unavailable; the reviewed rationale and
 reconsideration requirements are recorded in
 [`docs/pcall-boundary-decision.md`](docs/pcall-boundary-decision.md). A

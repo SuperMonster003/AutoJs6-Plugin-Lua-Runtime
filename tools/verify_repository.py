@@ -579,6 +579,8 @@ def verify_r4_design_records() -> None:
             "control-plane interruption to be non-catchable",
             "private light-userdata sentinel",
             "lua_pcallk",
+            "controlled coroutine",
+            "resume, yield, deadline, cancellation, and OOM",
             "Nested protected calls",
             "## Reconsideration gate",
             "repeated catches cannot defer termination",
@@ -965,8 +967,16 @@ def verify_native_boundary() -> None:
         "Allocator accounting failure is detected after realloc",
     )
     require(
-        "return opened && !budget.accounting_failed && budget.used == 0U" in native,
+        "return opened && !budget.accounting_failed && !budget.limit_exceeded && budget.used == 0U"
+        in native,
         "Native probe ignores allocator accounting failure",
+    )
+    require(
+        "bool limit_exceeded;" in native
+        and "budget->limit_exceeded = true;" in native
+        and "!budget.limit_exceeded" in native
+        and "if (budget.limit_exceeded)" in native,
+        "Allocator-limit rejection is not retained across protected coroutine resumes",
     )
     require(
         "Lua allocator accounting became inconsistent" in native
@@ -979,6 +989,7 @@ def verify_native_boundary() -> None:
         'luaL_loadbufferx(': "The native text loader is missing",
         'chunk_name,\n        "t")': "The native loader is not pinned to text-only mode",
         'lua_sethook(state, execution_hook, LUA_MASKCOUNT': "The cancellation/deadline hook is missing",
+        '{LUA_COLIBNAME, luaopen_coroutine}': "The reviewed coroutine library is not opened exactly",
         'lua_pcall(state, 0, LUA_MULTRET, 0)': "Lua source is not executed through a protected call",
         'class LuaStateOwner': "Deterministic lua_State ownership is missing",
         'remove_global(state, "dofile")': "Lua dofile is still exposed",
@@ -1103,14 +1114,35 @@ def verify_native_boundary() -> None:
         and "luaL_error(" not in module_copy_boundary,
         "Module payload ownership can cross a Lua longjmp",
     )
-    load_at = native.index("status = luaL_loadbufferx(")
+    control_slot_at = native.index(
+        "*static_cast<ExecutionControl**>(lua_getextraspace(state)) = &control;"
+    )
+    library_bootstrap_at = native.index(
+        "lua_pushcfunction(state, open_safe_libraries)", control_slot_at
+    )
+    load_at = native.index("status = luaL_loadbufferx(", library_bootstrap_at)
     hook_at = native.index("lua_sethook(state, execution_hook, LUA_MASKCOUNT")
     protected_call_at = native.index("status = lua_pcall(state, 0, LUA_MULTRET, 0)")
     clear_hook_at = native.index("lua_sethook(state, nullptr, 0, 0)")
     result_at = native.index("jobject result = box_lua_result(environment, state)")
     require(
-        load_at < hook_at < protected_call_at < clear_hook_at < result_at,
+        control_slot_at < library_bootstrap_at < load_at < hook_at < protected_call_at
+        < clear_hook_at < result_at,
         "Native load/hook/protected-call/result ordering drift",
+    )
+    termination_at = native.index(
+        "if (control.termination_reason != TerminationReason::kNone)", protected_call_at
+    )
+    sticky_limit_at = native.index("if (budget.limit_exceeded)", termination_at)
+    final_poll_at = native.index("if (!poll_execution_control(&control))", sticky_limit_at)
+    final_status_at = native.index("if (status != LUA_OK)", final_poll_at)
+    sticky_boundary = native[sticky_limit_at:final_poll_at]
+    require(
+        termination_at < sticky_limit_at < final_poll_at < final_status_at
+        and "owner.close();" in sticky_boundary
+        and "budget.accounting_failed || budget.used != 0U" in sticky_boundary
+        and 'return fail(environment, "MEMORY_LIMIT"' in sticky_boundary,
+        "Caught coroutine OOM can bypass sticky failure or exact allocator teardown",
     )
     close_before_result = native.index("owner.close();", result_at)
     final_return = native.index("return result;", close_before_result)
@@ -1125,6 +1157,7 @@ def verify_native_boundary() -> None:
     require(
         opened_libraries == {
             "luaopen_base",
+            "luaopen_coroutine",
             "luaopen_math",
             "luaopen_string",
             "luaopen_table",
@@ -1133,13 +1166,40 @@ def verify_native_boundary() -> None:
         f"Native Lua library allowlist drift: {sorted(opened_libraries)}",
     )
     for forbidden_open in (
-        "luaopen_coroutine",
         "luaopen_debug",
         "luaopen_io",
         "luaopen_os",
         "luaopen_package",
     ):
         require(forbidden_open not in native, f"Forbidden Lua library is opened: {forbidden_open}")
+
+    lua_state = (
+        ROOT / "app/src/main/cpp/vendor/lua-5.4.8/src/lstate.c"
+    ).read_text("utf-8")
+    new_thread_start = lua_state.index("LUA_API lua_State *lua_newthread (lua_State *L)")
+    new_thread_end = lua_state.index("void luaE_freethread", new_thread_start)
+    new_thread_boundary = lua_state[new_thread_start:new_thread_end]
+    coroutine_inheritance = (
+        "L1->hookmask = L->hookmask;",
+        "L1->basehookcount = L->basehookcount;",
+        "L1->hook = L->hook;",
+        "resethookcount(L1);",
+        "memcpy(lua_getextraspace(L1), lua_getextraspace(g->mainthread),",
+        "LUA_EXTRASPACE);",
+    )
+    require_tokens(
+        new_thread_boundary,
+        coroutine_inheritance,
+        "Pinned Lua coroutine hook/extraspace inheritance",
+    )
+    require(
+        all(
+            new_thread_boundary.index(coroutine_inheritance[index])
+            < new_thread_boundary.index(coroutine_inheritance[index + 1])
+            for index in range(len(coroutine_inheritance) - 1)
+        ),
+        "Pinned Lua coroutine control inheritance ordering drift",
+    )
 
     kotlin_boundary = (
         ROOT
@@ -1283,7 +1343,12 @@ def verify_native_boundary() -> None:
     require("## Bounded argument boundary" in native_doc, "Native argument boundary is missing")
     require("sequence, credit, chunk, and total-byte limits" in native_doc, "Native output boundary is missing")
     require("There is no general module loader" in native_doc, "Native capability limitation is missing")
-    require("There is no coroutine library" in native_doc, "Native coroutine limitation is missing")
+    require(
+        "## Controlled coroutine boundary" in native_doc
+        and "sticky allocator-limit marker" in native_doc
+        and "coroutine-control-boundary.md" in native_doc,
+        "Native coroutine control boundary is missing",
+    )
     require("infinite `__gc` or `__close` handler" in native_doc, "Native teardown limitation is missing")
     require("process-level cleanup watchdog" in native_doc, "Native cleanup watchdog gate is missing")
     require("Selecting the adapter does not load JNI" in native_doc, "Native adapter status is ambiguous")
@@ -1296,18 +1361,28 @@ def verify_native_boundary() -> None:
     require("console.info" in native_doc and "console.warn" in native_doc, "Native console aliases are missing")
 
     inventory = (ROOT / "app/src/main/cpp/cmake/lua54-sources.cmake").read_text("utf-8")
-    for forbidden in (
-        "src/linit.c",
-        "src/lcorolib.c",
-        "src/ldblib.c",
-        "src/liolib.c",
-        "src/loslib.c",
-        "src/loadlib.c",
-    ):
-        require(
-            not any(line.strip() == forbidden for line in inventory.splitlines()),
-            f"Forbidden Lua library entered the native inventory: {forbidden}",
-        )
+    inventory_lines = [line.strip() for line in inventory.splitlines()]
+    admitted_library_sources = {
+        line for line in inventory_lines if re.fullmatch(r"src/l[a-z0-9]+lib\.c", line)
+    }
+    require(
+        admitted_library_sources
+        == {
+            "src/lauxlib.c",
+            "src/lbaselib.c",
+            "src/lcorolib.c",
+            "src/lmathlib.c",
+            "src/lstrlib.c",
+            "src/ltablib.c",
+            "src/lutf8lib.c",
+        },
+        f"Native Lua library source inventory drift: {sorted(admitted_library_sources)}",
+    )
+    require(
+        inventory_lines.count("src/lcorolib.c") == 1
+        and "src/linit.c" not in inventory_lines,
+        "Controlled coroutine source is not unique or linit.c entered the inventory",
+    )
     require(
         any(line.strip() == "src/lundump.c" for line in inventory.splitlines()),
         "Lua core inventory unexpectedly lost lundump.c",
@@ -1317,6 +1392,31 @@ def verify_native_boundary() -> None:
             any(line.strip() == required_library for line in inventory.splitlines()),
             f"Reviewed Lua utility library left the native inventory: {required_library}",
         )
+    coroutine_doc = (ROOT / "docs/coroutine-control-boundary.md").read_text("utf-8")
+    require_tokens(
+        coroutine_doc,
+        (
+            "Status: **IMPLEMENTED — PROVIDER DEFAULT-OFF**",
+            "src/lcorolib.c",
+            "`linit.c`, `ldblib.c`, `liolib.c`, `loslib.c`, and `loadlib.c` remain absent",
+            "L1->hookmask = L->hookmask;",
+            "L1->basehookcount = L->basehookcount;",
+            "L1->hook = L->hook;",
+            "lua_getextraspace(g->mainthread)",
+            "10,000-instruction count",
+            "`coroutine.resume`",
+            "`TerminationReason`",
+            "sticky `limit_exceeded` bit",
+            "accounting_failed == false",
+            "used == 0",
+            "coroutineInfiniteLoopHonoursInheritedDeadlineHook",
+            "coroutineCancellationCannotBeSwallowedByResume",
+            "coroutineYieldResumeRetainsAllocatorAccounting",
+            "coroutineOomCannotBecomeSuccessfulAndTheProcessRemainsReusable",
+            "Coroutine objects remain unsupported V1 result values",
+        ),
+        "Controlled coroutine decision and conformance boundary",
+    )
     readme = (ROOT / "README.md").read_text("utf-8")
     require(
         'luaL_loadbufferx(..., "t")' in readme,
@@ -1569,6 +1669,15 @@ def verify_native_android_test_boundary() -> None:
             "syntaxAndRuntimeErrorsAreClassified",
             "infiniteLoopIsCancelledByHook",
             "infiniteLoopHonoursDeadline",
+            "coroutineInfiniteLoopHonoursInheritedDeadlineHook",
+            "local resumed = coroutine.resume(worker)",
+            "coroutineCancellationCannotBeSwallowedByResume",
+            "polls.incrementAndGet() >= 5",
+            "coroutineYieldResumeRetainsAllocatorAccounting",
+            "coroutine.yield(index, #retained[index])",
+            "coroutineOomCannotBecomeSuccessfulAndTheProcessRemainsReusable",
+            "assertNativeFailure(NativeLuaFailureKind.MEMORY_LIMIT)",
+            "if resumed then return 1 end",
             "allocatorLimitFailsClosedAndTheProcessRemainsReusable",
             "unsupportedResultsAndMalformedArgumentsFailClosed",
         ),

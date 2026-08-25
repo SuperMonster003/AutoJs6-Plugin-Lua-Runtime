@@ -57,6 +57,7 @@ struct MemoryBudget {
     size_t limit;
     size_t used;
     bool accounting_failed;
+    bool limit_exceeded;
 };
 
 void* bounded_allocator(void* opaque, void* pointer, size_t old_size, size_t new_size) {
@@ -89,6 +90,10 @@ void* bounded_allocator(void* opaque, void* pointer, size_t old_size, size_t new
     // original block to remain valid. Never free a successful replacement and
     // then report failure.
     if (used_without_old > budget->limit || new_size > budget->limit - used_without_old) {
+        // Keep this sticky across coroutine.resume's protected boundary. The stock coroutine
+        // API turns a child LUA_ERRMEM into `(false, error)`; an untrusted caller must not be
+        // able to convert a real allocator-limit breach into an apparently successful result.
+        budget->limit_exceeded = true;
         return nullptr;
     }
 
@@ -131,6 +136,7 @@ void remove_global(lua_State* state, const char* name) {
 int open_safe_libraries(lua_State* state) {
     static const luaL_Reg libraries[] = {
         {LUA_GNAME, luaopen_base},
+        {LUA_COLIBNAME, luaopen_coroutine},
         {LUA_MATHLIBNAME, luaopen_math},
         {LUA_STRLIBNAME, luaopen_string},
         {LUA_TABLIBNAME, luaopen_table},
@@ -1200,7 +1206,7 @@ jobject box_lua_result(JNIEnv* environment, lua_State* state) {
 }
 
 bool probe_runtime(size_t memory_limit) {
-    MemoryBudget budget{memory_limit, 0U, false};
+    MemoryBudget budget{memory_limit, 0U, false, false};
     lua_State* state = lua_newstate(bounded_allocator, &budget);
     if (state == nullptr) {
         return false;
@@ -1210,7 +1216,7 @@ bool probe_runtime(size_t memory_limit) {
     lua_pushcfunction(state, open_safe_libraries);
     const bool opened = lua_pcall(state, 0, 0, 0) == LUA_OK;
     owner.close();
-    return opened && !budget.accounting_failed && budget.used == 0U;
+    return opened && !budget.accounting_failed && !budget.limit_exceeded && budget.used == 0U;
 }
 
 }  // namespace
@@ -1378,7 +1384,7 @@ Java_io_github_supermonster003_autojs6_plugin_lua_runtime_NativeLuaRuntime_nativ
         return fail_for_termination(environment, control.termination_reason);
     }
 
-    MemoryBudget budget{static_cast<size_t>(memory_limit_bytes), 0U, false};
+    MemoryBudget budget{static_cast<size_t>(memory_limit_bytes), 0U, false, false};
     lua_State* state = lua_newstate(bounded_allocator, &budget);
     if (state == nullptr) {
         if (budget.accounting_failed) {
@@ -1471,6 +1477,15 @@ Java_io_github_supermonster003_autojs6_plugin_lua_runtime_NativeLuaRuntime_nativ
     }
     if (control.termination_reason != TerminationReason::kNone) {
         return fail_for_termination(environment, control.termination_reason);
+    }
+    if (budget.limit_exceeded) {
+        // lua_close shares the same allocator across the main thread and every coroutine. Close
+        // before reporting the sticky failure so the coroutine OOM path also proves exact release.
+        owner.close();
+        if (budget.accounting_failed || budget.used != 0U) {
+            return fail_for_allocator_accounting(environment);
+        }
+        return fail(environment, "MEMORY_LIMIT", "Lua execution exceeded its memory limit");
     }
     if (!poll_execution_control(&control)) {
         return fail_for_termination(environment, control.termination_reason);

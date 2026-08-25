@@ -357,6 +357,19 @@ instrumentation failure 均为 0。Day-1 receipt SHA-256 为
 仍保持未勾选。完整回执摘要见
 [`docs/production-soak-round-2.md`](docs/production-soak-round-2.md)。
 
+R4-E 生产 soak Round 2 Day 2 证据 (2026-08-26): 同一 boot ID 与 PID 8080 下完成
+250 次 measured smoke / 500 次 Lua 执行，无 warmup；250 个 run header、PASS marker、
+`result=pass` 与 `INSTRUMENTATION_CODE: -1` 一一对应。0/25/.../250 的全部 FD 样本及
+首尾三连稳定采样仍均为 83，冻结安装态未改变，fail-stop、相关 ANR/crash、
+instrumentation failure 均为 0。Day-2 receipt SHA-256 为
+`9b89cb129ddb2e619b98954042e8fb18fc942867563cc25278c7819ad1ccbc61`。同日稍早一次启动
+在只读拉取已安装 Host、首个 instrumentation 之前中止；临时拉取文件的 SHA-256 仍为
+冻结 Host digest，且未安装、未清 logcat、未运行 smoke、未推进 state。完整重新校验后
+才执行上述正式 Day 2，因此该计量前中止不计为 partial day，也未触发冻结的失效条件。
+state 诚实保持 `in_progress` / `completedDays=2`，Day 3 只能在 2026-08-27
+Asia/Shanghai 运行；本项仍保持未勾选。完整证据及临时中止审计见
+[`docs/production-soak-round-2.md`](docs/production-soak-round-2.md)。
+
 R4-E rc.2 签名打包证据 (2026-08-25): 干净 implementation revision
 `a0ae189ac8cba042848412a671c91b0b8a7c44e1` 的提交数/versionCode 同为 43；强化后的
 `build_runnable_provider.ps1` 强制 `:app:clean`、`--rerun-tasks`、`--offline`，并

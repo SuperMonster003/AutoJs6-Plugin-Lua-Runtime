@@ -1618,6 +1618,7 @@ class CrashDiagnosticBoundaryTest(unittest.TestCase):
         "app/src/test/java/io/github/supermonster003/autojs6/plugin/lua/runtime/execution/LuaExecutionSessionControllerTest.kt",
         "app/src/androidTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/LuaRuntimeFaultRecoveryInstrumentationTest.kt",
         "docs/crash-diagnostic-v1.md",
+        "ROADMAP-R4.md",
     )
 
     def copy_boundary(self, root: Path) -> None:
@@ -1692,6 +1693,15 @@ class CrashDiagnosticBoundaryTest(unittest.TestCase):
                 lambda text: text.replace(
                     "assertPersistedCrashDiagnostic(",
                     "skipPersistedCrashDiagnostic(",
+                ),
+            ),
+            (
+                "missing device completion evidence",
+                self.FILES[14],
+                lambda text: text.replace(
+                    "- [x] **崩溃诊断落盘**",
+                    "- [ ] **崩溃诊断落盘**",
+                    1,
                 ),
             ),
         )

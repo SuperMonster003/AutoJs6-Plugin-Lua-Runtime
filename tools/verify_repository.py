@@ -1982,7 +1982,7 @@ def verify_crash_diagnostic_boundary() -> None:
     require_tokens(
         crash_doc,
         (
-            "Status: **IMPLEMENTED",
+            "Status: **IMPLEMENTED — DEVICE VERIFIED**",
             "exactly 20 bytes",
             "noBackupFilesDir",
             "first eight digest bytes, never source bytes",
@@ -1995,8 +1995,34 @@ def verify_crash_diagnostic_boundary() -> None:
             "next verified native execution",
             "content-free marker",
             "Repository static checks reject source/stack retention",
+            "d882dea986dd95f1f0e6aeb484618ca99f703dfb",
+            "44/44 Python hostile/static tests and 58/58",
+            "appVersionCode=40 testVersionCode=0 tests=4",
+            "1552e47be94542b0fab5fa28624691f2c7c3ee3e493c14ece9dc9816c5d75e8f",
+            "a105d92e2fe476d246e0b57d1109bb5a22a1e7d82f65a6e96f92c9901035167f",
+            "2e64822e13a6c80c12e1c4b47e8fb32d1e9334526289da75777b7a79145de4b8",
+            "CRASH_DIAGNOSTIC_INSTRUMENTATION_PASS serial=emulator-5554",
+            "nativeCrash=pass nativeWedge=pass blockedSource=pass healthyClear=pass",
+            "physicalDevicesUntouched=true",
         ),
         "Crash diagnostic lifecycle documentation",
+    )
+
+    roadmap = (ROOT / "ROADMAP-R4.md").read_text("utf-8")
+    require_tokens(
+        roadmap,
+        (
+            "- [x] **崩溃诊断落盘**",
+            "R4-D 崩溃诊断证据 (2026-08-25)",
+            "d882dea986dd95f1f0e6aeb484618ca99f703dfb",
+            "44/44 Python、58/58 JVM",
+            "完整 fault instrumentation 4/4 (7.984 秒)",
+            "`NATIVE_CRASH/NATIVE_EXECUTION`",
+            "`DEADLINE_CLEANUP_EXPIRED/SOURCE_VALIDATION`",
+            "最终私有目录为空",
+            "未运行 `connectedAndroidTest`，未操作物理设备",
+        ),
+        "R4 crash diagnostic completion evidence",
     )
 
 

@@ -191,7 +191,8 @@ JVM 边界证据记录在
 只经 `getRuntimeInfo()` 上报不含内容的
 `diagnostic.last-abnormal-termination.v1` 标志，健康的已验证 native 返回会将其清除。
 隐私、竞态与恢复契约固定在
-[`docs/crash-diagnostic-v1.md`](docs/crash-diagnostic-v1.md)。
+[`docs/crash-diagnostic-v1.md`](docs/crash-diagnostic-v1.md)，其中归档了 API 37、
+16 KiB `emulator-5554` 上 4/4 通过的 crash/watchdog 恢复矩阵；未操作物理设备。
 
 仓库 JVM 套件的准确数量只在 `verification.properties` 中声明一次，本地、CI、
 debug 制品和 release 制品门禁都从这里读取。原生、Binder/PFD、进程恢复与

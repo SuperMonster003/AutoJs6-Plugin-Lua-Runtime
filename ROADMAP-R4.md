@@ -243,7 +243,7 @@ Host 端到端交付。完整回执见 [`docs/ui-toast-v1.md`](docs/ui-toast-v1.
   (load/execute/teardown)。仅统计, 不含脚本内容。
   完成判据: 协议允许范围内的字段设计 + JVM 断言; 越界则记录为
   "需宿主协议演进"并给出字段清单。
-- [ ] **崩溃诊断落盘**。native crash / watchdog fail-stop 前, 将最小诊断
+- [x] **崩溃诊断落盘**。native crash / watchdog fail-stop 前, 将最小诊断
   (failure kind、阶段、脚本 hash 前 8 字节) 写入进程私有目录, 下次
   `getRuntimeInfo` 可上报"上次异常终止"标志。
   完成判据: 仪器测试注入 fault harness 崩溃, 重启后读到诊断标志。
@@ -262,6 +262,25 @@ validity mask、三个终态父 tag、protocol 1.1 + `execution.stats.v1` 双重
 V1 byte-for-byte 回退及 Host/Provider 分工。JVM 边界用例反射并编码断言冻结 AAR
 仍无合法统计承载位；静态敌意门禁绑定设计与测试。当前 metadata/JNI/终态编码均未
 广告、采集或伪装统计，不声称运行时实现或 Host 端到端交付。
+
+R4-D 崩溃诊断证据 (2026-08-25): implementation revision
+`d882dea986dd95f1f0e6aeb484618ca99f703dfb` 在 native runner 前同步原子写入固定
+20 字节 provisional 记录，managed return 清除；watchdog 则先 poison token、再以
+精确 reason/phase 覆写并提交，最后 fail-stop。记录仅含闭合 failure kind、阶段、
+SHA-256 前 8 字节与 CRC32；下次 `getRuntimeInfo()` 只动态加入不含内容的
+`diagnostic.last-abnormal-termination.v1` 标志，三项可调用 Host capability 未改变。
+仓库门禁 44/44 Python、58/58 JVM 通过。由该提交 clean 构建的 versionCode 40
+x86_64 APK `1552e47be94542b0fab5fa28624691f2c7c3ee3e493c14ece9dc9816c5d75e8f`
+与 test APK `a105d92e2fe476d246e0b57d1109bb5a22a1e7d82f65a6e96f92c9901035167f`
+使用共同 signer
+`2e64822e13a6c80c12e1c4b47e8fb32d1e9334526289da75777b7a79145de4b8`；API 37、
+x86_64、16 KiB `emulator-5554` 上完整 fault instrumentation 4/4 (7.984 秒)
+通过。真实 JNI crash、native wedge、悬挂 pipe 分别读到
+`NATIVE_CRASH/NATIVE_EXECUTION`、`DEADLINE_CLEANUP_EXPIRED/NATIVE_EXECUTION`、
+`DEADLINE_CLEANUP_EXPIRED/SOURCE_VALIDATION` 及匹配的 8-byte hash；每次恢复后的
+`return 7` 均清除文件与标志，最终私有目录为空。完整契约与回执见
+[`docs/crash-diagnostic-v1.md`](docs/crash-diagnostic-v1.md)；所有 ADB 命令显式指定
+`emulator-5554`，未运行 `connectedAndroidTest`，未操作物理设备。
 
 ## R4-E — 发布工程收敛 (从 rc 走向可公开发布)
 

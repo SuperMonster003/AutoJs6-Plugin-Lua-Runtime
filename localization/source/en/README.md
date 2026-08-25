@@ -219,7 +219,9 @@ eight SHA-256 bytes before native or watchdog process death. A fresh runtime
 reports only the content-free
 `diagnostic.last-abnormal-termination.v1` marker through `getRuntimeInfo()`;
 healthy verified native return clears it. Its privacy, race, and recovery
-contract is fixed in [`docs/crash-diagnostic-v1.md`](docs/crash-diagnostic-v1.md).
+contract is fixed in [`docs/crash-diagnostic-v1.md`](docs/crash-diagnostic-v1.md),
+including the passing 4/4 crash/watchdog recovery matrix on the API 37, 16 KiB
+`emulator-5554`; no physical device was targeted.
 
 The exact repository JVM-suite count is declared once in
 `verification.properties`; local, CI, debug-artifact, and release-artifact

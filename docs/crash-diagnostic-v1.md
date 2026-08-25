@@ -1,6 +1,6 @@
 # Lua crash diagnostic V1
 
-Status: **IMPLEMENTED — DEVICE EVIDENCE PENDING**
+Status: **IMPLEMENTED — DEVICE VERIFIED**
 
 Implementation date: 2026-08-25
 
@@ -131,6 +131,43 @@ Provider-default-off, and physically absent from release variants.
 
 Repository static checks reject source/stack retention, a full digest,
 non-atomic publication, unconditional marker advertising, runner bracketing
-removal, watchdog-observer removal, and recovery-assertion removal. Device
-revision, APK digests, emulator identity, and test receipt will be appended only
-after the committed implementation has passed the explicit emulator run.
+removal, watchdog-observer removal, and recovery-assertion removal.
+
+## Device evidence
+
+The committed implementation revision
+`d882dea986dd95f1f0e6aeb484618ca99f703dfb` passed the repository-owned offline
+gate before artifact construction: 44/44 Python hostile/static tests and 58/58
+JVM tests, with immutable inputs ready, Provider discovery disabled, and network
+access disabled. A clean, offline build then used
+`native=true`, `provider=false`, and `faultHarness=true` to create the exact
+artifacts below:
+
+| Artifact | Version | Bytes | SHA-256 |
+|---|---:|---:|---|
+| `app-x86_64-debug.apk` | 40 | 1,843,067 | `1552e47be94542b0fab5fa28624691f2c7c3ee3e493c14ece9dc9816c5d75e8f` |
+| `app-debug-androidTest.apk` | 0 | 946,983 | `a105d92e2fe476d246e0b57d1109bb5a22a1e7d82f65a6e96f92c9901035167f` |
+
+Both APKs use signer SHA-256
+`2e64822e13a6c80c12e1c4b47e8fb32d1e9334526289da75777b7a79145de4b8`.
+They were installed only with explicit `adb -s emulator-5554` commands. The
+target was API 37, ABI list `x86_64,arm64-v8a`, 16,384-byte page size, and build
+fingerprint
+`google/sdk_gphone16k_x86_64/emu64xa16k:17/CE2A.260420.019/15611780:userdebug/dev-keys`.
+Three physical devices and other emulators were visible, but no command targeted
+them; `connectedAndroidTest` was not used.
+
+The complete `LuaRuntimeFaultRecoveryInstrumentationTest` ran 4/4 in 7.984
+seconds. The JNI crash case recovered in a new PID/nonce and observed
+`NATIVE_CRASH/NATIVE_EXECUTION`; the native wedge observed
+`DEADLINE_CLEANUP_EXPIRED/NATIVE_EXECUTION`; the blocked pipe observed
+`DEADLINE_CLEANUP_EXPIRED/SOURCE_VALIDATION`. Every case matched the expected
+first eight SHA-256 bytes through the private record and observed the
+content-free runtime-info marker. Each then completed `return 7` and verified
+the record and marker were absent. The existing FD and independent-peer-death
+regression also passed, and a final `run-as` listing showed the private
+diagnostic directory empty.
+
+```text
+CRASH_DIAGNOSTIC_INSTRUMENTATION_PASS serial=emulator-5554 api=37 abis=x86_64,arm64-v8a pageSize=16384 revision=d882dea986dd95f1f0e6aeb484618ca99f703dfb appVersionCode=40 testVersionCode=0 tests=4 appBytes=1843067 appSha256=1552e47be94542b0fab5fa28624691f2c7c3ee3e493c14ece9dc9816c5d75e8f testBytes=946983 testSha256=a105d92e2fe476d246e0b57d1109bb5a22a1e7d82f65a6e96f92c9901035167f signerSha256=2e64822e13a6c80c12e1c4b47e8fb32d1e9334526289da75777b7a79145de4b8 nativeCrash=pass nativeWedge=pass blockedSource=pass healthyClear=pass fdRegression=pass physicalDevicesUntouched=true
+```

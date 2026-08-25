@@ -3199,6 +3199,26 @@ def verify_public_release_materials() -> None:
             f"Published license summary in {relative}",
         )
 
+    roadmap = (ROOT / "ROADMAP-R4.md").read_text("utf-8")
+    require_tokens(
+        roadmap,
+        (
+            "- [x] **公开发布物料**",
+            "R4-E 公开发布物料证据 (2026-08-25)",
+            "40a727f346376ae5827e63a2915d21cdd0ac8d62",
+            "三个模块共 35 个逐 Git blob 一致",
+            "0f845025cc46041a138de869fefcbcdbcc742e7e0d2f2c08eeffe1f375b97a69",
+            "`DRAFT — DO NOT PUBLISH`",
+            "候选 `v0.1.0-rc.N`、稳定版",
+            "46/46 Python 敌意测试、59/59 JVM",
+            "未创建/推送 tag",
+            "arm64-v8a 真机与首轮 soak 仍未完成",
+            "[`docs/public-release-policy.md`](docs/public-release-policy.md)",
+            "[`docs/release-v0.1.0-rc.2-draft.md`](docs/release-v0.1.0-rc.2-draft.md)",
+        ),
+        "R4-E public release material evidence ledger",
+    )
+
 
 def main() -> int:
     parser = argparse.ArgumentParser()

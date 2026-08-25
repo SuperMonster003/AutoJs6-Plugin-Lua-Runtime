@@ -1545,6 +1545,7 @@ class PublicReleaseMaterialsTest(unittest.TestCase):
         "app/build.gradle.kts",
         "tools/verify_release_candidate_artifacts.ps1",
         "THIRD_PARTY_NOTICES.md",
+        "ROADMAP-R4.md",
         "README.md",
         "README.zh-CN.md",
         "docs/public-release-policy.md",
@@ -1634,6 +1635,15 @@ class PublicReleaseMaterialsTest(unittest.TestCase):
                 "published license summary",
                 "README.md",
                 lambda text: text.replace("Android NDK LLVM", "native", 1),
+            ),
+            (
+                "Roadmap material completion",
+                "ROADMAP-R4.md",
+                lambda text: text.replace(
+                    "- [x] **公开发布物料**",
+                    "- [ ] **公开发布物料**",
+                    1,
+                ),
             ),
         )
         for label, relative, mutate in mutations:

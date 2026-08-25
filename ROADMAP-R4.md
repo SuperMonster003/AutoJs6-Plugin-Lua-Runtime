@@ -315,7 +315,7 @@ observer → logger → terminator”；observer/logger 异常均被独立遏制
 - [x] **升级/回滚路径证据**。rc.1 → rc.2 覆盖安装升级、rc.2 卸载重装、
   以及宿主 5276 与更早版本 (应拒绝 dispatch) 的组合行为。
   完成判据: 每个组合一条归档记录; 早宿主拒绝路径给出确定性错误码。
-- [ ] **公开发布物料**。LICENSE/THIRD_PARTY_NOTICES 复核、GitHub Release
+- [x] **公开发布物料**。LICENSE/THIRD_PARTY_NOTICES 复核、GitHub Release
   草稿 (含 SHA-256 与最低宿主版本声明)、公开 tag 命名方案
   (`v0.1.0` 系列) 。(联网项, 放在网络良好窗口执行)
   完成判据: 物料在仓库内成稿; 实际发布动作单独人工确认。
@@ -384,6 +384,27 @@ engine 执行及 discovery/result/console 全部通过。终端输出
 五项制品指纹、四个 case/run ID 与聚合回执见
 [`docs/release-upgrade-matrix.md`](docs/release-upgrade-matrix.md)。本项不替代尚未授权的
 arm64-v8a 物理设备冒烟，也不改写 canonical rc.2 universal receipt。
+
+R4-E 公开发布物料证据 (2026-08-25): clean material revision
+`40a727f346376ae5827e63a2915d21cdd0ac8d62` 的提交数/versionCode 同为 52。许可证
+反向审计覆盖仓库 MIT、PUC Lua 5.4.8 MIT、Kotlin stdlib 2.3.20 与 JetBrains
+annotations 13.0 Apache-2.0、AutoJs6 三份协议 AAR 的 MPL-2.0，以及由 Android NDK
+r28c `-static-libstdc++` 嵌入的 LLVM runtime 条款；精确 NDK toolchain NOTICE 以
+130,424 bytes、SHA-256
+`f96f763beb66a7ba7a667647fc64c0226ace875e590c831fdd9579ec1c1d91e1` 入库。由于协议
+锁 revision `3b7378758c5a4f68e8680a78cf2c541c23628489` 的公共 commit URL 审计时返回
+HTTP 404，仓库保存三个模块共 35 个逐 Git blob 一致的对应源码文件，确定性树指纹为
+`0f845025cc46041a138de869fefcbcdbcc742e7e0d2f2c08eeffe1f375b97a69`，并与三份 AAR
+digest、MPL 全文共同 fail-closed 绑定。GitHub Release 草稿明确列出三份 rc.2 验证
+基线 SHA-256、最低 Host versionCode 5276、ABI、signer 与未完成门禁，并以
+`DRAFT — DO NOT PUBLISH` 阻止误发；tag 规则固定候选 `v0.1.0-rc.N`、稳定版
+`v0.1.0`、annotated/immutable 且禁止移动或复用。46/46 Python 敌意测试、59/59 JVM
+离线门禁、native 双 ABI assemble/lint 通过；新 gate 同时拒绝额外 native 库并将 ELF
+依赖闭合为 `libc/libdl/liblog/libm`。完整清单、人工确认边界及草稿分别见
+[`docs/public-release-policy.md`](docs/public-release-policy.md) 与
+[`docs/release-v0.1.0-rc.2-draft.md`](docs/release-v0.1.0-rc.2-draft.md)。本项仅表示
+仓库物料成稿：当前 checkout 未配置 Git remote，未创建/推送 tag，未创建 GitHub
+Release 或上传 APK；arm64-v8a 真机与首轮 soak 仍未完成，物理设备未触碰。
 
 ## R4-F — 门禁与 CI 强化 (全程可离线)
 

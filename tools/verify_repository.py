@@ -3220,6 +3220,114 @@ def verify_public_release_materials() -> None:
     )
 
 
+def verify_production_soak_boundary() -> None:
+    executor = (ROOT / "tools/run_production_soak.ps1").read_text("utf-8")
+    require_tokens(
+        executor,
+        (
+            "[ValidatePattern('^emulator-[0-9]+$')]",
+            "$RequiredDays = 7",
+            "$ProductionIterations = 250",
+            "$QualificationIterations = 10",
+            "$WarmupIterations = 10",
+            "$ExecutionsPerIteration = 2",
+            "$ExpectedApi = 36",
+            "$ExpectedAbi = 'x86_64'",
+            "$ExpectedAvd = 'DEX_R1_API36_X64'",
+            "$ExpectedHostVersionCode = 5276L",
+            "$ExpectedProviderVersionCode = 43L",
+            "b39872e2f1ccc940afcb74a6b95b5458e2fee594",
+            "a0ae189ac8cba042848412a671c91b0b8a7c44e1",
+            "813c6be9b051c2eada18b0bbe00acff4abb48facd8e1ddd9ff08d904861d367e",
+            "c92fbea3c878d7b2ba1c28bdca168201b98c28c6bf62a953f63e2c9771f45a12",
+            "31a681fcfffb3e428420cae280ded89292b12a3b0f59e19b7a73e32a8ae4c213",
+            "return Invoke-Captured $script:Adb (@('-s', $Serial) + $Arguments)",
+            "Invoke-Captured $script:Adb @('-s', $Serial, 'root')",
+            "Invoke-Captured $script:Adb @('-s', $Serial, 'wait-for-device')",
+            "getprop', 'ro.kernel.qemu'",
+            '"/proc/$RuntimePidValue/fd"',
+            "$productionState.bootId -ne $bootId",
+            "$runtimePid -ne $productionState.runtimePid",
+            "Wait-StableFdCount $runtimePid $baselineFd",
+            "LUA_HOST_OFFICIAL_SMOKE_PASS",
+            "event=lua_runtime_fail_stop",
+            "am_anr",
+            "am_crash",
+            "Qualification cannot replace APKs while a production soak round is in progress",
+            "qualification cannot create or advance production state",
+            "missed required date $expectedDate and is now invalid",
+            "$productionState.status = 'complete'",
+            "PRODUCTION_SOAK_QUALIFICATION_PASS",
+            "PRODUCTION_SOAK_DAY_PASS",
+        ),
+        "Fail-closed production soak executor",
+    )
+    require(
+        "connectedAndroidTest" not in executor,
+        "Production soak must not use the broad connectedAndroidTest target",
+    )
+    require(
+        executor.count("Wait-StableFdCount $runtimePid $baselineFd") == 2,
+        "Production soak must enforce the frozen FD baseline both before resumed days and at day end",
+    )
+    plan = (ROOT / "docs/production-soak-plan.md").read_text("utf-8")
+    require_tokens(
+        plan,
+        (
+            "STANDARD FROZEN — FIRST ROUND NOT COMPLETE",
+            "7 consecutive Asia/Shanghai calendar days",
+            "250",
+            "500 executions per day and 3,500 executions",
+            "one continuously booted, dedicated API 36 x86_64 AVD",
+            "emulator boot ID and the Provider `:lua_runtime` PID never change",
+            "same `/proc/<runtime-pid>/fd` count",
+            "zero `event=lua_runtime_fail_stop`",
+            "A missed date invalidates it",
+            "Qualification installs the same exact",
+            "artifacts and runs 10 measured iterations",
+            "cannot create or advance production state",
+            "No production soak checkbox may be closed until `state.json` says `complete`",
+            "No day is complete",
+            "until its 250-iteration receipt has been written successfully",
+            "arm64-v8a physical smoke item",
+        ),
+        "Frozen production soak standard",
+    )
+
+    round_record = (ROOT / "docs/production-soak-round-1.md").read_text("utf-8")
+    require_tokens(
+        round_record,
+        (
+            "ROUND 1 NOT STARTED",
+            "Qualification is explicitly",
+            "not a production day",
+            "R4-E checkbox remains open",
+            "| 1 | pending | 250 | 500 |",
+            "| 7 | pending | 250 | 500 |",
+            "No pass result is claimed in this document yet",
+        ),
+        "Honest initial production soak ledger",
+    )
+
+    roadmap = (ROOT / "ROADMAP-R4.md").read_text("utf-8")
+    require_tokens(
+        roadmap,
+        (
+            "- [ ] **生产 soak 计划**",
+            "R4-E 生产 soak 标准冻结 (2026-08-25)",
+            "`N=7` 个 Asia/Shanghai 连续自然日",
+            "每日 250 次真实 Host smoke",
+            "整轮 3,500 次",
+            "资格运行不能创建或推进生产 state",
+            "首轮尚未完成，本项",
+            "保持未勾选",
+            "[`docs/production-soak-plan.md`](docs/production-soak-plan.md)",
+            "[`docs/production-soak-round-1.md`](docs/production-soak-round-1.md)",
+        ),
+        "Open R4-E production soak ledger",
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--github-output", action="store_true")
@@ -3253,6 +3361,7 @@ def main() -> int:
     verify_fault_harness_boundary()
     verify_host_lifecycle_boundary()
     verify_public_release_materials()
+    verify_production_soak_boundary()
     build_ready = protocol_ready and vendor_ready
     if args.require_build_ready:
         require(

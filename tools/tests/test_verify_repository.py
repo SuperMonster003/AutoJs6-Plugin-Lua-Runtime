@@ -1657,6 +1657,145 @@ class PublicReleaseMaterialsTest(unittest.TestCase):
                         verifier.verify_public_release_materials()
 
 
+class ProductionSoakBoundaryTest(unittest.TestCase):
+    FILES = (
+        "ROADMAP-R4.md",
+        "docs/production-soak-plan.md",
+        "docs/production-soak-round-1.md",
+        "tools/run_production_soak.ps1",
+    )
+
+    def copy_boundary(self, root: Path) -> None:
+        for relative in self.FILES:
+            destination = root / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(SOURCE_ROOT / relative, destination)
+
+    def test_current_soak_boundary_is_consecutive_exact_and_emulator_only(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.copy_boundary(root)
+            with mock.patch.object(verifier, "ROOT", root):
+                verifier.verify_production_soak_boundary()
+
+    def test_duration_workload_fd_artifact_or_honesty_drift_is_rejected(self) -> None:
+        mutations = (
+            (
+                "seven-day duration",
+                "tools/run_production_soak.ps1",
+                lambda text: text.replace("$RequiredDays = 7", "$RequiredDays = 1", 1),
+            ),
+            (
+                "daily workload",
+                "tools/run_production_soak.ps1",
+                lambda text: text.replace(
+                    "$ProductionIterations = 250",
+                    "$ProductionIterations = 10",
+                    1,
+                ),
+            ),
+            (
+                "emulator serial guard",
+                "tools/run_production_soak.ps1",
+                lambda text: text.replace(
+                    "[ValidatePattern('^emulator-[0-9]+$')]",
+                    "[ValidateNotNullOrEmpty()]",
+                    1,
+                ),
+            ),
+            (
+                "qemu property guard",
+                "tools/run_production_soak.ps1",
+                lambda text: text.replace(
+                    "getprop', 'ro.kernel.qemu'",
+                    "getprop', 'ro.product.model'",
+                    1,
+                ),
+            ),
+            (
+                "root FD observation",
+                "tools/run_production_soak.ps1",
+                lambda text: text.replace(
+                    "Invoke-Captured $script:Adb @('-s', $Serial, 'root')",
+                    "Invoke-Captured $script:Adb @('-s', $Serial, 'version')",
+                    1,
+                ),
+            ),
+            (
+                "exact Provider artifact",
+                "tools/run_production_soak.ps1",
+                lambda text: text.replace(
+                    "c92fbea3c878d7b2ba1c28bdca168201b98c28c6bf62a953f63e2c9771f45a12",
+                    "0" * 64,
+                    1,
+                ),
+            ),
+            (
+                "same PID across days",
+                "tools/run_production_soak.ps1",
+                lambda text: text.replace(
+                    "$runtimePid -ne $productionState.runtimePid",
+                    "$false",
+                    1,
+                ),
+            ),
+            (
+                "exact final FD recovery",
+                "tools/run_production_soak.ps1",
+                lambda text: text.replace(
+                    "Wait-StableFdCount $runtimePid $baselineFd",
+                    "Wait-StableFdCount $runtimePid $null",
+                    1,
+                ),
+            ),
+            (
+                "watchdog log rejection",
+                "tools/run_production_soak.ps1",
+                lambda text: text.replace(
+                    "event=lua_runtime_fail_stop",
+                    "event=ignored",
+                    1,
+                ),
+            ),
+            (
+                "qualification separation",
+                "tools/run_production_soak.ps1",
+                lambda text: text.replace(
+                    "qualification cannot create or advance production state",
+                    "qualification may advance state",
+                    1,
+                ),
+            ),
+            (
+                "premature Roadmap completion",
+                "ROADMAP-R4.md",
+                lambda text: text.replace(
+                    "- [ ] **生产 soak 计划**",
+                    "- [x] **生产 soak 计划**",
+                    1,
+                ),
+            ),
+            (
+                "premature round pass",
+                "docs/production-soak-round-1.md",
+                lambda text: text.replace(
+                    "ROUND 1 NOT STARTED",
+                    "ROUND 1 COMPLETE",
+                    1,
+                ),
+            ),
+        )
+        for label, relative, mutate in mutations:
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                self.copy_boundary(root)
+                path = root / relative
+                write_text(path, mutate(path.read_text("utf-8")))
+                with mock.patch.object(verifier, "ROOT", root):
+                    with self.assertRaises(RuntimeError):
+                        verifier.verify_production_soak_boundary()
+
+
 class HostLifecycleBoundaryTest(unittest.TestCase):
     FILES = (
         "settings.gradle.kts",

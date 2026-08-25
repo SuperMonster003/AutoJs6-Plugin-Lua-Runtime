@@ -323,6 +323,17 @@ observer → logger → terminator”；observer/logger 异常均被独立遏制
   fail-stop、零 FD 增长、零 ANR), 并按标准执行首轮。
   完成判据: soak 标准文档 + 首轮结果记录。
 
+R4-E 生产 soak 标准冻结 (2026-08-25): `N=7` 个 Asia/Shanghai 连续自然日，
+每日 250 次真实 Host smoke、每次 2 次 Lua 执行，即每日 500 次、整轮 3,500 次；
+同一 API 36 x86_64 AVD boot ID、同一 `:lua_runtime` PID、同一组逐字节 APK，且
+日初/日末 `/proc/<pid>/fd` 必须精确等于首日 warmup 后基线。任一漏日、制品/安装
+漂移、AVD/进程重启、instrumentation 失败、`event=lua_runtime_fail_stop`、相关
+ANR/crash 或 FD 终值增长都会使整轮失效。执行器仅接受显式 `emulator-*` 且二次
+校验 `ro.kernel.qemu=1`，资格运行不能创建或推进生产 state；首轮尚未完成，本项
+保持未勾选。标准、失效规则与证据格式见
+[`docs/production-soak-plan.md`](docs/production-soak-plan.md)，进行中记录见
+[`docs/production-soak-round-1.md`](docs/production-soak-round-1.md)。
+
 R4-E rc.2 签名打包证据 (2026-08-25): 干净 implementation revision
 `a0ae189ac8cba042848412a671c91b0b8a7c44e1` 的提交数/versionCode 同为 43；强化后的
 `build_runnable_provider.ps1` 强制 `:app:clean`、`--rerun-tasks`、`--offline`，并

@@ -77,7 +77,11 @@ dispatch 前的运行时信息超时继续落在原绑定预算内；更早的 L
 
 当前签名打包回执、精确 split/universal 摘要、native payload 身份以及仍为 false
 的设备/runtime 标志已归档在
-[`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md)。
+[`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md)。精确的 x86_64 split
+此后已在 API 37、16 KiB 模拟器通过安装、真实宿主发现/执行、结果、`device.info`
+与 console 验证；该制品专属记录见
+[`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md)。
+arm64 物理设备半程仍待完成。
 
 ## 协议输入
 
@@ -247,9 +251,10 @@ merged manifest 或 APK 检查；源码和 CI 文本检查不是运行时证据�
 当前签名打包候选属于干净插件 revision
 `a0ae189ac8cba042848412a671c91b0b8a7c44e1`、versionCode 43；universal APK
 SHA-256 为 `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`。
-严格制品门禁已经通过，但设备/runtime 验证仍刻意保持 false。之后若有可执行源码
-或协议输入提交，就必须重新构建，不能继承该候选的证据。公开 tag、远程发布上传、
-设备矩阵与生产 soak 仍是独立工作。
+严格制品门禁已经通过，但其不可变 universal 制品回执仍刻意保持设备/runtime 验证
+为 false。精确的 x86_64 split 此后通过了另行归档的模拟器安装与真实宿主冒烟；
+arm64-v8a 仍待完成。之后若有可执行源码或协议输入提交，就必须重新构建，不能继承
+该候选的证据。公开 tag、远程发布上传、剩余设备矩阵与生产 soak 仍是独立工作。
 
 签名 release assembly 必须显式 opt-in。外部签名 properties 与 keystore 可以
 直接使用，无需复制到仓库：

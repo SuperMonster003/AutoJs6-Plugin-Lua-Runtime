@@ -333,6 +333,22 @@ revision 与 universal digest，且诚实保持 `artifactGateVerified=true`、
 触碰物理设备。完整制品表、native 摘要、Host comparator 边界与回执见
 [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md)。
 
+R4-E rc.2 x86_64 模拟器半程证据 (2026-08-25): 仅对 API 37、16 KiB
+`emulator-5554` 发出显式定向 ADB 命令；重新安装 versionCode 43 的 x86_64 split 后，
+设备内 `base.apk` SHA-256 与候选精确一致，均为
+`c92fbea3c878d7b2ba1c28bdca168201b98c28c6bf62a953f63e2c9771f45a12`。干净 revision
+`84dc0a24980deb43d4199bfecee3168e4401da78` 构造的同签名 Host instrumentation
+versionCode 45 以真实 `org.autojs.autojs6` 为 target，测试 APK SHA-256 为
+`705f1fb56127d807b8c7fcf759419de5f29592f4affd500444c730357f9ad762`。它先锁定 Host
+5276/Provider 43、同签名、唯一 INFO/RUNTIME service 及 `:lua_runtime` 进程，再由真实
+Host `LuaPluginScriptEngine` 连续执行 `return 7` 与 `device.info + console.log`；结果、
+fixed-shape device、INFO console 均通过，最终输出
+`LUA_HOST_OFFICIAL_SMOKE_PASS runId=rc2emu-install-20260825051216`，Provider 在安装后
+以新 PID 6150 完成并保持存活。完整记录见
+[`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md)。
+arm64-v8a 真机未获授权且未触碰，因此“设备安装 + 宿主端到端冒烟归档”总项继续保持
+未勾选，canonical universal receipt 也不改写。
+
 ## R4-F — 门禁与 CI 强化 (全程可离线)
 
 - [x] **verifier 覆盖新边界**。`verify_repository.py` 增加: print/warn

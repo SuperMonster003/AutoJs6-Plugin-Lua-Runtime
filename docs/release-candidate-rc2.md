@@ -98,3 +98,17 @@ RUNNABLE_LUA_PROVIDER_OK revision=a0ae189ac8cba042848412a671c91b0b8a7c44e1 apk=a
 No APK was installed as part of this packaging checkpoint. No ADB command was
 issued and no physical device was touched. The next R4-E item must use the exact
 artifact hashes above or rebuild and archive a new candidate identity.
+
+## Subsequent device evidence
+
+Later on 2026-08-25, the exact x86_64 split identified above was installed on
+API 37 `emulator-5554`; its installed `base.apk` reproduced SHA-256
+`c92fbea3c878d7b2ba1c28bdca168201b98c28c6bf62a953f63e2c9771f45a12`.
+Real Host INFO/RUNTIME discovery, two `LuaPluginScriptEngine` executions,
+result mapping, `device.info`, and INFO-level console feedback passed under run
+ID `rc2emu-install-20260825051216`. The separately archived evidence is
+[`release-candidate-rc2-emulator-smoke.md`](release-candidate-rc2-emulator-smoke.md).
+
+This does not rewrite the immutable packaging receipts above. Their universal
+artifact flags remain false, and the combined R4-E device item remains open
+until the authorized arm64-v8a physical-device half is also archived.

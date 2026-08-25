@@ -86,7 +86,12 @@ Provider but cannot reliably dispatch a script.
 
 The current signed-packaging receipt, exact split/universal digests, native
 payload identities, and still-false device/runtime flags are archived in
-[`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md).
+[`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md). The exact
+x86_64 split has separately passed installation, real Host discovery/execution,
+result, `device.info`, and console verification on the API 37 16 KiB emulator;
+that artifact-specific record is
+[`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md).
+The arm64 physical-device half remains pending.
 
 ## Protocol inputs
 
@@ -283,9 +288,12 @@ The current signed-packaging candidate belongs to clean plugin revision
 `a0ae189ac8cba042848412a671c91b0b8a7c44e1`, versionCode 43. Its universal APK
 SHA-256 is `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`;
 the strict artifact gate passed while device/runtime verification deliberately
-remains false. Later executable or protocol-input commits require a fresh build
-and must not inherit this candidate's evidence. A public tag, remote publication,
-release upload, device matrix, and production soak remain separate work.
+remains false in its immutable universal-artifact receipt. Its exact x86_64
+split subsequently passed the separately archived emulator installation and
+real-Host smoke; arm64-v8a remains pending. Later executable or protocol-input
+commits require a fresh build and must not inherit this candidate's evidence. A
+public tag, remote publication, release upload, remaining device matrix, and
+production soak remain separate work.
 
 Signed release assembly is deliberately opt-in. An external signing properties
 file and keystore can be consumed without copying either into this repository:

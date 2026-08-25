@@ -673,6 +673,7 @@ class InputWorkflowTest(unittest.TestCase):
         "tools/verify_local.ps1",
         "tools/verify_lua_archive.ps1",
         "docs/release-candidate-rc2.md",
+        "docs/release-candidate-rc2-emulator-smoke.md",
         "ROADMAP-R4.md",
         "README.md",
     )
@@ -852,6 +853,14 @@ class InputWorkflowTest(unittest.TestCase):
                 "docs/release-candidate-rc2.md",
                 lambda text: text.replace(
                     "93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd",
+                    "0" * 64,
+                ),
+            ),
+            (
+                "emulator smoke Provider digest drifts",
+                "docs/release-candidate-rc2-emulator-smoke.md",
+                lambda text: text.replace(
+                    "c92fbea3c878d7b2ba1c28bdca168201b98c28c6bf62a953f63e2c9771f45a12",
                     "0" * 64,
                 ),
             ),

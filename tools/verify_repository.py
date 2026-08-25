@@ -912,6 +912,43 @@ def verify_input_workflows() -> None:
         ),
         "R4-E signed packaging candidate evidence",
     )
+    emulator_smoke = (ROOT / "docs/release-candidate-rc2-emulator-smoke.md").read_text("utf-8")
+    require_tokens(
+        emulator_smoke,
+        (
+            "Status: **X86_64 EMULATOR VERIFIED — ARM64 PHYSICAL DEVICE PENDING**",
+            "a0ae189ac8cba042848412a671c91b0b8a7c44e1",
+            "versionCode 43",
+            "84dc0a24980deb43d4199bfecee3168e4401da78",
+            "versionCode 45",
+            "c92fbea3c878d7b2ba1c28bdca168201b98c28c6bf62a953f63e2c9771f45a12",
+            "705f1fb56127d807b8c7fcf759419de5f29592f4affd500444c730357f9ad762",
+            "fd9fc6ba3ccc34f977ae2925745e1f525d0522c2a300ce8f109426cd5e57c14f",
+            "31a681fcfffb3e428420cae280ded89292b12a3b0f59e19b7a73e32a8ae4c213",
+            "emulator-5554",
+            "sdk_gphone16k_x86_64",
+            "INSTALL_PROVIDER Success",
+            "INSTRUMENTATION_RESULT: console=pass",
+            "INSTRUMENTATION_RESULT: discovery=pass",
+            "INSTRUMENTATION_RESULT: executions=2",
+            "INSTRUMENTATION_RESULT: result=pass",
+            "LUA_HOST_OFFICIAL_SMOKE_PASS runId=rc2emu-install-20260825051216",
+            "Physical devices were not",
+            "combined R4-E checkbox remains open",
+            "does not prove arm64-v8a installation",
+        ),
+        "R4-E rc.2 exact x86_64 emulator smoke evidence",
+    )
+    require_tokens(
+        candidate_doc,
+        (
+            "## Subsequent device evidence",
+            "release-candidate-rc2-emulator-smoke.md",
+            "rc2emu-install-20260825051216",
+            "combined R4-E device item remains open",
+        ),
+        "R4-E candidate-to-emulator-evidence link",
+    )
     roadmap = (ROOT / "ROADMAP-R4.md").read_text("utf-8")
     require_tokens(
         roadmap,
@@ -923,6 +960,11 @@ def verify_input_workflows() -> None:
             "artifactGateVerified=true",
             "`deviceVerified=false`、`runtimeVerified=false`",
             "docs/release-candidate-rc2.md",
+            "R4-E rc.2 x86_64 模拟器半程证据 (2026-08-25)",
+            "84dc0a24980deb43d4199bfecee3168e4401da78",
+            "LUA_HOST_OFFICIAL_SMOKE_PASS runId=rc2emu-install-20260825051216",
+            "arm64-v8a 真机未获授权且未触碰",
+            "docs/release-candidate-rc2-emulator-smoke.md",
         ),
         "R4-E rc.2 completion ledger",
     )
@@ -935,6 +977,8 @@ def verify_input_workflows() -> None:
             "93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd",
             "device/runtime verification deliberately",
             "docs/release-candidate-rc2.md",
+            "docs/release-candidate-rc2-emulator-smoke.md",
+            "arm64 physical-device half remains pending",
         ),
         "Published current release-candidate identity",
     )

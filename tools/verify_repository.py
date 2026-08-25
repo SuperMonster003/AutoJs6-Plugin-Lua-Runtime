@@ -2770,6 +2770,7 @@ def verify_host_lifecycle_boundary() -> None:
             'singleEnabledService(context, LuaRuntimeContract.SERVICE_ACTION)',
             'packageManager.checkSignatures(HOST_PACKAGE, PROVIDER_PACKAGE)',
             'context.classLoader.loadClass(HOST_ENGINE_CLASS)',
+            'method.parameterTypes.size == 1',
             'requireInt64Result(firstResult, 7L, "return 7")',
             'requireInt64Result(deviceResult, Build.VERSION.SDK_INT.toLong(), "device.info")',
             'awaitConsoleMarker(context, stdout)',
@@ -2782,6 +2783,10 @@ def verify_host_lifecycle_boundary() -> None:
     require(
         instrumentation.count("executeReturnSeven(targetContext, binding.provider") == 2,
         "Host lifecycle verification must execute both before and after the stale-watchdog window",
+    )
+    require(
+        "method.parameterCount" not in instrumentation,
+        "Host smoke reflection must remain callable on API 24",
     )
     arm_timeout = re.search(r"const val ARM_TIMEOUT_MILLIS = ([0-9_]+)L", instrumentation)
     stale_proof = re.search(r"const val STALE_WATCHDOG_PROOF_MILLIS = ([0-9_]+)L", instrumentation)

@@ -317,11 +317,11 @@ class LuaHostLifecycleInstrumentation : Instrumentation() {
             val source = sourceClass.getConstructor(File::class.java).newInstance(sourceFile)
             val execute = engine.javaClass.methods.firstOrNull { method ->
                 method.name == "execute" &&
-                    method.parameterCount == 1 &&
+                    method.parameterTypes.size == 1 &&
                     method.parameterTypes.single().name == HOST_SCRIPT_SOURCE_CLASS
             } ?: engine.javaClass.methods.firstOrNull { method ->
                 method.name == "execute" &&
-                    method.parameterCount == 1 &&
+                    method.parameterTypes.size == 1 &&
                     method.parameterTypes.single().isAssignableFrom(source.javaClass)
             } ?: error("The real Host Lua engine has no compatible execute method")
             return invokeReflective(execute, engine, source)

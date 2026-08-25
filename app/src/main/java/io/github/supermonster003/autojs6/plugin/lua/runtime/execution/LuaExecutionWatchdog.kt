@@ -16,6 +16,15 @@ internal fun interface LuaRuntimeProcessTerminator {
     fun terminate(reason: LuaProcessTerminationReason)
 }
 
+/** Runs synchronously after a watchdog token is poisoned and before process termination. */
+internal fun interface LuaProcessTerminationObserver {
+    fun beforeTermination(token: Any, reason: LuaProcessTerminationReason)
+
+    companion object {
+        val NONE = LuaProcessTerminationObserver { _, _ -> Unit }
+    }
+}
+
 internal fun interface LuaWatchdogTask {
     fun cancel(): Boolean
 }
@@ -51,6 +60,7 @@ internal class LuaExecutionWatchdog(
     private val clock: LuaMonotonicClock,
     private val scheduler: LuaWatchdogScheduler,
     private val terminator: LuaRuntimeProcessTerminator,
+    private val terminationObserver: LuaProcessTerminationObserver = LuaProcessTerminationObserver.NONE,
     cleanupGraceMillis: Long,
 ) {
     data class Snapshot(
@@ -131,6 +141,7 @@ internal class LuaExecutionWatchdog(
             }
             if (immediateTermination != null) {
                 poisonIfOwned(execution)
+                observeTerminationLocked(token, checkNotNull(immediateTermination))
                 return@synchronized false
             }
             try {
@@ -148,12 +159,13 @@ internal class LuaExecutionWatchdog(
                 }
             } catch (_: Throwable) {
                 poisonIfOwned(execution)
+                observeTerminationLocked(token, LuaProcessTerminationReason.WATCHDOG_CONTROL_FAILURE)
                 controlFailure = true
             }
             !controlFailure
         }
-        immediateTermination?.let(::terminate)
-        if (controlFailure) terminate(LuaProcessTerminationReason.WATCHDOG_CONTROL_FAILURE)
+        immediateTermination?.let(::terminateProcess)
+        if (controlFailure) terminateProcess(LuaProcessTerminationReason.WATCHDOG_CONTROL_FAILURE)
         return armed
     }
 
@@ -173,11 +185,12 @@ internal class LuaExecutionWatchdog(
                     )
                 } catch (_: Throwable) {
                     poisonIfOwned(execution)
+                    observeTerminationLocked(token, LuaProcessTerminationReason.WATCHDOG_CONTROL_FAILURE)
                     controlFailure = true
                 }
             }
         }
-        if (controlFailure) terminate(LuaProcessTerminationReason.WATCHDOG_CONTROL_FAILURE)
+        if (controlFailure) terminateProcess(LuaProcessTerminationReason.WATCHDOG_CONTROL_FAILURE)
     }
 
     private fun finished(token: Any) {
@@ -206,17 +219,23 @@ internal class LuaExecutionWatchdog(
                 false
             } else {
                 poisoned = true
+                observeTerminationLocked(token, reason)
                 true
             }
         }
-        if (shouldTerminate) terminate(reason)
+        if (shouldTerminate) terminateProcess(reason)
     }
 
     private fun poisonIfOwned(execution: ActiveExecution) {
         if (active === execution) poisoned = true
     }
 
-    private fun terminate(reason: LuaProcessTerminationReason) {
+    /** Called only while [lock] is owned, so a finishing worker cannot clear its record first. */
+    private fun observeTerminationLocked(token: Any, reason: LuaProcessTerminationReason) {
+        runCatching { terminationObserver.beforeTermination(token, reason) }
+    }
+
+    private fun terminateProcess(reason: LuaProcessTerminationReason) {
         runCatching { terminator.terminate(reason) }
     }
 

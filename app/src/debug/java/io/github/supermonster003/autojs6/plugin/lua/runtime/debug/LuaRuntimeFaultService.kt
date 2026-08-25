@@ -11,6 +11,7 @@ import android.os.ParcelFileDescriptor
 import android.os.Process
 import io.github.supermonster003.autojs6.plugin.lua.runtime.BuildConfig
 import io.github.supermonster003.autojs6.plugin.lua.runtime.NativeLuaExecutionRunner
+import io.github.supermonster003.autojs6.plugin.lua.runtime.diagnostic.LuaRuntimeCrashDiagnostics
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaExecutionRunner
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaRunnerRequest
 import io.github.supermonster003.autojs6.plugin.lua.runtime.service.LuaFileDescriptorLease
@@ -51,6 +52,7 @@ class LuaRuntimeFaultService : Service() {
         check(BuildConfig.LUA_NATIVE_ENABLED && !BuildConfig.LUA_PROVIDER_ENABLED) {
             "Fault recovery requires native=true and production provider=false"
         }
+        LuaRuntimeCrashDiagnostics.initialize(this)
         executionManager = LuaRuntimeExecutionManager(
             callerVerifier = SameUidSessionCallerVerifier,
             runner = FaultAwareLuaExecutionRunner,
@@ -165,7 +167,7 @@ class LuaRuntimeFaultService : Service() {
         languageVersion = "5.4.8",
         processAbi = currentProcessAbi(),
         supportedAbis = listOf("arm64-v8a", "x86_64"),
-        capabilities = emptyList(),
+        capabilities = LuaRuntimeCrashDiagnostics.reportedCapabilities(emptyList()),
         limits = LuaRuntimeLimits(
             maxSourceBytes = LuaRuntimeContract.MAX_SOURCE_BYTES,
             maxMemoryBytes = LuaRuntimeContract.MAX_MEMORY_BYTES,

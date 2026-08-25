@@ -2,6 +2,8 @@ package io.github.supermonster003.autojs6.plugin.lua.runtime.service
 
 import android.os.IBinder
 import android.os.ParcelFileDescriptor
+import io.github.supermonster003.autojs6.plugin.lua.runtime.diagnostic.LuaExecutionCrashDiagnosticLease
+import io.github.supermonster003.autojs6.plugin.lua.runtime.diagnostic.LuaRuntimeCrashDiagnostics
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaExecutionObserver
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaExecutionRunner
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaExecutionSessionController
@@ -57,6 +59,10 @@ internal class LuaRuntimeExecutionManager(
         setRemoveOnCancelPolicy(true)
     }
 
+    init {
+        LuaRuntimeCrashDiagnostics.requireInitialized()
+    }
+
     fun create(
         createdNanos: Long,
         ownerUid: Int,
@@ -73,6 +79,7 @@ internal class LuaRuntimeExecutionManager(
         val token = Any()
         var activeAcquired = false
         var watchdogLease: LuaExecutionWatchdogLease? = null
+        var crashDiagnosticLease: LuaExecutionCrashDiagnosticLease? = null
         var ownedSource: LuaParcelFileExecutionSource? = null
         try {
             activeAcquired = ProcessExecutionResources.active.tryAcquire(token)
@@ -88,9 +95,11 @@ internal class LuaRuntimeExecutionManager(
                     createdNanos = createdNanos,
                     retainedLease = retainedLease,
                     watchdogLease = RejectedSessionWatchdogLease,
+                    crashDiagnosticLease = LuaExecutionCrashDiagnosticLease.NONE,
                     onFinished = {},
                 )
             }
+            crashDiagnosticLease = LuaRuntimeCrashDiagnostics.acquire(token, request.sourceSha256)
             val admittedWatchdog = ProcessExecutionResources.watchdog.tryAcquire(
                 token = token,
                 createdNanos = createdNanos,
@@ -113,11 +122,13 @@ internal class LuaRuntimeExecutionManager(
                 createdNanos = createdNanos,
                 retainedLease = retainedLease,
                 watchdogLease = admittedWatchdog,
+                crashDiagnosticLease = checkNotNull(crashDiagnosticLease),
                 onFinished = { ProcessExecutionResources.active.release(token) },
             )
         } catch (error: Throwable) {
             ownedSource?.close()
             watchdogLease?.runCatching { close() }
+            crashDiagnosticLease?.runCatching { close() }
             if (activeAcquired) ProcessExecutionResources.active.release(token)
             retainedLease.close()
             throw error
@@ -147,6 +158,7 @@ internal class LuaRuntimeExecutionManager(
         createdNanos: Long,
         retainedLease: RetainedExecutionLease,
         watchdogLease: LuaExecutionWatchdogLease,
+        crashDiagnosticLease: LuaExecutionCrashDiagnosticLease,
         onFinished: () -> Unit,
     ): RemoteLuaExecutionSession {
         val observer = BinderLuaExecutionObserver(callback, hostBroker)
@@ -166,6 +178,7 @@ internal class LuaRuntimeExecutionManager(
             runner = runner,
             dispatcher = ProcessExecutionResources.worker,
             watchdog = watchdogLease,
+            crashDiagnostics = crashDiagnosticLease,
             observer = observer,
             hostCapabilityInvoker = hostCapabilityInvoker,
             initialFailure = initialFailure,
@@ -231,6 +244,7 @@ private object ProcessExecutionResources {
         clock = LuaMonotonicClock(System::nanoTime),
         scheduler = LuaRuntimeWatchdogScheduler,
         terminator = AndroidLuaRuntimeProcessTerminator,
+        terminationObserver = LuaRuntimeCrashDiagnostics,
         cleanupGraceMillis = WATCHDOG_CLEANUP_GRACE_MILLIS,
     )
     private val retainedSessions = RetainedExecutionGate(MAX_RETAINED_SESSIONS)

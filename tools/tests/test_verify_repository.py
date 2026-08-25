@@ -849,6 +849,7 @@ class RepositoryCheckpointTest(unittest.TestCase):
             verifier.verify_r4_design_records()
             verifier.verify_native_boundary()
             verifier.verify_watchdog_boundary()
+            verifier.verify_crash_diagnostic_boundary()
             verifier.verify_descriptor_boundary()
             verifier.verify_native_android_test_boundary()
             verifier.verify_fault_harness_boundary()
@@ -1599,6 +1600,110 @@ class WatchdogBoundaryTest(unittest.TestCase):
             with mock.patch.object(verifier, "ROOT", root):
                 with self.assertRaisesRegex(RuntimeError, "execution.token !== token"):
                     verifier.verify_watchdog_boundary()
+
+
+class CrashDiagnosticBoundaryTest(unittest.TestCase):
+    FILES = (
+        "app/src/main/cpp/lua_runtime_jni.cpp",
+        "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/LuaProviderMetadata.kt",
+        "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/NativeLuaRuntime.kt",
+        "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/diagnostic/LuaCrashDiagnostic.kt",
+        "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/diagnostic/LuaRuntimeCrashDiagnostics.kt",
+        "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/execution/LuaExecutionSessionController.kt",
+        "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/execution/LuaExecutionWatchdog.kt",
+        "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaRuntimeExecutionManager.kt",
+        "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaRuntimeService.kt",
+        "app/src/debug/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/LuaRuntimeFaultService.kt",
+        "app/src/test/java/io/github/supermonster003/autojs6/plugin/lua/runtime/diagnostic/LuaCrashDiagnosticTest.kt",
+        "app/src/test/java/io/github/supermonster003/autojs6/plugin/lua/runtime/execution/LuaExecutionSessionControllerTest.kt",
+        "app/src/androidTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/LuaRuntimeFaultRecoveryInstrumentationTest.kt",
+        "docs/crash-diagnostic-v1.md",
+    )
+
+    def copy_boundary(self, root: Path) -> None:
+        for relative in self.FILES:
+            destination = root / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(SOURCE_ROOT / relative, destination)
+
+    def test_current_private_atomic_diagnostic_lifecycle_is_admitted(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.copy_boundary(root)
+            with mock.patch.object(verifier, "ROOT", root):
+                verifier.verify_crash_diagnostic_boundary()
+
+    def test_content_retention_or_lifecycle_bypass_is_rejected(self) -> None:
+        mutations = (
+            (
+                "source retention",
+                self.FILES[3],
+                lambda text: text.replace(
+                    "private val directory = File(root, DIRECTORY_NAME)",
+                    "private val sourceUtf8 = ByteArray(0)\n"
+                    "    private val directory = File(root, DIRECTORY_NAME)",
+                    1,
+                ),
+            ),
+            (
+                "non-atomic finish",
+                self.FILES[3],
+                lambda text: text.replace("atomicFile.finishWrite(output)", "output.close()", 1),
+            ),
+            (
+                "full digest retention",
+                self.FILES[4],
+                lambda text: text.replace(
+                    "copyOf(LuaCrashDiagnostic.SOURCE_HASH_PREFIX_BYTES)",
+                    "copyOf(32)",
+                    1,
+                ),
+            ),
+            (
+                "unconditional runtime marker",
+                self.FILES[4],
+                lambda text: text.replace(
+                    "if (present && LAST_ABNORMAL_TERMINATION_FLAG !in capabilities)",
+                    "if (LAST_ABNORMAL_TERMINATION_FLAG !in capabilities)",
+                    1,
+                ),
+            ),
+            (
+                "runner not bracketed",
+                self.FILES[5],
+                lambda text: text.replace(
+                    "crashDiagnostics.nativeExecutionStarted()",
+                    "Unit",
+                    1,
+                ),
+            ),
+            (
+                "watchdog not observed",
+                self.FILES[7],
+                lambda text: text.replace(
+                    "terminationObserver = LuaRuntimeCrashDiagnostics",
+                    "terminationObserver = LuaProcessTerminationObserver.NONE",
+                    1,
+                ),
+            ),
+            (
+                "missing recovery assertion",
+                self.FILES[12],
+                lambda text: text.replace(
+                    "assertPersistedCrashDiagnostic(",
+                    "skipPersistedCrashDiagnostic(",
+                ),
+            ),
+        )
+        for label, relative, mutate in mutations:
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                self.copy_boundary(root)
+                path = root / relative
+                write_text(path, mutate(path.read_text("utf-8")))
+                with mock.patch.object(verifier, "ROOT", root):
+                    with self.assertRaises(RuntimeError):
+                        verifier.verify_crash_diagnostic_boundary()
 
 
 class WrapperInputTest(unittest.TestCase):

@@ -44,6 +44,10 @@ not published availability.
   statistics as requiring Host protocol evolution, specified the exact nested
   fields, validity mask, terminal tags, and protocol-1.1 capability negotiation,
   and added a JVM guard proving no V1 statistics carrier is being assumed.
+- Added an atomic, fixed 20-byte private crash diagnostic containing only a
+  closed failure kind, execution phase, eight-byte source SHA-256 prefix, and
+  checksum. A restarted runtime exposes only a content-free runtime-info marker,
+  while the next healthy verified native return clears both marker and record.
 - Added debug-only remote `/proc/self/fd` accounting and proved exact baseline
   recovery across batched success, digest-failure, cancellation, callback-death,
   and broker-death paths.

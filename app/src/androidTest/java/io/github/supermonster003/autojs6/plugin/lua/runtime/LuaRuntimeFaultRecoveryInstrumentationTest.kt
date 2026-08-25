@@ -18,6 +18,10 @@ import io.github.supermonster003.autojs6.plugin.lua.runtime.debug.LuaRuntimeFaul
 import io.github.supermonster003.autojs6.plugin.lua.runtime.debug.LuaRuntimeFaultPeerProtocol
 import io.github.supermonster003.autojs6.plugin.lua.runtime.debug.LuaRuntimeFaultPeerService
 import io.github.supermonster003.autojs6.plugin.lua.runtime.debug.LuaRuntimeFaultService
+import io.github.supermonster003.autojs6.plugin.lua.runtime.diagnostic.LAST_ABNORMAL_TERMINATION_FLAG
+import io.github.supermonster003.autojs6.plugin.lua.runtime.diagnostic.LuaCrashDiagnosticStore
+import io.github.supermonster003.autojs6.plugin.lua.runtime.diagnostic.LuaCrashFailureKind
+import io.github.supermonster003.autojs6.plugin.lua.runtime.diagnostic.LuaCrashPhase
 import io.github.supermonster003.autojs6.plugin.lua.runtime.service.LuaPluginInfoService
 import io.github.supermonster003.autojs6.plugin.lua.runtime.service.LuaRuntimeService
 import org.autojs.plugin.lua.runtime.api.ILuaExecutionCallback
@@ -38,8 +42,10 @@ import org.autojs.plugin.lua.runtime.api.LuaRuntimeContract
 import org.autojs.plugin.lua.runtime.api.LuaSha256
 import org.autojs.plugin.lua.runtime.api.LuaValue
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -54,12 +60,12 @@ import java.util.concurrent.atomic.AtomicReference
 class LuaRuntimeFaultRecoveryInstrumentationTest {
     @Test(timeout = TEST_TIMEOUT_MILLIS)
     fun nativeCrashCausesBinderDeathAndRecoversInANewProcess() {
-        assertFaultRecovery(CRASH_SOURCE)
+        assertFaultRecovery(CRASH_SOURCE, LuaCrashFailureKind.NATIVE_CRASH)
     }
 
     @Test(timeout = TEST_TIMEOUT_MILLIS)
     fun nativeWedgeIsKilledByWatchdogAndRecoversInANewProcess() {
-        assertFaultRecovery(WEDGE_SOURCE)
+        assertFaultRecovery(WEDGE_SOURCE, LuaCrashFailureKind.DEADLINE_CLEANUP_EXPIRED)
     }
 
     @Test(timeout = TEST_TIMEOUT_MILLIS)
@@ -98,6 +104,7 @@ class LuaRuntimeFaultRecoveryInstrumentationTest {
         assertFaultHarnessConfiguration()
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         assertProductionProvidersDisabled(context)
+        resetCrashDiagnostic(context)
         val first = bind(context)
         val firstIdentity = first.client.identity()
         val died = CountDownLatch(1)
@@ -105,6 +112,7 @@ class LuaRuntimeFaultRecoveryInstrumentationTest {
         val callback = RecordingExecutionCallback()
         val broker = RejectingHostBroker()
         val pipe = ParcelFileDescriptor.createPipe()
+        val declaredSourceSha256 = LuaSha256.digest(byteArrayOf(0))
         var session: ILuaExecutionSession? = null
         val startedAtMillis = SystemClock.elapsedRealtime()
         try {
@@ -114,7 +122,7 @@ class LuaRuntimeFaultRecoveryInstrumentationTest {
                     descriptor = readEnd,
                     sourceName = "blocked-pipe.lua",
                     sourceLengthBytes = 1L,
-                    sourceSha256 = LuaSha256.digest(byteArrayOf(0)),
+                    sourceSha256 = declaredSourceSha256,
                     timeoutMillis = FAULT_TIMEOUT_MILLIS,
                     callback = callback,
                     broker = broker,
@@ -142,17 +150,30 @@ class LuaRuntimeFaultRecoveryInstrumentationTest {
             val recoveredIdentity = recovered.client.identity()
             assertNotEquals(firstIdentity.pid, recoveredIdentity.pid)
             assertNotEquals(firstIdentity.nonce, recoveredIdentity.nonce)
-            assertEquals(7L, executeReturnSeven(context, recovered.client.provider()))
+            val provider = recovered.client.provider()
+            assertPersistedCrashDiagnostic(
+                context = context,
+                provider = provider,
+                expectedKind = LuaCrashFailureKind.DEADLINE_CLEANUP_EXPIRED,
+                expectedPhase = LuaCrashPhase.SOURCE_VALIDATION,
+                expectedSourceSha256 = declaredSourceSha256,
+            )
+            assertEquals(7L, executeReturnSeven(context, provider))
+            assertCrashDiagnosticCleared(context, provider)
         } finally {
             recovered.close()
         }
     }
 
-    private fun assertFaultRecovery(faultSource: ByteArray) {
+    private fun assertFaultRecovery(
+        faultSource: ByteArray,
+        expectedKind: LuaCrashFailureKind,
+    ) {
         assertFaultHarnessConfiguration()
 
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         assertProductionProvidersDisabled(context)
+        resetCrashDiagnostic(context)
         val first = bind(context)
         val firstIdentity = first.client.identity()
         assertNotEquals("The fault harness did not enter a remote process", Process.myPid(), firstIdentity.pid)
@@ -202,7 +223,16 @@ class LuaRuntimeFaultRecoveryInstrumentationTest {
             assertEquals("${context.packageName}:lua_runtime", recoveredIdentity.processName)
             assertNotEquals("The Lua runtime PID was reused without recovery", firstIdentity.pid, recoveredIdentity.pid)
             assertNotEquals("The Lua runtime process nonce did not change", firstIdentity.nonce, recoveredIdentity.nonce)
-            assertEquals(7L, executeReturnSeven(context, recovered.client.provider()))
+            val provider = recovered.client.provider()
+            assertPersistedCrashDiagnostic(
+                context = context,
+                provider = provider,
+                expectedKind = expectedKind,
+                expectedPhase = LuaCrashPhase.NATIVE_EXECUTION,
+                expectedSourceSha256 = LuaSha256.digest(faultSource),
+            )
+            assertEquals(7L, executeReturnSeven(context, provider))
+            assertCrashDiagnosticCleared(context, provider)
         } finally {
             recovered.close()
         }
@@ -213,6 +243,43 @@ class LuaRuntimeFaultRecoveryInstrumentationTest {
         assertTrue(BuildConfig.LUA_NATIVE_ENABLED)
         assertTrue(BuildConfig.LUA_FAULT_HARNESS_ENABLED)
         assertFalse(BuildConfig.LUA_PROVIDER_ENABLED)
+    }
+
+    private fun resetCrashDiagnostic(context: Context) {
+        LuaCrashDiagnosticStore.forContext(context).clear()
+        assertNull(LuaCrashDiagnosticStore.forContext(context).read())
+    }
+
+    private fun assertPersistedCrashDiagnostic(
+        context: Context,
+        provider: ILuaRuntimeProvider,
+        expectedKind: LuaCrashFailureKind,
+        expectedPhase: LuaCrashPhase,
+        expectedSourceSha256: LuaSha256,
+    ) {
+        val runtimeInfo = LuaRuntimeCodec.decodeRuntimeInfo(provider.runtimeInfo)
+        assertTrue(
+            "Recovered getRuntimeInfo did not report the last abnormal termination",
+            LAST_ABNORMAL_TERMINATION_FLAG in runtimeInfo.capabilities,
+        )
+        val diagnostic = checkNotNull(LuaCrashDiagnosticStore.forContext(context).read()) {
+            "Recovered runtime-info flag had no private crash record"
+        }
+        assertEquals(expectedKind, diagnostic.failureKind)
+        assertEquals(expectedPhase, diagnostic.phase)
+        assertArrayEquals(
+            expectedSourceSha256.toByteArray().copyOf(8),
+            diagnostic.sourceSha256Prefix(),
+        )
+    }
+
+    private fun assertCrashDiagnosticCleared(context: Context, provider: ILuaRuntimeProvider) {
+        val runtimeInfo = LuaRuntimeCodec.decodeRuntimeInfo(provider.runtimeInfo)
+        assertFalse(
+            "A healthy recovered native execution did not clear the abnormal-termination flag",
+            LAST_ABNORMAL_TERMINATION_FLAG in runtimeInfo.capabilities,
+        )
+        assertNull(LuaCrashDiagnosticStore.forContext(context).read())
     }
 
     private fun executeDigestMismatch(context: Context, provider: ILuaRuntimeProvider) {

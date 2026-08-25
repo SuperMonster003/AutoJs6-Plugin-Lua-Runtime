@@ -213,7 +213,13 @@ load/execute/teardown timings. The exact terminal-field proposal, compatibility
 matrix, and current JVM boundary proof are recorded in
 [`docs/execution-statistics-v1.md`](docs/execution-statistics-v1.md) as requiring
 coordinated Host protocol evolution; no statistics capability is advertised or
-runtime data collected yet.
+runtime data collected yet. A separate implemented crash diagnostic writes one
+atomic, fixed 20-byte record containing only failure kind, phase, and the first
+eight SHA-256 bytes before native or watchdog process death. A fresh runtime
+reports only the content-free
+`diagnostic.last-abnormal-termination.v1` marker through `getRuntimeInfo()`;
+healthy verified native return clears it. Its privacy, race, and recovery
+contract is fixed in [`docs/crash-diagnostic-v1.md`](docs/crash-diagnostic-v1.md).
 
 The exact repository JVM-suite count is declared once in
 `verification.properties`; local, CI, debug-artifact, and release-artifact

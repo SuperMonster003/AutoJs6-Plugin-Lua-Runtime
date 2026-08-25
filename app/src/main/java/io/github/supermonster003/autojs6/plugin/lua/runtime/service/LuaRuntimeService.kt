@@ -8,6 +8,7 @@ import io.github.supermonster003.autojs6.plugin.lua.runtime.BuildConfig
 import io.github.supermonster003.autojs6.plugin.lua.runtime.LuaProviderMetadata
 import io.github.supermonster003.autojs6.plugin.lua.runtime.NativeLuaExecutionRunner
 import io.github.supermonster003.autojs6.plugin.lua.runtime.NativeLuaRuntime
+import io.github.supermonster003.autojs6.plugin.lua.runtime.diagnostic.LuaRuntimeCrashDiagnostics
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.DisabledLuaExecutionRunner
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaExecutionRunner
 import org.autojs.plugin.lua.runtime.api.ILuaExecutionCallback
@@ -28,6 +29,7 @@ class LuaRuntimeService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        LuaRuntimeCrashDiagnostics.initialize(this)
         callerVerifier = HostCallerVerifier(this)
         executionManager = LuaRuntimeExecutionManager(
             callerVerifier = callerVerifier,

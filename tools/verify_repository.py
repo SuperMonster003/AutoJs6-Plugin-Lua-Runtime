@@ -1422,7 +1422,7 @@ def verify_native_boundary() -> None:
         ROOT
         / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/LuaProviderMetadata.kt"
     ).read_text("utf-8")
-    capabilities_start = provider_metadata.index("capabilities = listOf(")
+    capabilities_start = provider_metadata.index("private val EXECUTION_CAPABILITIES = listOf(")
     capabilities_end = provider_metadata.index("),", capabilities_start)
     advertised_capabilities = re.findall(
         r"NativeLuaHostCapabilityBridge\.([A-Z][A-Z0-9_]+_CAPABILITY)",
@@ -1432,6 +1432,11 @@ def verify_native_boundary() -> None:
         advertised_capabilities
         == ["DEVICE_INFO_CAPABILITY", "MODULE_SNAPSHOT_CAPABILITY", "UI_TOAST_CAPABILITY"],
         f"Provider capability registry lacks a reviewed fixed-shape bridge: {advertised_capabilities}",
+    )
+    require(
+        "capabilities = LuaRuntimeCrashDiagnostics.reportedCapabilities(EXECUTION_CAPABILITIES)"
+        in provider_metadata,
+        "Runtime-info capabilities no longer decorate the reviewed execution registry",
     )
     capability_boundaries = {
         "DEVICE_INFO_CAPABILITY": (
@@ -1691,6 +1696,10 @@ def verify_watchdog_boundary() -> None:
             "DEADLINE_CLEANUP_EXPIRED",
             "STOP_CLEANUP_EXPIRED",
             "WATCHDOG_CONTROL_FAILURE",
+            "internal fun interface LuaProcessTerminationObserver",
+            "terminationObserver: LuaProcessTerminationObserver = LuaProcessTerminationObserver.NONE",
+            "observeTerminationLocked(token, reason)",
+            "runCatching { terminationObserver.beforeTermination(token, reason) }",
             "execution.stopRequestedNanos?.let",
             "tasks.forEach { task -> runCatching { task.cancel() } }",
         ),
@@ -1718,6 +1727,7 @@ def verify_watchdog_boundary() -> None:
             "ProcessExecutionResources.watchdog.tryAcquire(",
             "watchdog = watchdogLease",
             "terminator = AndroidLuaRuntimeProcessTerminator",
+            "terminationObserver = LuaRuntimeCrashDiagnostics",
             "cleanupGraceMillis = WATCHDOG_CLEANUP_GRACE_MILLIS",
             "WATCHDOG_CLEANUP_GRACE_MILLIS = 2_000L",
         ),
@@ -1742,6 +1752,251 @@ def verify_watchdog_boundary() -> None:
         and "expiredDeadlineFailsClosedBeforeWorkerDispatchEvenIfTerminatorReturns" in tests
         and "expiredStopGraceFailsClosedBeforeWorkerDispatch" in tests,
         "Android-free watchdog race coverage is missing",
+    )
+    require(
+        "terminationObserverRunsBeforeTerminatorAndCannotSuppressFailStop" in tests
+        and 'events += "diagnostic"' in tests
+        and 'events += "terminate"' in tests
+        and 'assertEquals(listOf("diagnostic", "terminate"), events)' in tests,
+        "Watchdog diagnostic-before-termination ordering evidence is missing",
+    )
+
+
+def verify_crash_diagnostic_boundary() -> None:
+    record = (
+        ROOT
+        / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/diagnostic/"
+        "LuaCrashDiagnostic.kt"
+    ).read_text("utf-8")
+    require_tokens(
+        record,
+        (
+            '"diagnostic.last-abnormal-termination.v1"',
+            "NATIVE_CRASH(1)",
+            "DEADLINE_CLEANUP_EXPIRED(2)",
+            "STOP_CLEANUP_EXPIRED(3)",
+            "WATCHDOG_CONTROL_FAILURE(4)",
+            "QUEUE(1)",
+            "SOURCE_VALIDATION(2)",
+            "NATIVE_EXECUTION(3)",
+            "const val SOURCE_HASH_PREFIX_BYTES = 8",
+            "const val ENCODED_BYTES = 20",
+            "CRC32()",
+            "AtomicLuaCrashDiagnosticStorage(context.applicationContext.noBackupFilesDir)",
+            'const val DIRECTORY_NAME = "lua-runtime-diagnostics"',
+            'const val FILE_NAME = "last-abnormal-termination.v1"',
+            "ByteArray(LuaCrashDiagnosticCodec.ENCODED_BYTES + 1)",
+            "atomicFile.startWrite()",
+            "atomicFile.finishWrite(output)",
+            "atomicFile.failWrite(output)",
+        ),
+        "Private fixed-shape crash diagnostic record",
+    )
+    require(
+        "sourceUtf8" not in record
+        and "sourceText" not in record
+        and "stackTrace" not in record
+        and "Throwable.printStackTrace" not in record,
+        "Crash diagnostic storage can retain source content or a stack trace",
+    )
+
+    coordinator = (
+        ROOT
+        / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/diagnostic/"
+        "LuaRuntimeCrashDiagnostics.kt"
+    ).read_text("utf-8")
+    require_tokens(
+        coordinator,
+        (
+            "internal class LuaCrashDiagnosticCoordinator",
+            "sourceSha256.toByteArray().copyOf(LuaCrashDiagnostic.SOURCE_HASH_PREFIX_BYTES)",
+            "execution?.provisionalNativeCrashWritten == true && !execution.terminationCommitted",
+            "execution.token !== token",
+            "failureKind = reason.toCrashFailureKind()",
+            "execution.terminationCommitted = true",
+            "failureKind = LuaCrashFailureKind.NATIVE_CRASH",
+            "if (!execution.terminationCommitted && execution.provisionalNativeCrashWritten)",
+            "store.clear()",
+            "LuaProcessTerminationReason.DEADLINE_CLEANUP_EXPIRED",
+            "LuaProcessTerminationReason.STOP_CLEANUP_EXPIRED",
+            "LuaProcessTerminationReason.WATCHDOG_CONTROL_FAILURE",
+            "withLastAbnormalTerminationFlag(executionCapabilities, current().hasReportableDiagnostic())",
+            "if (present && LAST_ABNORMAL_TERMINATION_FLAG !in capabilities)",
+        ),
+        "Token-bound crash diagnostic lifecycle",
+    )
+
+    metadata = (
+        ROOT
+        / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/LuaProviderMetadata.kt"
+    ).read_text("utf-8")
+    require_tokens(
+        metadata,
+        (
+            "private val EXECUTION_CAPABILITIES = listOf(",
+            "capabilities = LuaRuntimeCrashDiagnostics.reportedCapabilities(EXECUTION_CAPABILITIES)",
+        ),
+        "Runtime-info abnormal-termination marker",
+    )
+
+    service = (
+        ROOT
+        / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/"
+        "LuaRuntimeService.kt"
+    ).read_text("utf-8")
+    debug_service = (
+        ROOT
+        / "app/src/debug/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/"
+        "LuaRuntimeFaultService.kt"
+    ).read_text("utf-8")
+    for label, service_text in (("Provider", service), ("fault harness", debug_service)):
+        initialize_at = service_text.index("LuaRuntimeCrashDiagnostics.initialize(this)")
+        manager_at = service_text.index("LuaRuntimeExecutionManager(")
+        require(
+            initialize_at < manager_at,
+            f"{label} service does not initialize crash diagnostics before its execution manager",
+        )
+    require(
+        "LuaRuntimeCrashDiagnostics.reportedCapabilities(" in debug_service,
+        "Fault harness runtime-info does not report persisted crash state",
+    )
+
+    manager = (
+        ROOT
+        / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/"
+        "LuaRuntimeExecutionManager.kt"
+    ).read_text("utf-8")
+    require_tokens(
+        manager,
+        (
+            "LuaRuntimeCrashDiagnostics.requireInitialized()",
+            "LuaRuntimeCrashDiagnostics.acquire(token, request.sourceSha256)",
+            "crashDiagnosticLease = LuaExecutionCrashDiagnosticLease.NONE",
+            "crashDiagnostics = crashDiagnosticLease",
+            "terminationObserver = LuaRuntimeCrashDiagnostics",
+        ),
+        "Execution-manager crash diagnostic ownership",
+    )
+    require(
+        manager.index("LuaRuntimeCrashDiagnostics.acquire(token, request.sourceSha256)")
+        < manager.index("ProcessExecutionResources.watchdog.tryAcquire("),
+        "Crash diagnostic token is acquired after its watchdog token",
+    )
+
+    controller = (
+        ROOT
+        / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/execution/"
+        "LuaExecutionSessionController.kt"
+    ).read_text("utf-8")
+    require_tokens(
+        controller,
+        (
+            "crashDiagnostics.sourceValidationStarted()",
+            "crashDiagnostics.nativeExecutionStarted()",
+            "crashDiagnostics.nativeExecutionReturned()",
+            "crashDiagnostics.closeQuietly()",
+        ),
+        "Execution-phase crash diagnostic lifecycle",
+    )
+    native_started_at = controller.index("crashDiagnostics.nativeExecutionStarted()")
+    runner_at = controller.index("runner.execute(", native_started_at)
+    native_returned_at = controller.index("crashDiagnostics.nativeExecutionReturned()", runner_at)
+    require(
+        native_started_at < runner_at < native_returned_at
+        and "} finally {" in controller[runner_at:native_returned_at],
+        "Native crash provisional record no longer brackets every runner return",
+    )
+
+    watchdog = (
+        ROOT
+        / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/execution/"
+        "LuaExecutionWatchdog.kt"
+    ).read_text("utf-8")
+    observer_at = watchdog.index("observeTerminationLocked(token, reason)")
+    terminator_at = watchdog.index("if (shouldTerminate) terminateProcess(reason)", observer_at)
+    require(
+        observer_at < terminator_at,
+        "Watchdog termination can run before its diagnostic observer",
+    )
+
+    unit_tests = (
+        ROOT
+        / "app/src/test/java/io/github/supermonster003/autojs6/plugin/lua/runtime/diagnostic/"
+        "LuaCrashDiagnosticTest.kt"
+    ).read_text("utf-8")
+    require_tokens(
+        unit_tests,
+        (
+            "fixedRecordRoundTripsWithoutExposingMutableHashBytes",
+            "malformedOrOversizedPrivateRecordIsRejectedAndDeleted",
+            "provisionalNativeCrashIsHiddenAndClearedAfterManagedReturn",
+            "watchdogCommitOverwritesProvisionalRecordAndSurvivesWorkerReturn",
+            "runtimeInfoFlagIsConditionalContentFreeAndNeverDuplicated",
+        ),
+        "Crash diagnostic JVM coverage",
+    )
+    controller_tests = (
+        ROOT
+        / "app/src/test/java/io/github/supermonster003/autojs6/plugin/lua/runtime/execution/"
+        "LuaExecutionSessionControllerTest.kt"
+    ).read_text("utf-8")
+    require(
+        "crashDiagnosticLeaseBracketsOnlyVerifiedRunnerExecution" in controller_tests,
+        "Controller crash diagnostic phase coverage is missing",
+    )
+
+    instrumentation = (
+        ROOT
+        / "app/src/androidTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/"
+        "LuaRuntimeFaultRecoveryInstrumentationTest.kt"
+    ).read_text("utf-8")
+    require_tokens(
+        instrumentation,
+        (
+            "resetCrashDiagnostic(context)",
+            "assertPersistedCrashDiagnostic(",
+            "LAST_ABNORMAL_TERMINATION_FLAG in runtimeInfo.capabilities",
+            "LuaCrashDiagnosticStore.forContext(context).read()",
+            "expectedSourceSha256.toByteArray().copyOf(8)",
+            "assertCrashDiagnosticCleared(context, provider)",
+            "LuaCrashFailureKind.NATIVE_CRASH",
+            "LuaCrashFailureKind.DEADLINE_CLEANUP_EXPIRED",
+            "LuaCrashPhase.NATIVE_EXECUTION",
+            "LuaCrashPhase.SOURCE_VALIDATION",
+        ),
+        "Crash/restart/runtime-info instrumentation evidence",
+    )
+
+    native = (ROOT / "app/src/main/cpp/lua_runtime_jni.cpp").read_text("utf-8")
+    kotlin_boundary = (
+        ROOT
+        / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/NativeLuaRuntime.kt"
+    ).read_text("utf-8")
+    require(
+        "diagnostic.last-abnormal-termination.v1" not in native
+        and "diagnostic.last-abnormal-termination.v1" not in kotlin_boundary,
+        "Observational crash marker entered the executable Host-capability bridge",
+    )
+
+    crash_doc = (ROOT / "docs/crash-diagnostic-v1.md").read_text("utf-8")
+    require_tokens(
+        crash_doc,
+        (
+            "Status: **IMPLEMENTED",
+            "exactly 20 bytes",
+            "noBackupFilesDir",
+            "first eight digest bytes, never source bytes",
+            "`NATIVE_CRASH/NATIVE_EXECUTION`",
+            "provisional marker",
+            "poisons its owned token first",
+            "Observer exceptions",
+            "storage failure cannot suppress mandatory fail-stop",
+            "Reads are non-consuming",
+            "next verified native execution",
+            "content-free marker",
+            "Repository static checks reject source/stack retention",
+        ),
+        "Crash diagnostic lifecycle documentation",
     )
 
 
@@ -2156,7 +2411,7 @@ def verify_fault_harness_boundary() -> None:
             "assertStartedWithoutTerminal()",
             "assertCompletedOnce()",
             'assertNotEquals("The Lua runtime process nonce did not change"',
-            "assertEquals(7L, executeReturnSeven(context, recovered.client.provider()))",
+            "assertEquals(7L, executeReturnSeven(context, provider))",
             "ParcelFileDescriptor.createPipe()",
             "pipe[1].close()",
             "BLOCKED_SOURCE_MAX_ELAPSED_MILLIS",
@@ -2408,6 +2663,7 @@ def main() -> int:
     verify_r4_design_records()
     verify_native_boundary()
     verify_watchdog_boundary()
+    verify_crash_diagnostic_boundary()
     verify_descriptor_boundary()
     verify_native_android_test_boundary()
     verify_fault_harness_boundary()

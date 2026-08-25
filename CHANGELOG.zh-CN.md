@@ -38,6 +38,9 @@
 - 审计冻结的 Lua 终态/runtime-info 模型，将每执行统计明确标记为需要 Host 协议
   演进，冻结嵌套字段、validity mask、终态 tag 与 protocol 1.1 capability 协商，
   并加入 JVM 门禁，证明当前 V1 没有被误当作具备统计承载位。
+- 新增原子、固定 20 字节的进程私有崩溃诊断，仅保存闭合 failure kind、执行阶段、
+  源码 SHA-256 前 8 字节与校验和；runtime 重启后只上报不含内容的 runtime-info
+  标志，下一次健康且已验证的 native 返回会同时清除标志和记录。
 - 增加仅限 debug 的远端 `/proc/self/fd` 记账，证明批量成功、digest 失败、取消、
   callback 死亡和 broker 死亡路径均精确恢复到同一基线。
 - 增加悬挂 pipe 源的 fail-stop/rebind 覆盖，以及用于 callback/broker 独立死亡的

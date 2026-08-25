@@ -135,6 +135,33 @@ class LuaExecutionWatchdogTest {
         assertNull(watchdog.tryAcquire(Any(), 0L, 100L))
     }
 
+    @Test
+    fun terminationObserverRunsBeforeTerminatorAndCannotSuppressFailStop() {
+        val now = AtomicLong(0L)
+        val scheduler = ManualScheduler()
+        val token = Any()
+        val events = mutableListOf<String>()
+        val watchdog = LuaExecutionWatchdog(
+            clock = LuaMonotonicClock(now::get),
+            scheduler = scheduler,
+            terminator = LuaRuntimeProcessTerminator { events += "terminate" },
+            terminationObserver = LuaProcessTerminationObserver { observedToken, reason ->
+                assertTrue(observedToken === token)
+                assertEquals(LuaProcessTerminationReason.DEADLINE_CLEANUP_EXPIRED, reason)
+                events += "diagnostic"
+                error("injected diagnostic failure")
+            },
+            cleanupGraceMillis = DEFAULT_GRACE_MILLIS,
+        )
+        val lease = checkNotNull(watchdog.tryAcquire(token, 0L, 100L))
+
+        assertTrue(lease.executionDispatched())
+        scheduler.run(0)
+
+        assertEquals(listOf("diagnostic", "terminate"), events)
+        assertTrue(watchdog.snapshot().poisoned)
+    }
+
     private fun watchdog(
         now: AtomicLong,
         scheduler: ManualScheduler,

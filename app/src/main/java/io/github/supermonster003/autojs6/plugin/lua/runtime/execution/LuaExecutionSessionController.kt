@@ -1,5 +1,6 @@
 package io.github.supermonster003.autojs6.plugin.lua.runtime.execution
 
+import io.github.supermonster003.autojs6.plugin.lua.runtime.diagnostic.LuaExecutionCrashDiagnosticLease
 import org.autojs.plugin.lua.runtime.api.LuaCancellationReason
 import org.autojs.plugin.lua.runtime.api.LuaExecutionCancellation
 import org.autojs.plugin.lua.runtime.api.LuaExecutionError
@@ -50,6 +51,7 @@ internal class LuaExecutionSessionController(
     private val runner: LuaExecutionRunner,
     private val dispatcher: LuaExecutionDispatcher,
     private val watchdog: LuaExecutionWatchdogLease,
+    private val crashDiagnostics: LuaExecutionCrashDiagnosticLease = LuaExecutionCrashDiagnosticLease.NONE,
     private val observer: LuaExecutionObserver,
     private val hostCapabilityInvoker: LuaHostCapabilityInvoker = LuaHostCapabilityInvoker.REJECTING,
     private val initialFailure: LuaExecutionError? = null,
@@ -302,6 +304,7 @@ internal class LuaExecutionSessionController(
                 claimAndDeliverFailure(timeoutFailure(LuaExecutionFailurePhase.QUEUE))
                 return
             }
+            crashDiagnostics.sourceValidationStarted()
             val sourceUtf8 = try {
                 source.readVerified(request)
             } catch (error: LuaSourceException) {
@@ -330,18 +333,23 @@ internal class LuaExecutionSessionController(
                 return
             }
             val result = try {
-                runner.execute(
-                    LuaRunnerRequest(
-                        sourceUtf8 = sourceUtf8,
-                        sourceName = request.sourceName,
-                        arguments = request.arguments,
-                        memoryLimitBytes = request.memoryByteLimit,
-                        timeoutMillis = runnerTimeoutMillis,
-                        cancellationProbe = LuaCancellationProbe(::isCancellationRequested),
-                        outputEmitter = LuaOutputEmitter(::emitOutput),
-                        hostCapabilityInvoker = hostCapabilityInvoker,
-                    ),
-                )
+                crashDiagnostics.nativeExecutionStarted()
+                try {
+                    runner.execute(
+                        LuaRunnerRequest(
+                            sourceUtf8 = sourceUtf8,
+                            sourceName = request.sourceName,
+                            arguments = request.arguments,
+                            memoryLimitBytes = request.memoryByteLimit,
+                            timeoutMillis = runnerTimeoutMillis,
+                            cancellationProbe = LuaCancellationProbe(::isCancellationRequested),
+                            outputEmitter = LuaOutputEmitter(::emitOutput),
+                            hostCapabilityInvoker = hostCapabilityInvoker,
+                        ),
+                    )
+                } finally {
+                    crashDiagnostics.nativeExecutionReturned()
+                }
             } catch (error: LuaRunnerException) {
                 handleRunnerFailure(error)
                 return
@@ -534,6 +542,7 @@ internal class LuaExecutionSessionController(
     private fun finish() {
         if (!cleanupStarted.compareAndSet(false, true)) return
         watchdog.closeQuietly()
+        crashDiagnostics.closeQuietly()
         val leaseToCancel = synchronized(lock) {
             phase = Phase.FINISHED
             startLease.also { startLease = null }
@@ -671,5 +680,9 @@ private fun LuaExecutionWatchdogLease.stopRequestedQuietly() {
 }
 
 private fun LuaExecutionWatchdogLease.closeQuietly() {
+    runCatching { close() }
+}
+
+private fun LuaExecutionCrashDiagnosticLease.closeQuietly() {
     runCatching { close() }
 }

@@ -1,5 +1,6 @@
 package io.github.supermonster003.autojs6.plugin.lua.runtime.execution
 
+import io.github.supermonster003.autojs6.plugin.lua.runtime.diagnostic.LuaExecutionCrashDiagnosticLease
 import org.autojs.plugin.lua.runtime.api.LuaExecutionCancellation
 import org.autojs.plugin.lua.runtime.api.LuaExecutionError
 import org.autojs.plugin.lua.runtime.api.LuaExecutionErrorCode
@@ -512,6 +513,31 @@ class LuaExecutionSessionControllerTest {
         assertEquals(diagnostics, observer.lastError?.message)
     }
 
+    @Test
+    fun crashDiagnosticLeaseBracketsOnlyVerifiedRunnerExecution() {
+        val dispatcher = ManualDispatcher()
+        val observer = RecordingObserver()
+        val diagnostics = RecordingCrashDiagnosticLease()
+        val controller = controller(
+            dispatcher = dispatcher,
+            observer = observer,
+            crashDiagnostics = diagnostics,
+            runner = LuaExecutionRunner {
+                diagnostics.events += "runner"
+                LuaValue.Int64Value(1L)
+            },
+        )
+
+        assertTrue(controller.start())
+        dispatcher.runAccepted()
+
+        assertEquals(
+            listOf("source-validation", "native-start", "runner", "native-return", "close"),
+            diagnostics.events,
+        )
+        assertEquals(listOf("started", "completed"), observer.events)
+    }
+
     private fun controller(
         dispatcher: LuaExecutionDispatcher,
         observer: RecordingObserver,
@@ -521,6 +547,7 @@ class LuaExecutionSessionControllerTest {
         request: LuaExecutionRequest = REQUEST,
         clock: LuaMonotonicClock = LuaMonotonicClock { 1_000_000L },
         watchdog: LuaExecutionWatchdogLease = RecordingWatchdogLease(),
+        crashDiagnostics: LuaExecutionCrashDiagnosticLease = LuaExecutionCrashDiagnosticLease.NONE,
         onFinished: () -> Unit = {},
     ): LuaExecutionSessionController = LuaExecutionSessionController(
         request = request,
@@ -529,6 +556,7 @@ class LuaExecutionSessionControllerTest {
         runner = runner,
         dispatcher = dispatcher,
         watchdog = watchdog,
+        crashDiagnostics = crashDiagnostics,
         observer = observer,
         initialFailure = initialFailure,
         clock = clock,
@@ -582,6 +610,26 @@ class LuaExecutionSessionControllerTest {
 
         override fun close() {
             closes.incrementAndGet()
+        }
+    }
+
+    private class RecordingCrashDiagnosticLease : LuaExecutionCrashDiagnosticLease {
+        val events = mutableListOf<String>()
+
+        override fun sourceValidationStarted() {
+            events += "source-validation"
+        }
+
+        override fun nativeExecutionStarted() {
+            events += "native-start"
+        }
+
+        override fun nativeExecutionReturned() {
+            events += "native-return"
+        }
+
+        override fun close() {
+            events += "close"
         }
     }
 

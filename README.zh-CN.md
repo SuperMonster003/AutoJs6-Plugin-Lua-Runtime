@@ -190,6 +190,12 @@ R4 继续保持 Lua 层 `pcall` 和 `xpcall` 不可用；审阅后的理由与�
 JVM 边界证据记录在
 [`docs/execution-statistics-v1.md`](docs/execution-statistics-v1.md)，并明确标记
 为需要 Host 协议协同演进；当前尚未广告统计 capability，也未采集运行时统计。
+另有一项已实现的崩溃诊断：在 native 或 watchdog 导致进程死亡前，以原子方式写入
+一条固定 20 字节记录，其中仅含 failure kind、阶段和 SHA-256 前 8 字节；新 runtime
+只经 `getRuntimeInfo()` 上报不含内容的
+`diagnostic.last-abnormal-termination.v1` 标志，健康的已验证 native 返回会将其清除。
+隐私、竞态与恢复契约固定在
+[`docs/crash-diagnostic-v1.md`](docs/crash-diagnostic-v1.md)。
 
 仓库 JVM 套件的准确数量只在 `verification.properties` 中声明一次，本地、CI、
 debug 制品和 release 制品门禁都从这里读取。原生、Binder/PFD、进程恢复与

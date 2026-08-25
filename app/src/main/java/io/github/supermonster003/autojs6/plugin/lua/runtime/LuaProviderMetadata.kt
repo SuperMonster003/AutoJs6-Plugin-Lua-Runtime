@@ -3,6 +3,7 @@ package io.github.supermonster003.autojs6.plugin.lua.runtime
 import android.content.Context
 import android.os.Build
 import android.os.Process
+import io.github.supermonster003.autojs6.plugin.lua.runtime.diagnostic.LuaRuntimeCrashDiagnostics
 import org.autojs.plugin.lua.runtime.api.LuaProtocolVersion
 import org.autojs.plugin.lua.runtime.api.LuaRuntimeContract
 import org.autojs.plugin.lua.runtime.api.LuaRuntimeFamily
@@ -15,6 +16,11 @@ internal object LuaProviderMetadata {
     const val LANGUAGE_VERSION = "5.4.8"
 
     val supportedAbis = listOf("arm64-v8a", "x86_64")
+    private val EXECUTION_CAPABILITIES = listOf(
+        NativeLuaHostCapabilityBridge.DEVICE_INFO_CAPABILITY,
+        NativeLuaHostCapabilityBridge.MODULE_SNAPSHOT_CAPABILITY,
+        NativeLuaHostCapabilityBridge.UI_TOAST_CAPABILITY,
+    )
 
     fun runtimeInfo(context: Context): LuaRuntimeInfo {
         val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
@@ -39,11 +45,7 @@ internal object LuaProviderMetadata {
             languageVersion = NativeLuaRuntime.languageVersion(),
             processAbi = processAbi(),
             supportedAbis = supportedAbis,
-            capabilities = listOf(
-                NativeLuaHostCapabilityBridge.DEVICE_INFO_CAPABILITY,
-                NativeLuaHostCapabilityBridge.MODULE_SNAPSHOT_CAPABILITY,
-                NativeLuaHostCapabilityBridge.UI_TOAST_CAPABILITY,
-            ),
+            capabilities = LuaRuntimeCrashDiagnostics.reportedCapabilities(EXECUTION_CAPABILITIES),
             limits = LuaRuntimeLimits(
                 maxSourceBytes = LuaRuntimeContract.MAX_SOURCE_BYTES,
                 maxMemoryBytes = LuaRuntimeContract.MAX_MEMORY_BYTES,

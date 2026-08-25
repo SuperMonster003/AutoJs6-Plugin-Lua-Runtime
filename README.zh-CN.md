@@ -79,6 +79,10 @@ Android 一致性门禁通过前保持关闭。因此，安装普通脚手架构
 dispatch 前的运行时信息超时继续落在原绑定预算内；更早的 Lua-capable 宿主可能
 发现 Provider，但无法可靠派发脚本。
 
+当前签名打包回执、精确 split/universal 摘要、native payload 身份以及仍为 false
+的设备/runtime 标志已归档在
+[`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md)。
+
 ## 协议输入
 
 应用只消费三个位于仓库内且由 SHA-256 锁定的 AAR：
@@ -244,10 +248,12 @@ merged manifest 或 APK 检查；源码和 CI 文本检查不是运行时证据�
 
 ## Release 验证
 
-已完成的本地候选版本应遵循宿主仓库的 Lua roadmap 与定期证据。冻结的签名制品
-仅属于插件 revision `0497d5061171421e655e0256ef5a1fe1566c5a23`；其后的源码
-或协议输入提交必须重新构建，不能继承该 revision 的设备或签名证据。公开 tag、
-远程发布上传和生产 soak 仍不在当前范围内。
+当前签名打包候选属于干净插件 revision
+`a0ae189ac8cba042848412a671c91b0b8a7c44e1`、versionCode 43；universal APK
+SHA-256 为 `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`。
+严格制品门禁已经通过，但设备/runtime 验证仍刻意保持 false。之后若有可执行源码
+或协议输入提交，就必须重新构建，不能继承该候选的证据。公开 tag、远程发布上传、
+设备矩阵与生产 soak 仍是独立工作。
 
 签名 release assembly 必须显式 opt-in。外部签名 properties 与 keystore 可以
 直接使用，无需复制到仓库：

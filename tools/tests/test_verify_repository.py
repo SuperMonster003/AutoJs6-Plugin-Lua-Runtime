@@ -672,6 +672,9 @@ class InputWorkflowTest(unittest.TestCase):
         "tools/verify_release_candidate_artifacts.ps1",
         "tools/verify_local.ps1",
         "tools/verify_lua_archive.ps1",
+        "docs/release-candidate-rc2.md",
+        "ROADMAP-R4.md",
+        "README.md",
     )
 
     def copy_inputs(self, root: Path) -> None:
@@ -834,6 +837,23 @@ class InputWorkflowTest(unittest.TestCase):
                 "runnable provider receipt drops revision binding",
                 "tools/build_runnable_provider.ps1",
                 lambda text: text.replace("revision=$sourceRevision", "revision=unknown", 1),
+            ),
+            (
+                "signed candidate completion is unchecked",
+                "ROADMAP-R4.md",
+                lambda text: text.replace(
+                    "- [x] **rc.2 候选重建**",
+                    "- [ ] **rc.2 候选重建**",
+                    1,
+                ),
+            ),
+            (
+                "signed candidate receipt digest drifts",
+                "docs/release-candidate-rc2.md",
+                lambda text: text.replace(
+                    "93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd",
+                    "0" * 64,
+                ),
             ),
         )
         for label, relative, mutate in mutations:

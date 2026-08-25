@@ -88,6 +88,10 @@ That Host version keeps the pre-dispatch runtime-info timeout within the live
 binding's original budget; earlier Lua-capable Host builds can discover the
 Provider but cannot reliably dispatch a script.
 
+The current signed-packaging receipt, exact split/universal digests, native
+payload identities, and still-false device/runtime flags are archived in
+[`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md).
+
 ## Protocol inputs
 
 The App consumes exactly three repository-local, SHA-256-locked AARs:
@@ -279,12 +283,13 @@ is permitted; source and CI-text checks are not runtime evidence.
 
 ## Release validation
 
-Follow the host repository's Lua roadmap and dated evidence for the completed
-local release candidate. The frozen signed artifacts belong to plugin revision
-`0497d5061171421e655e0256ef5a1fe1566c5a23` only; later source or protocol-input
-commits require a fresh build and must not inherit that revision's device or
-signing evidence. A public tag, remote publication, release upload, and
-production soak remain out of scope.
+The current signed-packaging candidate belongs to clean plugin revision
+`a0ae189ac8cba042848412a671c91b0b8a7c44e1`, versionCode 43. Its universal APK
+SHA-256 is `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`;
+the strict artifact gate passed while device/runtime verification deliberately
+remains false. Later executable or protocol-input commits require a fresh build
+and must not inherit this candidate's evidence. A public tag, remote publication,
+release upload, device matrix, and production soak remain separate work.
 
 Signed release assembly is deliberately opt-in. An external signing properties
 file and keystore can be consumed without copying either into this repository:

@@ -55,6 +55,9 @@
 - 强化可运行 Provider 构建器：要求干净 revision 及版本/提交数一致，强制 clean
   离线重建，调用完整签名 release 制品门禁，并在回执中绑定 revision 与 APK
   SHA-256。
+- 从干净 revision `a0ae189ac8cba042848412a671c91b0b8a7c44e1` 重建
+  0.1.0-rc.2 签名打包候选；59 项 JVM、单签名 split/universal ABI 身份、fault
+  harness 排除及 16 KiB ZIP/ELF 对齐通过，设备/runtime 验证仍明确保持 false。
 
 ## 0.1.0-rc.1 — 历史本地候选版本
 

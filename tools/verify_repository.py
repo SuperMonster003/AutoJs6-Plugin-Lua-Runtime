@@ -891,6 +891,54 @@ def verify_input_workflows() -> None:
         "Runnable same-signer Lua provider workflow",
     )
 
+    candidate_doc = (ROOT / "docs/release-candidate-rc2.md").read_text("utf-8")
+    require_tokens(
+        candidate_doc,
+        (
+            "Status: **SIGNED PACKAGING VERIFIED — DEVICE/RUNTIME PENDING**",
+            "a0ae189ac8cba042848412a671c91b0b8a7c44e1",
+            "versionCode 43",
+            "59/59",
+            "All 87 Gradle tasks executed fresh",
+            "93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd",
+            "257f4c4a9dceed4fc58e089651370abaaa1384cf09c5f69e6fb21f244d409210",
+            "c92fbea3c878d7b2ba1c28bdca168201b98c28c6bf62a953f63e2c9771f45a12",
+            "31a681fcfffb3e428420cae280ded89292b12a3b0f59e19b7a73e32a8ae4c213",
+            "SIGNED_RELEASE_CANDIDATE_ARTIFACT_GATE_PASS provider=true faultHarness=false",
+            "RUNNABLE_LUA_PROVIDER_OK revision=a0ae189ac8cba042848412a671c91b0b8a7c44e1",
+            "sourceClean=true artifactGateVerified=true deviceVerified=false runtimeVerified=false",
+            "No APK was installed",
+            "no physical device was touched",
+        ),
+        "R4-E signed packaging candidate evidence",
+    )
+    roadmap = (ROOT / "ROADMAP-R4.md").read_text("utf-8")
+    require_tokens(
+        roadmap,
+        (
+            "- [x] **rc.2 候选重建**",
+            "R4-E rc.2 签名打包证据 (2026-08-25)",
+            "a0ae189ac8cba042848412a671c91b0b8a7c44e1",
+            "59/59 JVM、R8、lintVital 与 87 个 fresh Gradle",
+            "artifactGateVerified=true",
+            "`deviceVerified=false`、`runtimeVerified=false`",
+            "docs/release-candidate-rc2.md",
+        ),
+        "R4-E rc.2 completion ledger",
+    )
+    readme = (ROOT / "README.md").read_text("utf-8")
+    require_tokens(
+        readme,
+        (
+            "The current signed-packaging candidate belongs to clean plugin revision",
+            "a0ae189ac8cba042848412a671c91b0b8a7c44e1",
+            "93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd",
+            "device/runtime verification deliberately",
+            "docs/release-candidate-rc2.md",
+        ),
+        "Published current release-candidate identity",
+    )
+
     attributes_lines = (ROOT / ".gitattributes").read_text("utf-8").splitlines()
     vendor_whitespace_rule = "app/src/main/cpp/vendor/lua-5.4.8/src/** -whitespace"
     require(

@@ -65,6 +65,10 @@ not published availability.
 - Hardened the runnable-provider builder to require a clean revision and
   version/commit-count identity, force a clean offline rebuild, invoke the full
   signed release artifact gate, and bind revision plus APK SHA-256 in its receipt.
+- Rebuilt the 0.1.0-rc.2 signed packaging candidate from clean revision
+  `a0ae189ac8cba042848412a671c91b0b8a7c44e1`; 59 JVM tests, single-signer
+  split/universal ABI identity, fault-harness exclusion, and 16 KiB ZIP/ELF
+  alignment passed, while device/runtime verification remains explicitly false.
 
 ## 0.1.0-rc.1 — historical local candidate
 

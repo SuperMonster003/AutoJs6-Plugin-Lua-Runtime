@@ -296,7 +296,7 @@ observer → logger → terminator”；observer/logger 异常均被独立遏制
 
 ## R4-E — 发布工程收敛 (从 rc 走向可公开发布)
 
-- [ ] **rc.2 候选重建**。基于 R4-0 修复后的干净 HEAD 重建签名候选:
+- [x] **rc.2 候选重建**。基于 R4-0 修复后的干净 HEAD 重建签名候选:
   `tools/build_runnable_provider.ps1` 全程通过, 产出新的 receipt。
   完成判据: receipt 中 revision 为新 HEAD; `deviceVerified`/
   `runtimeVerified` 按流程翻转为 true 的设备证据单独归档。
@@ -317,6 +317,21 @@ observer → logger → terminator”；observer/logger 异常均被独立遏制
 - [ ] **生产 soak 计划**。定义 soak 通过标准 (连续 N 天日常脚本零
   fail-stop、零 FD 增长、零 ANR), 并按标准执行首轮。
   完成判据: soak 标准文档 + 首轮结果记录。
+
+R4-E rc.2 签名打包证据 (2026-08-25): 干净 implementation revision
+`a0ae189ac8cba042848412a671c91b0b8a7c44e1` 的提交数/versionCode 同为 43；强化后的
+`build_runnable_provider.ps1` 强制 `:app:clean`、`--rerun-tasks`、`--offline`，并
+自动调用严格 release artifact gate。59/59 JVM、R8、lintVital 与 87 个 fresh Gradle
+任务通过；Provider=true、faultHarness=false、单签名、split/universal ABI 一致及
+ZIP/ELF 16 KiB 对齐均通过。universal APK 为 1,299,883 bytes、SHA-256
+`93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`，arm64 APK 为
+`257f4c4a9dceed4fc58e089651370abaaa1384cf09c5f69e6fb21f244d409210`，x86_64 APK 为
+`c92fbea3c878d7b2ba1c28bdca168201b98c28c6bf62a953f63e2c9771f45a12`，共同 signer
+为 `31a681fcfffb3e428420cae280ded89292b12a3b0f59e19b7a73e32a8ae4c213`。回执精确绑定
+revision 与 universal digest，且诚实保持 `artifactGateVerified=true`、
+`deviceVerified=false`、`runtimeVerified=false`；未安装 APK、未发出 ADB 命令、未
+触碰物理设备。完整制品表、native 摘要、Host comparator 边界与回执见
+[`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md)。
 
 ## R4-F — 门禁与 CI 强化 (全程可离线)
 

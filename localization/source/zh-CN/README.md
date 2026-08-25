@@ -62,8 +62,11 @@ Android 一致性门禁通过前保持关闭。因此，安装普通脚手架构
     -HostApk '<匹配 AutoJs6 APK 的绝对路径>'
 ```
 
-该命令会运行 JVM 套件，为 release 构建启用原生执行和两个发现服务，检查通用
-APK 的 action、原生 ABI、版本与签名者，最后输出准确的制品路径。最终回执仍会
+该命令要求 revision 干净且提交数与 versionCode 一致，清除旧输出，并完全离线地
+重新运行 JVM/release 构建。它会启用原生执行和两个发现服务，再调用严格 release
+制品门禁，核对精确测试数、签名证书、split/universal ABI 身份、16 KiB ZIP/ELF
+对齐、release 不可调试及 fault-harness 物理排除。最终回执绑定 revision、APK
+摘要与准确路径，并仍会
 保持 `deviceVerified=false` 和 `runtimeVerified=false`；安装以及一次真实的
 宿主到 Provider Lua 执行属于独立设备证据。仓库默认值仍不可发现，同签名 Binder
 边界也不会被削弱。
@@ -247,6 +250,7 @@ merged manifest 或 APK 检查；源码和 CI 文本检查不是运行时证据�
 
 ```powershell
 $releaseArgs = @(
+    ':app:clean'
     ':app:testDebugUnitTest'
     ':app:assembleRelease'
     '-Pautojs.lua.native.enabled=true'
@@ -255,6 +259,8 @@ $releaseArgs = @(
     '-Pautojs.lua.releaseCandidate.enabled=true'
     '-Pautojs.lua.release.signingPropertiesFile=<签名 properties 的绝对路径>'
     '-Pautojs.lua.release.signingStoreFile=<JKS 的绝对路径>'
+    '--rerun-tasks'
+    '--offline'
     '--no-daemon'
     '--console=plain'
 )

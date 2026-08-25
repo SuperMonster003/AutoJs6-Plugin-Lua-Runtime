@@ -62,6 +62,9 @@ not published availability.
   exclusion audit while every publishable package remains guarded; the canonical
   audit now removes stale build outputs and forces fresh intermediates with
   `:app:clean` plus `--rerun-tasks`.
+- Hardened the runnable-provider builder to require a clean revision and
+  version/commit-count identity, force a clean offline rebuild, invoke the full
+  signed release artifact gate, and bind revision plus APK SHA-256 in its receipt.
 
 ## 0.1.0-rc.1 — historical local candidate
 

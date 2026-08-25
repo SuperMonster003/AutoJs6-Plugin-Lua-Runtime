@@ -68,9 +68,12 @@ certificate as the matching AutoJs6 APK:
     -HostApk '<absolute matching AutoJs6 APK path>'
 ```
 
-The command runs the JVM suite, enables native execution and both discovery
-services for the release build, checks the universal APK's actions, native
-ABIs, version, and signer, then prints its exact path. The final receipt keeps
+The command requires a clean revision whose commit count matches versionCode,
+removes stale outputs, and reruns the JVM/release build entirely offline. It
+enables native execution and both discovery services, then invokes the strict
+release artifact gate for exact test count, signing certificate, split/universal
+ABI identity, 16 KiB ZIP/ELF alignment, release non-debuggability, and physical
+fault-harness exclusion. The final receipt binds revision, APK digest, and path and keeps
 `deviceVerified=false` and `runtimeVerified=false`; installation and one real
 host-to-provider Lua execution remain separate device evidence. Repository
 defaults stay non-discoverable, and the same-signer Binder boundary is not
@@ -284,6 +287,7 @@ file and keystore can be consumed without copying either into this repository:
 
 ```powershell
 $releaseArgs = @(
+    ':app:clean'
     ':app:testDebugUnitTest'
     ':app:assembleRelease'
     '-Pautojs.lua.native.enabled=true'
@@ -292,6 +296,8 @@ $releaseArgs = @(
     '-Pautojs.lua.releaseCandidate.enabled=true'
     '-Pautojs.lua.release.signingPropertiesFile=<absolute sign.properties path>'
     '-Pautojs.lua.release.signingStoreFile=<absolute JKS path>'
+    '--rerun-tasks'
+    '--offline'
     '--no-daemon'
     '--console=plain'
 )

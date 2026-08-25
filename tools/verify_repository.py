@@ -858,12 +858,15 @@ def verify_input_workflows() -> None:
     require_tokens(
         runnable_provider,
         (
+            '":app:clean"',
             '":app:testDebugUnitTest"',
             '":app:assembleRelease"',
             '"-Pautojs.lua.native.enabled=true"',
             '"-Pautojs.lua.provider.enabled=true"',
             '"-Pautojs.lua.faultHarness.enabled=false"',
             '"-Pautojs.lua.releaseCandidate.enabled=true"',
+            '"--rerun-tasks"',
+            '"--offline"',
             'bool/lua_runtime_provider_enabled',
             '"org.autojs.plugin.INFO"',
             '"org.autojs.plugin.lua.RUNTIME"',
@@ -873,6 +876,15 @@ def verify_input_workflows() -> None:
             'if ($pluginSigner -ne $hostSigner)',
             '$requiredHostVersionCode = [long] $versionProperties["REQUIRED_HOST_VERSION_CODE"]',
             'if ($hostVersionCode -lt $requiredHostVersionCode)',
+            'Runnable provider build requires a clean repository',
+            '$sourceRevision = (& git -C $root rev-parse HEAD).Trim()',
+            '$sourceCommitCount = [int] (& git -C $root rev-list --count HEAD).Trim()',
+            'if ($expectedVersionCode -ne $sourceCommitCount)',
+            '$invocationStartedAtUtc = [DateTimeOffset]::UtcNow.ToString(',
+            'tools/verify_release_candidate_artifacts.ps1',
+            'artifactGateVerified=$($artifactGateVerified.ToString().ToLowerInvariant())',
+            'revision=$sourceRevision',
+            'apkSha256=$universalSha256',
             'status --porcelain --untracked-files=all',
             'deviceVerified=false runtimeVerified=false',
         ),
@@ -2559,8 +2571,11 @@ def verify_fault_harness_boundary() -> None:
         "Release fault-harness physical exclusion gate",
     )
     readme = (ROOT / "README.md").read_text("utf-8")
+    checklist_start = readme.index("### Pre-release fault-harness checklist")
+    checklist_end = readme.index("\n## ", checklist_start)
+    fault_checklist = readme[checklist_start:checklist_end]
     require_tokens(
-        readme,
+        fault_checklist,
         (
             "### Pre-release fault-harness checklist",
             ":app:clean",

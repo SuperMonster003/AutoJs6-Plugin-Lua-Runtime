@@ -811,6 +811,30 @@ class InputWorkflowTest(unittest.TestCase):
                     1,
                 ),
             ),
+            (
+                "runnable provider can reach the network",
+                "tools/build_runnable_provider.ps1",
+                lambda text: text.replace('"--offline"', '"--refresh-dependencies"', 1),
+            ),
+            (
+                "runnable provider can reuse stale outputs",
+                "tools/build_runnable_provider.ps1",
+                lambda text: text.replace('        ":app:clean"\n', "", 1),
+            ),
+            (
+                "runnable provider drops the strict artifact gate",
+                "tools/build_runnable_provider.ps1",
+                lambda text: text.replace(
+                    '    & (Join-Path $root "tools/verify_release_candidate_artifacts.ps1") `',
+                    "    Write-Host 'artifact gate skipped'",
+                    1,
+                ),
+            ),
+            (
+                "runnable provider receipt drops revision binding",
+                "tools/build_runnable_provider.ps1",
+                lambda text: text.replace("revision=$sourceRevision", "revision=unknown", 1),
+            ),
         )
         for label, relative, mutate in mutations:
             with self.subTest(label=label), tempfile.TemporaryDirectory() as directory:
@@ -1452,12 +1476,21 @@ class FaultHarnessBoundaryTest(unittest.TestCase):
             (
                 "stale fault intermediates",
                 "README.md",
-                lambda text: text.replace("    '--rerun-tasks'\n", "", 1),
+                lambda text: text.replace(
+                    "    '-Pautojs.lua.faultHarness.enabled=true'\n"
+                    "    '--rerun-tasks'\n",
+                    "    '-Pautojs.lua.faultHarness.enabled=true'\n",
+                    1,
+                ),
             ),
             (
                 "unclean fault intermediates",
                 "README.md",
-                lambda text: text.replace("    ':app:clean'\n", "", 1),
+                lambda text: text.replace(
+                    "$faultArgs = @(\n    ':app:clean'\n",
+                    "$faultArgs = @(\n",
+                    1,
+                ),
             ),
         )
         for label, relative, mutate in mutations:

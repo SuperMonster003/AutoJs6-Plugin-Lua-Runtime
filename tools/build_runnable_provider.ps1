@@ -105,8 +105,32 @@ if (-not (Test-Path -LiteralPath $apkAnalyzer -PathType Leaf)) {
     throw "Android SDK tool is unavailable: apkanalyzer.bat"
 }
 
+$sourceStatusBefore = @(& git -C $root status --porcelain --untracked-files=all)
+if ($LASTEXITCODE -ne 0 -or $sourceStatusBefore.Count -ne 0) {
+    throw "Runnable provider build requires a clean repository: $($sourceStatusBefore -join '; ')"
+}
+$sourceRevision = (& git -C $root rev-parse HEAD).Trim()
+$sourceCommitCount = [int] (& git -C $root rev-list --count HEAD).Trim()
+if ($LASTEXITCODE -ne 0 -or $sourceRevision -notmatch '^[0-9a-f]{40}$') {
+    throw "Unable to resolve the runnable provider source revision"
+}
+$versionProperties = ConvertFrom-StringData -StringData (
+    Get-Content -LiteralPath (Join-Path $root "version.properties") -Raw
+)
+$expectedVersionCode = [long] $versionProperties["VERSION_BUILD"]
+$expectedVersionName = $versionProperties["VERSION_NAME"]
+$requiredHostVersionCode = [long] $versionProperties["REQUIRED_HOST_VERSION_CODE"]
+if ($expectedVersionCode -ne $sourceCommitCount) {
+    throw "VERSION_BUILD must equal the clean source commit count"
+}
+
+$invocationStartedAtUtc = $null
 if (-not $SkipBuild) {
+    $invocationStartedAtUtc = [DateTimeOffset]::UtcNow.ToString(
+        "yyyy-MM-ddTHH:mm:ss.ffffffZ"
+    )
     $gradleArgs = @(
+        ":app:clean"
         ":app:testDebugUnitTest"
         ":app:assembleRelease"
         "-Pautojs.lua.native.enabled=true"
@@ -115,6 +139,8 @@ if (-not $SkipBuild) {
         "-Pautojs.lua.releaseCandidate.enabled=true"
         "-Pautojs.lua.release.signingPropertiesFile=$resolvedSigningProperties"
         "-Pautojs.lua.release.signingStoreFile=$resolvedSigningStore"
+        "--rerun-tasks"
+        "--offline"
         "--no-daemon"
         "--console=plain"
     )
@@ -123,13 +149,6 @@ if (-not $SkipBuild) {
         throw "Runnable Lua provider build failed with exit code $LASTEXITCODE"
     }
 }
-
-$versionProperties = ConvertFrom-StringData -StringData (
-    Get-Content -LiteralPath (Join-Path $root "version.properties") -Raw
-)
-$expectedVersionCode = [long] $versionProperties["VERSION_BUILD"]
-$expectedVersionName = $versionProperties["VERSION_NAME"]
-$requiredHostVersionCode = [long] $versionProperties["REQUIRED_HOST_VERSION_CODE"]
 
 $outputRoot = Join-Path $root "app/build/outputs/apk/release"
 $metadataPath = Join-Path $outputRoot "output-metadata.json"
@@ -194,11 +213,27 @@ if ($LASTEXITCODE -ne 0) {
     throw "Unable to inspect the Lua provider source status"
 }
 $sourceClean = ($gitStatus | Measure-Object).Count -eq 0
+if (-not $sourceClean -or (& git -C $root rev-parse HEAD).Trim() -ne $sourceRevision) {
+    throw "Runnable provider source changed during artifact construction"
+}
+
+$artifactGateVerified = -not $SkipBuild
+if ($artifactGateVerified) {
+    & (Join-Path $root "tools/verify_release_candidate_artifacts.ps1") `
+        -InvocationStartedAtUtc $invocationStartedAtUtc `
+        -SigningPropertiesFile $resolvedSigningProperties `
+        -SigningStoreFile $resolvedSigningStore `
+        -SdkRoot $script:ResolvedSdkRoot
+}
+$universalItem = Get-Item -LiteralPath $universalApk
+$universalSha256 = (Get-FileHash -LiteralPath $universalApk -Algorithm SHA256).Hash.ToLowerInvariant()
 
 Write-Host (
     "RUNNABLE_LUA_PROVIDER_OK " +
-    "apk=$universalApk versionName=$expectedVersionName versionCode=$expectedVersionCode " +
+    "revision=$sourceRevision apk=$universalApk apkBytes=$($universalItem.Length) " +
+    "apkSha256=$universalSha256 versionName=$expectedVersionName versionCode=$expectedVersionCode " +
     "hostVersionCode=$hostVersionCode abis=arm64-v8a,x86_64 signerSha256=$pluginSigner " +
     "sourceClean=$($sourceClean.ToString().ToLowerInvariant()) " +
+    "artifactGateVerified=$($artifactGateVerified.ToString().ToLowerInvariant()) " +
     "deviceVerified=false runtimeVerified=false"
 )

@@ -52,6 +52,9 @@
   排除审计生成无签名 release 中间产物，同时继续保护所有可发布 package；规范审计
   先用 `:app:clean` 移除旧构建输出，再通过 `--rerun-tasks` 强制生成本次调用的
   新鲜中间产物。
+- 强化可运行 Provider 构建器：要求干净 revision 及版本/提交数一致，强制 clean
+  离线重建，调用完整签名 release 制品门禁，并在回执中绑定 revision 与 APK
+  SHA-256。
 
 ## 0.1.0-rc.1 — 历史本地候选版本
 

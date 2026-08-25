@@ -18,6 +18,9 @@ The round passes only when all of the following remain true for all seven days:
 
 - the AVD name is `DEX_R1_API36_X64`, `ro.kernel.qemu=1`, API is 36, and every
   device command names one explicit `emulator-*` serial;
+- the AVD has an exclusive host-side deployment window: no IDE run,
+  `connectedAndroidTest`, package installer, or other Gradle deployment may
+  address it while a round is active;
 - the emulator boot ID and the Provider `:lua_runtime` PID never change;
 - the exact Host, Provider, lifecycle-test APK bytes, versions, and common
   signer remain fixed; no reinstall occurs after day 1;
@@ -33,6 +36,12 @@ round. A missed date invalidates it. Any APK/install identity drift, AVD reboot,
 runtime PID replacement, FD terminal growth, workload failure, fail-stop, ANR,
 or relevant crash also invalidates the round. A new round ID and a fresh day 1
 are then required; partial days never count.
+
+A separate ADB server port is not treated as isolation. Local emulator
+transports can still be visible to the default ADB server, so exclusivity must be
+coordinated at the host. An unexpected package replacement is external
+interference, but it still invalidates the round rather than being retried or
+discounted.
 
 ## Exact round-1 artifacts
 

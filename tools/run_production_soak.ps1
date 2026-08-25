@@ -146,9 +146,9 @@ function Write-JsonAtomic {
         [Text.UTF8Encoding]::new($false)
     )
     if (Test-Path -LiteralPath $Path -PathType Leaf) {
-        [IO.File]::Replace($temporary, $Path, $null)
+        [IO.File]::Move($temporary, $Path, $true)
     } else {
-        Move-Item -LiteralPath $temporary -Destination $Path
+        [IO.File]::Move($temporary, $Path, $false)
     }
 }
 
@@ -372,7 +372,14 @@ function Invoke-Smoke {
     if (-not $output.Contains("$SmokeMarker runId=$RunId") -or
         $output.Contains("$FailureMarker runId=$RunId") -or
         $output -notmatch 'INSTRUMENTATION_CODE:\s*-1') {
-        throw "Official Host smoke failed: runId=$RunId"
+        $summary = @(
+            $output -split "`n" |
+                Where-Object {
+                    $_ -match '^(INSTRUMENTATION_RESULT: (shortMsg|stream)=|INSTRUMENTATION_CODE:)'
+                } |
+                Select-Object -Last 4
+        ) -join '; '
+        throw "Official Host smoke failed: runId=$RunId output=$summary"
     }
 }
 
@@ -579,6 +586,19 @@ if ($QualificationOnly) {
         throw 'Production soak state schema or frozen standard drifted'
     }
     $day = [int] $productionState.completedDays + 1
+    if ($day -eq 1) {
+        $retainedFailurePath = Join-Path $roundRoot 'day-01-receipt.json'
+        if (Test-Path -LiteralPath $retainedFailurePath -PathType Leaf) {
+            $retainedFailure = Get-Content -LiteralPath $retainedFailurePath -Raw | ConvertFrom-Json
+            if ($retainedFailure.result -eq 'fail') {
+                $productionState.status = 'invalid'
+                $productionState.invalidatedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
+                $productionState.invalidationReason = "retained failed day 1: $($retainedFailure.reason)"
+                Write-JsonAtomic $statePath $productionState
+                throw 'A retained failed day-1 receipt invalidated this soak round; use a new RoundId'
+            }
+        }
+    }
     if ($day -lt 2 -or $day -gt $RequiredDays) {
         throw "Invalid next production soak day: $day"
     }
@@ -815,6 +835,26 @@ try {
     )
 } catch {
     $failureMessage = $_.Exception.Message
+    $failureLogEvidence = $null
+    try {
+        $failureLogPath = Join-Path $evidenceRoot "$dayLabel-failure-logcat-all.txt"
+        $failureLogLines = @(Invoke-Adb @('logcat', '-b', 'all', '-d', '-v', 'threadtime'))
+        [IO.File]::WriteAllLines(
+            $failureLogPath,
+            [string[]] $failureLogLines,
+            [Text.UTF8Encoding]::new($false)
+        )
+        $failureLogEvidence = [ordered]@{
+            captured = $true
+            sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $failureLogPath).Hash.ToLowerInvariant()
+            bytes = (Get-Item -LiteralPath $failureLogPath).Length
+        }
+    } catch {
+        $failureLogEvidence = [ordered]@{
+            captured = $false
+            error = $_.Exception.Message
+        }
+    }
     $failureReceipt = [ordered]@{
         schemaVersion = 1
         result = 'fail'
@@ -825,6 +865,7 @@ try {
         startedAtUtc = $startedAtUtc
         failedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
         reason = $failureMessage
+        logcat = $failureLogEvidence
     }
     Write-JsonAtomic $receiptPath $failureReceipt
     if (-not $QualificationOnly -and $null -ne $productionState) {

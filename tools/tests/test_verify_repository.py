@@ -1662,6 +1662,7 @@ class ProductionSoakBoundaryTest(unittest.TestCase):
         "ROADMAP-R4.md",
         "docs/production-soak-plan.md",
         "docs/production-soak-round-1.md",
+        "docs/production-soak-round-2.md",
         "tools/run_production_soak.ps1",
     )
 
@@ -1753,6 +1754,24 @@ class ProductionSoakBoundaryTest(unittest.TestCase):
                 ),
             ),
             (
+                "portable state overwrite",
+                "tools/run_production_soak.ps1",
+                lambda text: text.replace(
+                    "[IO.File]::Move($temporary, $Path, $true)",
+                    "[IO.File]::Replace($temporary, $Path, $null)",
+                    1,
+                ),
+            ),
+            (
+                "failure log retention",
+                "tools/run_production_soak.ps1",
+                lambda text: text.replace(
+                    '"$dayLabel-failure-logcat-all.txt"',
+                    '"$dayLabel-discarded.txt"',
+                    1,
+                ),
+            ),
+            (
                 "same PID across days",
                 "tools/run_production_soak.ps1",
                 lambda text: text.replace(
@@ -1801,8 +1820,17 @@ class ProductionSoakBoundaryTest(unittest.TestCase):
                 "premature round pass",
                 "docs/production-soak-round-1.md",
                 lambda text: text.replace(
-                    "ROUND 1 NOT STARTED",
+                    "ROUND 1 INVALID — EXTERNAL HOST PACKAGE REPLACEMENT",
                     "ROUND 1 COMPLETE",
+                    1,
+                ),
+            ),
+            (
+                "round-two premature pass",
+                "docs/production-soak-round-2.md",
+                lambda text: text.replace(
+                    "ROUND 2 NOT STARTED",
+                    "ROUND 2 COMPLETE",
                     1,
                 ),
             ),

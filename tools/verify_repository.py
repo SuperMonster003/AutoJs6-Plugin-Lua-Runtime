@@ -3263,6 +3263,12 @@ def verify_production_soak_boundary() -> None:
             "$productionState.status = 'complete'",
             "PRODUCTION_SOAK_QUALIFICATION_PASS",
             "PRODUCTION_SOAK_DAY_PASS",
+            "[IO.File]::Move($temporary, $Path, $true)",
+            "retained failed day 1",
+            "use a new RoundId",
+            '"$dayLabel-failure-logcat-all.txt"',
+            "captured = $true",
+            "logcat = $failureLogEvidence",
         ),
         "Fail-closed production soak executor",
     )
@@ -3278,6 +3284,10 @@ def verify_production_soak_boundary() -> None:
         "[Nullable[" not in executor and "$Expected.Value" not in executor,
         "Production soak must not use PowerShell nullable wrappers for scalar comparisons",
     )
+    require(
+        "[IO.File]::Replace(" not in executor,
+        "Production soak must use the portable same-directory overwrite path",
+    )
     plan = (ROOT / "docs/production-soak-plan.md").read_text("utf-8")
     require_tokens(
         plan,
@@ -3287,10 +3297,14 @@ def verify_production_soak_boundary() -> None:
             "250",
             "500 executions per day and 3,500 executions",
             "one continuously booted, dedicated API 36 x86_64 AVD",
+            "exclusive host-side deployment window",
+            "`connectedAndroidTest`",
             "emulator boot ID and the Provider `:lua_runtime` PID never change",
             "same `/proc/<runtime-pid>/fd` count",
             "zero `event=lua_runtime_fail_stop`",
             "A missed date invalidates it",
+            "A separate ADB server port is not treated as isolation",
+            "unexpected package replacement is external",
             "Qualification installs the same exact",
             "artifacts and runs 10 measured iterations",
             "cannot create or advance production state",
@@ -3306,15 +3320,42 @@ def verify_production_soak_boundary() -> None:
     require_tokens(
         round_record,
         (
-            "ROUND 1 NOT STARTED",
+            "ROUND 1 INVALID — EXTERNAL HOST PACKAGE REPLACEMENT",
             "Qualification is explicitly",
             "not a production day",
+            "R4-E checkbox remains open",
+            "115 passed; attempt 116 interrupted",
+            "230 verified (+20 qualification executions)",
+            "a8eaab0ed4e82e3802ee6088a76a79eef1dc36aca9f769aed5c7055ce3afda4b",
+            "1c4d0e341e7489640d885a1afd9b7e8789f6badb624611199c341a7f2971d570",
+            "397f85aef1030233c3382314cb76674914141d6ead044d8aefd23397c5d49d6a",
+            "b6176e0fcb2c8f125e3eb55c66cc284e08426ddef37392fa4a297b31481a0272",
+            "due to installPackageLI",
+            "Host versionCode 5278",
+            "Provider package",
+            "PID remained",
+            "zero `event=lua_runtime_fail_stop`",
+            "File.Move(..., overwrite=true)",
+            "No pass",
+            "is claimed for round 1",
+        ),
+        "Honest invalid production soak round-1 ledger",
+    )
+
+    round_two = (ROOT / "docs/production-soak-round-2.md").read_text("utf-8")
+    require_tokens(
+        round_two,
+        (
+            "ROUND 2 NOT STARTED",
+            "external Host package replacement",
+            "explicitly reserved host-side deployment window",
+            "Qualification is not a production day",
             "R4-E checkbox remains open",
             "| 1 | pending | 250 | 500 |",
             "| 7 | pending | 250 | 500 |",
             "No pass result is claimed in this document yet",
         ),
-        "Honest initial production soak ledger",
+        "Honest initial production soak round-2 ledger",
     )
 
     roadmap = (ROOT / "ROADMAP-R4.md").read_text("utf-8")
@@ -3329,8 +3370,15 @@ def verify_production_soak_boundary() -> None:
             "资格运行不能创建或推进生产 state",
             "首轮尚未完成，本项",
             "保持未勾选",
+            "R4-E 生产 soak Round 1 失效记录 (2026-08-25)",
+            "第 116 次",
+            "`installPackageLI` 杀死 Host",
+            "versionCode 5278",
+            "Round 2 使用",
+            "新 ID 与独占部署窗口",
             "[`docs/production-soak-plan.md`](docs/production-soak-plan.md)",
             "[`docs/production-soak-round-1.md`](docs/production-soak-round-1.md)",
+            "[`docs/production-soak-round-2.md`](docs/production-soak-round-2.md)",
         ),
         "Open R4-E production soak ledger",
     )

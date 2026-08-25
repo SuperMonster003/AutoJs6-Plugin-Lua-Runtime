@@ -334,6 +334,17 @@ ANR/crash 或 FD 终值增长都会使整轮失效。执行器仅接受显式 `e
 [`docs/production-soak-plan.md`](docs/production-soak-plan.md)，进行中记录见
 [`docs/production-soak-round-1.md`](docs/production-soak-round-1.md)。
 
+R4-E 生产 soak Round 1 失效记录 (2026-08-25): 资格运行 20 次真实执行通过，
+PID/FD 为 `8843 / 83→83`。正式 Day 1 前 115 次 measured smoke 通过；第 116 次
+被计划外 Host 包替换中断。events 精确记录 `installPackageLI` 杀死 Host，安装态随即
+从冻结 versionCode 5276 / update 15:23:21 漂移到 versionCode 5278 / update
+15:35:52，且出现无关 `org.autojs.autojs6.test`；Provider 仍为 versionCode 43、
+PID 12691、FD 83，watchdog fail-stop、相关 ANR/`am_crash` 均为 0。按冻结规则整轮
+作废而非续跑；同时修复了失败 state 原子覆盖并新增失败 logcat 留存。Round 2 使用
+新 ID 与独占部署窗口重新从 Day 1 开始，本项继续保持未勾选。详见
+[`docs/production-soak-round-1.md`](docs/production-soak-round-1.md) 与
+[`docs/production-soak-round-2.md`](docs/production-soak-round-2.md)。
+
 R4-E rc.2 签名打包证据 (2026-08-25): 干净 implementation revision
 `a0ae189ac8cba042848412a671c91b0b8a7c44e1` 的提交数/versionCode 同为 43；强化后的
 `build_runnable_provider.ps1` 强制 `:app:clean`、`--rerun-tasks`、`--offline`，并

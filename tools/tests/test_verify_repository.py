@@ -1588,6 +1588,12 @@ class HostLifecycleBoundaryTest(unittest.TestCase):
                 ),
             ),
             (
+                "real Host official Provider smoke",
+                "host-lifecycle-test/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/host/"
+                "lifecycle/test/LuaHostLifecycleInstrumentation.kt",
+                lambda text: text.replace("MODE_SMOKE -> smoke(runId)", "MODE_SMOKE -> Unit", 1),
+            ),
+            (
                 "emulator serial guard",
                 "tools/verify_host_lifecycle_matrix.ps1",
                 lambda text: text.replace(

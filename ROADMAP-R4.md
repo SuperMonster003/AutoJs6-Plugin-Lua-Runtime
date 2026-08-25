@@ -312,7 +312,7 @@ observer → logger → terminator”；observer/logger 异常均被独立遏制
   `method.parameterTypes.size`，避免把测试入口 `NoSuchMethodError` 误判为 Provider
   回归。完成判据: 敌意静态测试锁定禁用调用；测试模块 lint/assemble 与 API 24
   真机前置模拟器冒烟通过。
-- [ ] **升级/回滚路径证据**。rc.1 → rc.2 覆盖安装升级、rc.2 卸载重装、
+- [x] **升级/回滚路径证据**。rc.1 → rc.2 覆盖安装升级、rc.2 卸载重装、
   以及宿主 5276 与更早版本 (应拒绝 dispatch) 的组合行为。
   完成判据: 每个组合一条归档记录; 早宿主拒绝路径给出确定性错误码。
 - [ ] **公开发布物料**。LICENSE/THIRD_PARTY_NOTICES 复核、GitHub Release
@@ -367,6 +367,23 @@ Host 结果分别为 `rc2api24-20260825052417`、`rc2api31-20260825052654`、
 随后 Provider 卸载均确认 `packageAbsent=true runtimeAbsent=true`，专用 AVD 均已关闭，
 物理设备未触碰。完整指纹、PID、制品与清理记录见
 [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md)。
+
+R4-E 升级/回滚路径证据 (2026-08-25): clean implementation revision
+`b3cae39f63561cea81392051a7e8b4361cac9129` 的提交数/lifecycle APK versionCode 同为
+50，44/44 Python 与 lifecycle lint/assemble 通过。仅在 API 36 x86_64 专用
+`emulator-5564` 上，以同一 signer 的精确 Host 5275/5276、Provider rc.1 versionCode
+20、rc.2 versionCode 43 和真实 Host instrumentation 执行矩阵。rc.1 冒烟后通过
+`adb install -r` 升级 rc.2，UID 10229 与 `firstInstallTime` 保持不变且升级后冒烟通过；
+rc.2 卸载确认 `packageAbsent=true runtimeAbsent=true`，精确重装 digest
+`c92fbea3c878d7b2ba1c28bdca168201b98c28c6bf62a953f63e2c9771f45a12` 后再次通过。
+Host 5275 对 rc.2 的真实 runtime-info probe 在 PID 5499 完成，随后于 engine init
+确定性给出外层 `LUA_RUNTIME_UNAVAILABLE`、唯一 rejection
+`HOST_VERSION_UNSUPPORTED` 与 `dispatch=not-entered`；恢复精确 Host 5276 后两次真实
+engine 执行及 discovery/result/console 全部通过。终端输出
+`RELEASE_UPGRADE_MATRIX_PASS`，随后专用 AVD 已关闭且物理设备未触碰。完整构建边界、
+五项制品指纹、四个 case/run ID 与聚合回执见
+[`docs/release-upgrade-matrix.md`](docs/release-upgrade-matrix.md)。本项不替代尚未授权的
+arm64-v8a 物理设备冒烟，也不改写 canonical rc.2 universal receipt。
 
 ## R4-F — 门禁与 CI 强化 (全程可离线)
 

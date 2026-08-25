@@ -1685,6 +1685,15 @@ class HostLifecycleBoundaryTest(unittest.TestCase):
                 ),
             ),
             (
+                "release upgrade Roadmap evidence",
+                "ROADMAP-R4.md",
+                lambda text: text.replace(
+                    "- [x] **升级/回滚路径证据**",
+                    "- [ ] **升级/回滚路径证据**",
+                    1,
+                ),
+            ),
+            (
                 "runtime PID continuity",
                 "tools/verify_host_lifecycle_matrix.ps1",
                 lambda text: text.replace(

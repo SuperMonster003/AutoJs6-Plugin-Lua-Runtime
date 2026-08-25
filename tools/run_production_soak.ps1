@@ -239,7 +239,7 @@ function Wait-StableFdCount {
         [Parameter(Mandatory = $true)]
         [int] $RuntimePidValue,
 
-        [Nullable[int]] $Expected
+        [int] $Expected = -1
     )
 
     $samples = [Collections.Generic.List[int]]::new()
@@ -251,8 +251,8 @@ function Wait-StableFdCount {
         }
         $current = Read-FdCount $RuntimePidValue
         $samples.Add($current)
-        if ($null -ne $Expected) {
-            $streak = if ($current -eq $Expected.Value) { $streak + 1 } else { 0 }
+        if ($Expected -ge 0) {
+            $streak = if ($current -eq $Expected) { $streak + 1 } else { 0 }
         } else {
             $streak = if ($current -eq $previous) { $streak + 1 } else { 1 }
         }
@@ -262,7 +262,7 @@ function Wait-StableFdCount {
         $previous = $current
         Start-Sleep -Milliseconds 500
     }
-    $expectation = if ($null -eq $Expected) { 'a stable value' } else { $Expected.Value }
+    $expectation = if ($Expected -lt 0) { 'a stable value' } else { $Expected }
     throw "Runtime FD count did not settle at $expectation; samples=$($samples -join ',')"
 }
 
@@ -667,7 +667,7 @@ try {
     if ($QualificationOnly -or $day -eq 1) {
         Invoke-Warmup $instrumentationLog
         $runtimePid = Read-SinglePid
-        $baselineObservation = Wait-StableFdCount $runtimePid $null
+        $baselineObservation = Wait-StableFdCount $runtimePid -1
         $baselineFd = [int] $baselineObservation.value
     } else {
         $runtimePid = Read-SinglePid

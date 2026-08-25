@@ -1740,6 +1740,19 @@ class ProductionSoakBoundaryTest(unittest.TestCase):
                 ),
             ),
             (
+                "PowerShell FD comparison",
+                "tools/run_production_soak.ps1",
+                lambda text: text.replace(
+                    "[int] $Expected = -1",
+                    "[Nullable[int]] $Expected",
+                    1,
+                ).replace(
+                    "$current -eq $Expected",
+                    "$current -eq $Expected.Value",
+                    1,
+                ),
+            ),
+            (
                 "same PID across days",
                 "tools/run_production_soak.ps1",
                 lambda text: text.replace(

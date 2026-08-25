@@ -3238,6 +3238,8 @@ def verify_production_soak_boundary() -> None:
             "$ExpectedProviderVersionCode = 43L",
             "if ($VersionCode -gt 0 -and $Identity.versionCode -ne $VersionCode)",
             "Assert-ArtifactIdentity $lifecycleIdentity 'Lifecycle test' $LifecyclePackage 0 $null",
+            "[int] $Expected = -1",
+            "Wait-StableFdCount $runtimePid -1",
             "b39872e2f1ccc940afcb74a6b95b5458e2fee594",
             "a0ae189ac8cba042848412a671c91b0b8a7c44e1",
             "813c6be9b051c2eada18b0bbe00acff4abb48facd8e1ddd9ff08d904861d367e",
@@ -3271,6 +3273,10 @@ def verify_production_soak_boundary() -> None:
     require(
         executor.count("Wait-StableFdCount $runtimePid $baselineFd") == 2,
         "Production soak must enforce the frozen FD baseline both before resumed days and at day end",
+    )
+    require(
+        "[Nullable[" not in executor and "$Expected.Value" not in executor,
+        "Production soak must not use PowerShell nullable wrappers for scalar comparisons",
     )
     plan = (ROOT / "docs/production-soak-plan.md").read_text("utf-8")
     require_tokens(

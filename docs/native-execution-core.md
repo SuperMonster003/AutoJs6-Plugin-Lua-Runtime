@@ -199,6 +199,10 @@ result-limit expectations. Focused native instrumentation additionally covers
 `autojs.now()`, `string.format`, explicit PRNG seeds, zero-seed rejection, and
 the four `autojs.console` names, plus coroutine deadline, cancellation,
 yield/resume allocator accounting, and OOM recovery.
+The complete 15-test class passed on the API 37, 16 KiB x86_64 emulator for
+implementation revision `fc964d448c85f950c27667e7891fbb7d337fe73e`; exact
+artifact identities and the receipt are in
+[coroutine-control-boundary.md](coroutine-control-boundary.md).
 The repository JVM gate also covers watchdog token, stop, finish, and
 scheduler-failure races.
 Focused Android tests cover native execution; the official Provider smoke is

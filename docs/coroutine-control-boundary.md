@@ -133,7 +133,33 @@ APK pair has completed the whole class on an Android emulator.
 
 ## Recorded device evidence
 
-No device receipt is claimed by this implementation section. The exact clean
-revision, APK identities, emulator/API/ABI, test count, and instrumentation
-receipt are appended only after the committed implementation passes the full
-native Android class.
+On 2026-08-25 the complete class was rebuilt from clean implementation revision
+`fc964d448c85f950c27667e7891fbb7d337fe73e` with
+`native=true`, `provider=false`, and `faultHarness=false`. The same canonical
+invocation produced 49/49 JVM tests plus fresh x86_64, arm64-v8a, universal, and
+Android-test APKs. `verify_debug_artifacts.ps1` confirmed versionCode 35, the
+expected two ABI inventory, one signer, `provider=false`, `faultHarness=false`,
+and 16 KiB ELF/ZIP alignment.
+
+The coroutine device run installed only the x86_64 application and its test APK
+on API 37 `emulator-5554`. The device reported ABI list
+`x86_64,arm64-v8a`, `ro.kernel.qemu=1`, and page size 16,384 bytes.
+
+| Artifact | versionCode | Bytes | SHA-256 |
+| --- | ---: | ---: | --- |
+| `app-x86_64-debug.apk` | 35 | 1,787,857 | `244345a1eb0512ca8cb018012614713d43eef3aab500d0086a4d1978199ccaac` |
+| `app-debug-androidTest.apk` | Android test default 0 | 943,215 | `81dfc66b720b05fb8ded3cfbe34ef43c0a5b1a44172531c3f821ca00f8e12cdb` |
+
+Both APKs had signer certificate SHA-256
+`2e64822e13a6c80c12e1c4b47e8fb32d1e9334526289da75777b7a79145de4b8`.
+The complete `NativeLuaRuntimeInstrumentationTest` class passed 15/15,
+including all four coroutine cases and the immediate post-OOM reuse proof. The
+exact receipt was:
+
+```text
+COROUTINE_INSTRUMENTATION_PASS serial=emulator-5554 api=37 abis=x86_64,arm64-v8a pageSize=16384 revision=fc964d448c85f950c27667e7891fbb7d337fe73e appVersionCode=35 testVersionCode=0 tests=15 provider=false faultHarness=false appBytes=1787857 appSha256=244345a1eb0512ca8cb018012614713d43eef3aab500d0086a4d1978199ccaac testBytes=943215 testSha256=81dfc66b720b05fb8ded3cfbe34ef43c0a5b1a44172531c3f821ca00f8e12cdb signerSha256=2e64822e13a6c80c12e1c4b47e8fb32d1e9334526289da75777b7a79145de4b8 deadline=pass cancel=pass yieldResumeAccounting=pass caughtOom=pass processReusable=pass
+```
+
+No physical device was installed, uninstalled, queried for mutation, or used as
+evidence. The installed emulator application remains Provider-disabled and is
+not a release candidate.

@@ -1414,8 +1414,29 @@ def verify_native_boundary() -> None:
             "coroutineYieldResumeRetainsAllocatorAccounting",
             "coroutineOomCannotBecomeSuccessfulAndTheProcessRemainsReusable",
             "Coroutine objects remain unsupported V1 result values",
+            "fc964d448c85f950c27667e7891fbb7d337fe73e",
+            "appVersionCode=35 testVersionCode=0 tests=15",
+            "appSha256=244345a1eb0512ca8cb018012614713d43eef3aab500d0086a4d1978199ccaac",
+            "testSha256=81dfc66b720b05fb8ded3cfbe34ef43c0a5b1a44172531c3f821ca00f8e12cdb",
+            "signerSha256=2e64822e13a6c80c12e1c4b47e8fb32d1e9334526289da75777b7a79145de4b8",
+            "deadline=pass cancel=pass yieldResumeAccounting=pass caughtOom=pass processReusable=pass",
+            "No physical device was installed, uninstalled, queried for mutation",
         ),
         "Controlled coroutine decision and conformance boundary",
+    )
+    roadmap = (ROOT / "ROADMAP-R4.md").read_text("utf-8")
+    require_tokens(
+        roadmap,
+        (
+            "- [x] **协程库受控引入**",
+            "R4-B 协程证据 (2026-08-25)",
+            "fc964d448c85f950c27667e7891fbb7d337fe73e",
+            "244345a1eb0512ca8cb018012614713d43eef3aab500d0086a4d1978199ccaac",
+            "81dfc66b720b05fb8ded3cfbe34ef43c0a5b1a44172531c3f821ca00f8e12cdb",
+            "15 项 `NativeLuaRuntimeInstrumentationTest`",
+            "未操作物理设备",
+        ),
+        "R4 controlled coroutine completion evidence",
     )
     readme = (ROOT / "README.md").read_text("utf-8")
     require(

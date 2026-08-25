@@ -825,6 +825,7 @@ class RepositoryCheckpointTest(unittest.TestCase):
 
 class NativeBoundaryTest(unittest.TestCase):
     FILES = (
+        "ROADMAP-R4.md",
         "README.md",
         "app/proguard-rules.pro",
         "app/src/main/cpp/CMakeLists.txt",
@@ -952,6 +953,19 @@ class NativeBoundaryTest(unittest.TestCase):
                 "allocator teardown proof",
                 "docs/coroutine-control-boundary.md",
                 lambda text: text.replace("accounting_failed == false", "accounting is unknown", 1),
+            ),
+            (
+                "recorded artifact identity",
+                "docs/coroutine-control-boundary.md",
+                lambda text: text.replace(
+                    "244345a1eb0512ca8cb018012614713d43eef3aab500d0086a4d1978199ccaac",
+                    "0" * 64,
+                ),
+            ),
+            (
+                "Roadmap completion",
+                "ROADMAP-R4.md",
+                lambda text: text.replace("- [x] **协程库受控引入**", "- [ ] **协程库受控引入**", 1),
             ),
         )
         for label, relative, mutate in mutations:

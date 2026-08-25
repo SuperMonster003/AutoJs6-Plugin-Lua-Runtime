@@ -126,7 +126,7 @@ planned source 与翻译占位标记。
 
 ## R4-B — 语言能力精进 (受控扩展, 每项默认关闭直至证据齐备)
 
-- [ ] **协程库受控引入**。R3 因 hook 继承性未验证而排除 `lcorolib.c`。
+- [x] **协程库受控引入**。R3 因 hook 继承性未验证而排除 `lcorolib.c`。
   先写 native 层证据: 子协程继承 count hook 与 deadline 检查、协程内
   cancel 生效、跨 resume/yield 的 allocator 记账不破。
   完成判据: CMake 源清单加入 `lcorolib.c` (仅此一文件);
@@ -170,6 +170,22 @@ R4-B 工具/模块证据 (2026-08-24):
 `docs/module-snapshot-v2.md` 则冻结点分 ASCII 正则、16 段/255 字节名称上限、
 64 个不同模块/512 KiB 聚合源码配额、精确缓存指标与禁止 V2→V1 错误回退；
 `module.snapshot.v2` 仍未进入 Kotlin/JNI 或 Provider metadata。
+
+R4-B 协程证据 (2026-08-25): CMake 库清单仅新增 PUC Lua 5.4.8
+`lcorolib.c`，`linit.c` 继续排除；JNI 显式打开 `luaopen_coroutine`。静态门禁绑定
+上游 `lua_newthread` 对父线程 hook/mask/count 的复制及从主线程复制
+`LUA_EXTRASPACE` 的顺序，并绑定 sticky allocator-limit、完整关闭后
+`used == 0` 与 `MEMORY_LIMIT` 分类。干净实现 revision
+`fc964d448c85f950c27667e7891fbb7d337fe73e` 的 x86_64 debug APK versionCode 35
+`244345a1eb0512ca8cb018012614713d43eef3aab500d0086a4d1978199ccaac` 与 test APK
+`81dfc66b720b05fb8ded3cfbe34ef43c0a5b1a44172531c3f821ca00f8e12cdb`
+使用共同 signer
+`2e64822e13a6c80c12e1c4b47e8fb32d1e9334526289da75777b7a79145de4b8`；完整
+15 项 `NativeLuaRuntimeInstrumentationTest` 在 API 37、x86_64、16 KiB
+`emulator-5554` 以 `provider=false/faultHarness=false` 通过。子协程 deadline、取消、
+六轮 yield/resume allocator 记账、被 `resume` 捕获后仍粘性失败的 OOM 及同进程
+立即复用均通过；完整回执与边界见
+[`docs/coroutine-control-boundary.md`](docs/coroutine-control-boundary.md)。未操作物理设备。
 
 ## R4-C — 宿主能力面扩展 (capability 逐个白名单化)
 

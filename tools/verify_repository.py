@@ -1480,6 +1480,14 @@ def verify_native_boundary() -> None:
         "Native PRNG seed boundary is missing",
     )
     require("console.info" in native_doc and "console.warn" in native_doc, "Native console aliases are missing")
+    require(
+        '`require("autojs").ui.toast(text)`' in native_doc
+        and "four toast calls" in native_doc
+        and "ui-toast-v1.md" in native_doc
+        and "passed 17/17" in native_doc
+        and "e26fbc1356dc9e98a0fdf11e4ab732f06079eac4" in native_doc,
+        "Native UI toast boundary or evidence is missing",
+    )
 
     inventory = (ROOT / "app/src/main/cpp/cmake/lua54-sources.cmake").read_text("utf-8")
     inventory_lines = [line.strip() for line in inventory.splitlines()]
@@ -1558,6 +1566,45 @@ def verify_native_boundary() -> None:
             "未操作物理设备",
         ),
         "R4 controlled coroutine completion evidence",
+    )
+    toast_doc = (ROOT / "docs/ui-toast-v1.md").read_text("utf-8")
+    require_tokens(
+        toast_doc,
+        (
+            "## Provider implementation",
+            "## Exact Provider verification",
+            "e26fbc1356dc9e98a0fdf11e4ab732f06079eac4",
+            "42/42 Python repository/adversarial tests and 50/50 JVM tests passed",
+            "passed 17/17 on API",
+            "appVersionCode=37 testVersionCode=0 tests=17 jvmTests=50 pythonTests=42",
+            "appBytes=1790161",
+            "ab62c4bb40f77259f7d5f9eaad5ca213a72186ef8dea0897bd491ca4774aab5a",
+            "testBytes=945715",
+            "74b1be6024b78bf366d93d19b062841b1064a75c78f67ec490b8df2db5d5763e",
+            "2e64822e13a6c80c12e1c4b47e8fb32d1e9334526289da75777b7a79145de4b8",
+            "fixedShape=pass quota=pass utf8=pass ack=pass denial=pass noRetry=pass",
+            "4a9718d63923834c9a99fd70e0cd58c898e138f6",
+            "contained 27",
+            "No Host file was changed",
+            "none was installed,",
+            "`connectedAndroidTest` was not",
+        ),
+        "UI toast Provider conformance evidence",
+    )
+    require_tokens(
+        roadmap,
+        (
+            "- [x] **`toast` 能力 (`ui.toast.v1`)**",
+            "R4-C toast 证据 (2026-08-25)",
+            "e26fbc1356dc9e98a0fdf11e4ab732f06079eac4",
+            "42/42 Python、50/50 JVM",
+            "17/17 通过",
+            "ab62c4bb40f77259f7d5f9eaad5ca213a72186ef8dea0897bd491ca4774aab5a",
+            "74b1be6024b78bf366d93d19b062841b1064a75c78f67ec490b8df2db5d5763e",
+            "4a9718d63923834c9a99fd70e0cd58c898e138f6",
+            "未操作\n物理设备",
+        ),
+        "R4 UI toast completion evidence",
     )
     readme = (ROOT / "README.md").read_text("utf-8")
     require(

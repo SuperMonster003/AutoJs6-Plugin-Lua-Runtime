@@ -857,6 +857,7 @@ class NativeBoundaryTest(unittest.TestCase):
         "app/src/test/java/io/github/supermonster003/autojs6/plugin/lua/runtime/NativeLuaRuntimeBoundaryTest.kt",
         "docs/coroutine-control-boundary.md",
         "docs/native-execution-core.md",
+        "docs/ui-toast-v1.md",
     )
 
     def copy_boundary(self, root: Path) -> None:
@@ -987,6 +988,31 @@ class NativeBoundaryTest(unittest.TestCase):
                 lambda text: text.replace(
                     "toastCapabilityGrantDenialAndClosedShapesStayDeterministic",
                     "toastBoundaryUnreviewed",
+                    1,
+                ),
+            ),
+            (
+                "recorded toast artifact identity",
+                "docs/ui-toast-v1.md",
+                lambda text: text.replace(
+                    "ab62c4bb40f77259f7d5f9eaad5ca213a72186ef8dea0897bd491ca4774aab5a",
+                    "0" * 64,
+                ),
+            ),
+            (
+                "recorded Host boundary",
+                "docs/ui-toast-v1.md",
+                lambda text: text.replace(
+                    "4a9718d63923834c9a99fd70e0cd58c898e138f6",
+                    "0" * 40,
+                ),
+            ),
+            (
+                "Roadmap toast completion",
+                "ROADMAP-R4.md",
+                lambda text: text.replace(
+                    "- [x] **`toast` 能力 (`ui.toast.v1`)**",
+                    "- [ ] **`toast` 能力 (`ui.toast.v1`)**",
                     1,
                 ),
             ),

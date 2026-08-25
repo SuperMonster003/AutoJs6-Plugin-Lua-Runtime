@@ -193,7 +193,7 @@ R4-B 协程证据 (2026-08-25): CMake 库清单仅新增 PUC Lua 5.4.8
   wire 流或以现有双流 (stdout/stderr) 映射; 保持序列/额度/分块限制不变。
   完成判据: 决策记录; 若实现, `emit_autojs_console` 常量与协议枚举对齐,
   JVM 测试覆盖新流。
-- [ ] **`toast` 能力 (`ui.toast.v1`)**。最小 UI 反馈能力: 单 string 参数,
+- [x] **`toast` 能力 (`ui.toast.v1`)**。最小 UI 反馈能力: 单 string 参数,
   长度上限, 频率限制 (每执行 N 次), Binder 单次派发不重试。
   完成判据: 与 `device.info` 相同规格的 fixed-shape 桥 + 校验器 +
   仪器冒烟; capability 出现在 `LuaProviderMetadata.capabilities`。
@@ -211,13 +211,30 @@ R4-C console 证据 (2026-08-24): `docs/console-levels-decision.md` 选择不扩
 名称的有序双流输出；现有序列、credit、分块与总量门禁不变。
 
 R4-C capability/storage 证据 (2026-08-25): 当前 Provider metadata 中已注册的
-`device.info` 与 `module.snapshot.v1` 各由一条 1 秒超时 JVM 用例同时覆盖授予和
-拒绝；默认拒绝器稳定产生 `DENIED`，JNI bridge 记录固定 rejected wire 值 `3`，
-不挂起也不降级。原生 instrumentation 另覆盖 `device.info` 未授予时映射为
-`HOST_CAPABILITY`；模块未授予路径沿用相同终态映射。`docs/storage-kv-v1.md`
+`device.info`、`module.snapshot.v1` 与 `ui.toast.v1` 各由 1 秒超时 JVM 用例同时
+覆盖授予和拒绝；默认拒绝器稳定产生 `DENIED`，JNI bridge 记录固定 rejected wire
+值 `3`，不挂起也不降级。原生 instrumentation 覆盖 `device.info` 与 `ui.toast.v1`
+未授予时映射为 `HOST_CAPABILITY`；模块未授予路径沿用相同终态映射。
+`docs/storage-kv-v1.md`
 冻结 Host 侧持久化与稳定脚本 principal 隔离、64-byte ASCII key、每 principal
 256 keys/2 MiB、每执行 64 次操作/32 次 mutation、清除语义，以及 mutation 禁止
 Provider 重试；该能力仍是 design-only，未进入 Kotlin/JNI 或 Provider metadata。
+
+R4-C toast 证据 (2026-08-25): implementation revision
+`e26fbc1356dc9e98a0fdf11e4ab732f06079eac4` 固定
+`autojs.ui.toast(text)` 为 `{text=string}` / `{accepted=true}`，严格 UTF-8
+1–1024 bytes，每执行共享 4 次额度，派发前扣取且 Binder/JNI 均不重试。仓库门禁
+42/42 Python、50/50 JVM 通过；API 37、x86_64、16 KiB `emulator-5554` 上完整
+`NativeLuaRuntimeInstrumentationTest` 17/17 通过，versionCode 37，
+`provider=false/faultHarness=false`。x86_64 APK SHA-256 为
+`ab62c4bb40f77259f7d5f9eaad5ca213a72186ef8dea0897bd491ca4774aab5a`，测试 APK
+SHA-256 为 `74b1be6024b78bf366d93d19b062841b1064a75c78f67ec490b8df2db5d5763e`，
+两者 signer 为
+`2e64822e13a6c80c12e1c4b47e8fb32d1e9334526289da75777b7a79145de4b8`。相邻脏 Host
+revision `4a9718d63923834c9a99fd70e0cd58c898e138f6` 尚未启用该 capability，因此本项
+关闭的是 Provider fixed-shape/校验/配额/拒绝/冒烟判据，不声称可见 Toast 已完成
+Host 端到端交付。完整回执见 [`docs/ui-toast-v1.md`](docs/ui-toast-v1.md)；未操作
+物理设备。
 
 ## R4-D — 可观测性与诊断
 

@@ -129,3 +129,70 @@ Provider completion requires all of the following:
 
 Host implementation and visible-device UI assertion are separate coordinated
 evidence and must not be inferred from a fake-invoker Provider smoke.
+
+## Provider implementation
+
+Implementation revision
+`e26fbc1356dc9e98a0fdf11e4ab732f06079eac4` adds the complete Provider side:
+
+- `NativeLuaHostCapabilityBridge.showToast(byte[])` repeats the 1–1,024-byte
+  strict UTF-8 admission, emits only `ui.toast.v1` with `{text=StringValue}` and
+  accepts only `{accepted=true}`;
+- `autojs_ui_toast` enforces exact Lua type/arity, independently validates UTF-8,
+  shares a four-attempt `ExecutionControl` counter across all coroutines, charges
+  before JNI allocation, invokes `showToast` once, and returns zero Lua values;
+- `install_autojs_module` publishes only `autojs.ui.toast` for this capability;
+- R8 retains the exact `void showToast(byte[])` JNI descriptor;
+- `LuaProviderMetadata.capabilities` now contains `device.info`,
+  `module.snapshot.v1`, and `ui.toast.v1` in reviewed order; and
+- the generic Binder invoker remains one `broker.invoke(...)` followed by a
+  callback wait; repository checks reject a second dispatch.
+
+## Exact Provider verification
+
+On 2026-08-25, a clean build from implementation revision
+`e26fbc1356dc9e98a0fdf11e4ab732f06079eac4` used
+`native=true/provider=false/faultHarness=false`, versionCode 37, the pinned
+offline inputs, and the repository debug-artifact gate. Results were:
+
+- 42/42 Python repository/adversarial tests and 50/50 JVM tests passed;
+- all arm64-v8a, x86_64, and universal debug APKs passed single-signer,
+  ABI-inventory, 16 KiB ELF LOAD, 16 KiB ZIP, BuildConfig, resource, and manifest
+  checks;
+- the x86_64 app APK is 1,790,161 bytes with SHA-256
+  `ab62c4bb40f77259f7d5f9eaad5ca213a72186ef8dea0897bd491ca4774aab5a`;
+- the Android test APK is 945,715 bytes with SHA-256
+  `74b1be6024b78bf366d93d19b062841b1064a75c78f67ec490b8df2db5d5763e`;
+- both installed APKs use the debug certificate SHA-256
+  `2e64822e13a6c80c12e1c4b47e8fb32d1e9334526289da75777b7a79145de4b8`;
+  and
+- the complete `NativeLuaRuntimeInstrumentationTest` class passed 17/17 on API
+  37 x86_64 `emulator-5554`, whose ABI list is `x86_64,arm64-v8a` and page size
+  is 16,384 bytes. The installed app reported versionCode 37 and remained
+  disabled (`enabled=0`); the test package remained versionCode 0.
+
+The toast smoke preserved a multibyte message and embedded NUL, returned no Lua
+value, and made exactly one fake-Host invocation per explicit call. Separate
+cases proved that a malformed/false acknowledgement and a missing grant map to
+`HOST_CAPABILITY`; the fifth and subsequent calls, 1,025-byte text, bad
+continuation, overlong, surrogate, above-U+10FFFF, and truncated UTF-8 never
+reached the Host invoker. An exactly 1,024-byte message succeeded in a new
+execution, proving both the inclusive boundary and execution-local counter reset.
+
+The machine also had physical devices attached, but none was installed,
+uninstalled, or queried for package mutation. Every package operation and test
+command used explicit serial `emulator-5554`; `connectedAndroidTest` was not
+used.
+
+Canonical receipt:
+
+```text
+UI_TOAST_PROVIDER_PASS serial=emulator-5554 api=37 abis=x86_64,arm64-v8a pageSize=16384 revision=e26fbc1356dc9e98a0fdf11e4ab732f06079eac4 appVersionCode=37 testVersionCode=0 tests=17 jvmTests=50 pythonTests=42 provider=false faultHarness=false appBytes=1790161 appSha256=ab62c4bb40f77259f7d5f9eaad5ca213a72186ef8dea0897bd491ca4774aab5a testBytes=945715 testSha256=74b1be6024b78bf366d93d19b062841b1064a75c78f67ec490b8df2db5d5763e signerSha256=2e64822e13a6c80c12e1c4b47e8fb32d1e9334526289da75777b7a79145de4b8 fixedShape=pass quota=pass utf8=pass ack=pass denial=pass noRetry=pass
+```
+
+The read-only Host audit was repeated at AutoJs6 revision
+`4a9718d63923834c9a99fd70e0cd58c898e138f6` while that workspace contained 27
+pre-existing changes. Its `LuaRuntimeHostCapabilities.ENABLED` still listed
+only `device.info` and `module.snapshot.v1`. No Host file was changed. Therefore
+this receipt closes the Provider-side R4-C criterion but does not claim a visible
+Android toast or Host end-to-end conformance.

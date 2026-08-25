@@ -223,6 +223,12 @@ The complete 15-test class passed on the API 37, 16 KiB x86_64 emulator for
 implementation revision `fc964d448c85f950c27667e7891fbb7d337fe73e`; exact
 artifact identities and the receipt are in
 [coroutine-control-boundary.md](coroutine-control-boundary.md).
+After the toast bridge was added, the complete class passed 17/17 on the same
+emulator class for implementation revision
+`e26fbc1356dc9e98a0fdf11e4ab732f06079eac4`, with Provider discovery and the
+fault harness disabled. The 50/50 JVM result, fixed-shape/quota/UTF-8/no-retry
+matrix, artifact identities, and current Host follow-up boundary are archived in
+[ui-toast-v1.md](ui-toast-v1.md).
 The repository JVM gate also covers watchdog token, stop, finish, and
 scheduler-failure races.
 Focused Android tests cover native execution; the official Provider smoke is

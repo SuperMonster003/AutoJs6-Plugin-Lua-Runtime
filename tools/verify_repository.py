@@ -3236,6 +3236,8 @@ def verify_production_soak_boundary() -> None:
             "$ExpectedAvd = 'DEX_R1_API36_X64'",
             "$ExpectedHostVersionCode = 5276L",
             "$ExpectedProviderVersionCode = 43L",
+            "if ($VersionCode -gt 0 -and $Identity.versionCode -ne $VersionCode)",
+            "Assert-ArtifactIdentity $lifecycleIdentity 'Lifecycle test' $LifecyclePackage 0 $null",
             "b39872e2f1ccc940afcb74a6b95b5458e2fee594",
             "a0ae189ac8cba042848412a671c91b0b8a7c44e1",
             "813c6be9b051c2eada18b0bbe00acff4abb48facd8e1ddd9ff08d904861d367e",

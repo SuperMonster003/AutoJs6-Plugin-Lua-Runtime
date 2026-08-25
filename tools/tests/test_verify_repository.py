@@ -1731,6 +1731,15 @@ class ProductionSoakBoundaryTest(unittest.TestCase):
                 ),
             ),
             (
+                "PowerShell version comparison",
+                "tools/run_production_soak.ps1",
+                lambda text: text.replace(
+                    "if ($VersionCode -gt 0 -and $Identity.versionCode -ne $VersionCode)",
+                    "if ($VersionCode.Value -gt 0 -and $Identity.versionCode -ne $VersionCode.Value)",
+                    1,
+                ),
+            ),
+            (
                 "same PID across days",
                 "tools/run_production_soak.ps1",
                 lambda text: text.replace(

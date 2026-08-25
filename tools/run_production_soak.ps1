@@ -193,7 +193,7 @@ function Assert-ArtifactIdentity {
         [Parameter(Mandatory = $true)]
         [string] $Package,
 
-        [Nullable[long]] $VersionCode,
+        [long] $VersionCode,
 
         [string] $Sha256
     )
@@ -201,7 +201,7 @@ function Assert-ArtifactIdentity {
     if ($Identity.package -ne $Package) {
         throw "$Label package drift: $($Identity.package)"
     }
-    if ($null -ne $VersionCode -and $Identity.versionCode -ne $VersionCode.Value) {
+    if ($VersionCode -gt 0 -and $Identity.versionCode -ne $VersionCode) {
         throw "$Label versionCode drift: $($Identity.versionCode)"
     }
     if (-not [string]::IsNullOrEmpty($Sha256) -and $Identity.sha256 -ne $Sha256) {
@@ -494,7 +494,7 @@ $providerIdentity = Read-ApkIdentity $providerPath
 $lifecycleIdentity = Read-ApkIdentity $lifecyclePath
 Assert-ArtifactIdentity $hostIdentity 'Host' $HostPackage $ExpectedHostVersionCode $ExpectedHostSha256
 Assert-ArtifactIdentity $providerIdentity 'Provider' $ProviderPackage $ExpectedProviderVersionCode $ExpectedProviderSha256
-Assert-ArtifactIdentity $lifecycleIdentity 'Lifecycle test' $LifecyclePackage $null $null
+Assert-ArtifactIdentity $lifecycleIdentity 'Lifecycle test' $LifecyclePackage 0 $null
 $providerResources = (Invoke-Captured $script:ApkAnalyzer @(
     'resources', 'value', '--config', 'default', '--type', 'bool',
     '--name', 'lua_runtime_provider_enabled', $providerPath

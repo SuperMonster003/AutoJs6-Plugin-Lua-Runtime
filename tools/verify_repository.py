@@ -15,6 +15,7 @@ import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 ANDROID = "{http://schemas.android.com/apk/res/android}"
+TOOLS = "{http://schemas.android.com/tools}"
 PROTOCOL_MODULES = {
     "common-plugin-api.aar": ":plugin-api:common-plugin-api",
     "protocol-wire-api.aar": ":plugin-api:protocol-wire-api",
@@ -343,8 +344,8 @@ def verify_manifest() -> None:
             f"{name} permission drift",
         )
         require(
-            service.get(ANDROID + "enabled") == "@bool/lua_runtime_provider_enabled",
-            f"{name} must stay gate-controlled",
+            service.get(ANDROID + "enabled") is None,
+            f"{name} must be unconditionally enabled",
         )
         actions = {
             node.get(ANDROID + "name")
@@ -362,80 +363,73 @@ def verify_manifest() -> None:
         )
 
 
-def parse_default_off_flags(properties: str) -> dict[str, str]:
-    required_flags = {
-        "autojs.lua.native.enabled",
-        "autojs.lua.provider.enabled",
-        "autojs.lua.faultHarness.enabled",
-        "autojs.lua.releaseCandidate.enabled",
-    }
-    parsed_flags: dict[str, str] = {}
-    reference_counts = {key: 0 for key in required_flags}
-    patterns = {
-        key: re.compile(
-            rf"{re.escape(key)}(?:(?:[ \t]*[=:][ \t]*)|(?:[ \t]+))(.*)",
-        )
-        for key in required_flags
-    }
-    for raw_line in properties.splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith(("#", "!")):
-            continue
-        require("\\" not in line, "Escaped or continued Gradle properties are not admitted")
-        for key, pattern in patterns.items():
-            reference_counts[key] += line.count(key)
-            match = pattern.fullmatch(line)
-            if match is None:
-                continue
-            require(key not in parsed_flags, f"Duplicate default-off property: {key}")
-            parsed_flags[key] = match.group(1).strip().lower()
-    require(set(parsed_flags) == required_flags, "Default-off property inventory drift")
-    require(
-        all(reference_counts[key] == 1 for key in required_flags),
-        "Indirect or repeated default-off property reference",
-    )
-    require(all(value == "false" for value in parsed_flags.values()), "Lua runtime is not default-off")
-    return parsed_flags
+LEGACY_LUA_BUILD_SWITCHES = (
+    "autojs.lua.native.enabled",
+    "autojs.lua.provider.enabled",
+    "autojs.lua.faultHarness.enabled",
+    "autojs.lua.releaseCandidate.enabled",
+    "LUA_NATIVE_ENABLED",
+    "LUA_PROVIDER_ENABLED",
+    "LUA_FAULT_HARNESS_ENABLED",
+    "lua_runtime_provider_enabled",
+    "lua_runtime_fault_harness_enabled",
+)
 
 
-def ci_gradle_property_values(ci: str, key: str) -> list[str]:
-    active_lines = [
-        line
-        for line in ci.splitlines()
-        if line.strip() and not line.lstrip().startswith("#")
-    ]
-    active = "\n".join(active_lines)
-    pattern = re.compile(
-        rf"(?<![A-Za-z0-9_.-])-P{re.escape(key)}[ \t]*=[ \t]*([^\s#'\"\\]+)",
-    )
-    values = [match.group(1) for match in pattern.finditer(active)]
-    require(
-        active.count(key) == len(values),
-        f"CI contains an unparseable or indirect Gradle property reference: {key}",
-    )
-    return values
-
-
-def verify_default_off() -> None:
+def verify_build_modes() -> None:
     expected_jvm_test_count()
-    parse_default_off_flags((ROOT / "gradle.properties").read_text("utf-8"))
-
     ci = (ROOT / ".github/workflows/ci.yml").read_text("utf-8")
-    require(
-        ci_gradle_property_values(ci, "autojs.lua.provider.enabled") == ["false"],
-        "Scaffold CI must not enable discovery before the execution gate",
+    active_build_files = (
+        ROOT / "gradle.properties",
+        ROOT / "app/build.gradle.kts",
+        ROOT / ".github/workflows/ci.yml",
+        ROOT / "tools/verify_local.ps1",
+        ROOT / "tools/build_runnable_provider.ps1",
+    )
+    active_source_roots = (
+        ROOT / "app/src/main/java",
+        ROOT / "app/src/faultTest/java",
+    )
+    active_source_files = tuple(
+        path
+        for source_root in active_source_roots
+        if source_root.is_dir()
+        for path in sorted(source_root.rglob("*.kt"))
+    )
+    active_manifest_files = tuple(
+        path
+        for path in (
+            ROOT / "app/src/main/AndroidManifest.xml",
+            ROOT / "app/src/nativeTest/AndroidManifest.xml",
+            ROOT / "app/src/faultTest/AndroidManifest.xml",
+        )
+        if path.is_file()
+    )
+    for path in active_build_files + active_source_files + active_manifest_files:
+        text = path.read_text("utf-8")
+        for legacy in LEGACY_LUA_BUILD_SWITCHES:
+            require(legacy not in text, f"Legacy Lua build switch remains active in {path.name}: {legacy}")
+    app_build = (ROOT / "app/build.gradle.kts").read_text("utf-8")
+    require_tokens(
+        app_build,
+        (
+            'val runtimeModeDimension = "runtimeMode"',
+            'create("provider")',
+            'create("nativeTest")',
+            'applicationIdSuffix = ".native_test"',
+            'create("faultTest")',
+            'applicationIdSuffix = ".fault_test"',
+            '"-DAUTOJS_LUA_DEBUG_FAULT_HARNESS=ON"',
+            'beforeVariants(selector().withBuildType("release"))',
+            'if (runtimeMode != "provider")',
+            "variantBuilder.enable = false",
+            "providerRelease is unsigned; use tools/build_runnable_provider.ps1",
+        ),
+        "Explicit Lua runtime build variants",
     )
     require(
-        ci_gradle_property_values(ci, "autojs.lua.native.enabled") == ["true"],
-        "Post-intake CI must compile the pinned native scaffold exactly once",
-    )
-    require(
-        ci_gradle_property_values(ci, "autojs.lua.faultHarness.enabled") == [],
-        "CI must not enable the device-only native fault harness",
-    )
-    require(
-        ci_gradle_property_values(ci, "autojs.lua.releaseCandidate.enabled") == [],
-        "CI must not enable signed release-candidate mode",
+        'check(android.signingConfigs.findByName("release") != null)' not in app_build,
+        "Unsigned aggregate Gradle builds must not require release signing material",
     )
     require(
         ci.count("python tools/verify_repository.py --require-build-ready --github-output") == 1,
@@ -450,6 +444,11 @@ def verify_default_off() -> None:
         ci.count("./tools/verify_debug_artifacts.ps1 -BuildToolsVersion 36.0.0") == 1
         and "-ExpectedTests" not in ci,
         "CI must derive the JVM test count from verification.properties",
+    )
+    require_tokens(
+        ci,
+        (":app:testProviderDebugUnitTest", ":app:assembleProviderDebug"),
+        "CI providerDebug build posture",
     )
     service = (ROOT / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaRuntimeService.kt").read_text("utf-8")
     require(
@@ -498,28 +497,37 @@ def require_tokens(text: str, tokens: tuple[str, ...], label: str) -> None:
         require(token in text, f"{label} drift: {token}")
 
 
+def read_localized_readme(language_code: str) -> str:
+    return (ROOT / f".readme/README-{language_code}.md").read_text("utf-8")
+
+
 def verify_localization_workflow() -> None:
-    generator = ROOT / "tools/generate_localized_content.py"
+    generator = ROOT / ".python/generate_markdown.py"
     require(
         generator.is_file() and not generator.is_symlink(),
-        "Missing regular localized-content generator",
+        "Missing regular family Markdown generator",
     )
     generator_text = generator.read_text("utf-8")
     require_tokens(
         generator_text,
         (
+            'LANGUAGE_CODE_DEFAULT = "zh-Hans"',
+            '"zh-Hant-HK"',
+            '"zh-Hant-TW"',
+            "ANDROID_CHANGELOG_ALIASES",
             "object_pairs_hook=reject_duplicate_pairs",
-            "The localization workflow must retain exactly ten locale slots",
-            "English and zh-CN must be the first active locales",
-            "Only active locales may have source directories; planned locales must remain source-free",
-            "Translated Markdown structure or protected literal drift",
-            'config["humanReviewed"] is True',
+            "validate_key_parity",
+            "validate_collection_shapes",
+            "validate_changelog_shapes",
+            "validate_no_fullwidth_symbols",
+            "validate_localized_resources",
             "PLACEHOLDER_MARKERS",
-            "actual_outputs == expected_outputs",
+            "len(artifacts) == 25",
+            "actual_inventory == expected_inventory",
             "Generated content drift:",
-            "LOCALIZED_CONTENT_OK",
+            "MARKDOWN_OK",
         ),
-        "Localized-content generator",
+        "Family Markdown generator",
     )
     try:
         completed = subprocess.run(
@@ -534,53 +542,116 @@ def verify_localization_workflow() -> None:
             capture_output=True,
             text=True,
             encoding="utf-8",
+            env={**os.environ, "PYTHONIOENCODING": "utf-8"},
             timeout=30,
             check=False,
         )
     except (OSError, subprocess.TimeoutExpired) as error:
-        raise RuntimeError("Localized-content check could not complete") from error
+        raise RuntimeError("Family Markdown check could not complete") from error
     detail = (completed.stderr or completed.stdout).strip()
-    require(completed.returncode == 0, f"Localized-content check failed: {detail}")
+    require(completed.returncode == 0, f"Family Markdown check failed: {detail}")
     require(
         completed.stdout.strip()
-        == "LOCALIZED_CONTENT_OK active=2 planned=8 artifacts=6 mode=check",
-        "Localized-content success receipt drift",
+        == "MARKDOWN_OK languages=10 artifacts=25 mode=check",
+        "Family Markdown success receipt drift",
     )
 
-    manifest = require_exact_keys(
-        load_json_strict(ROOT / "localization/locales.json"),
-        {
-            "schemaVersion",
-            "sourceLocale",
-            "localeSlots",
-            "activeLocales",
-            "plannedLocales",
-            "androidStrings",
-        },
-        "Locale manifest",
+    language_codes = (
+        "zh-Hans",
+        "zh-Hant-HK",
+        "zh-Hant-TW",
+        "en",
+        "fr",
+        "es",
+        "ja",
+        "ko",
+        "ru",
+        "ar",
     )
-    require_schema_one(manifest["schemaVersion"], "Locale manifest")
     require(
-        list(manifest["activeLocales"]) == ["en", "zh-CN"]
-        and len(manifest["plannedLocales"]) == 8,
-        "Reviewed active/planned locale baseline drift",
+        tuple(
+            path.stem.removeprefix("lang_")
+            for path in sorted((ROOT / ".readme").glob("lang_*.json"))
+        )
+        == tuple(sorted(language_codes))
+        and tuple(
+            path.stem.removeprefix("lang_")
+            for path in sorted((ROOT / ".changelog").glob("lang_*.json"))
+        )
+        == tuple(sorted(language_codes)),
+        "Ten-language JSON source inventory drift",
+    )
+    root_readme = (ROOT / "README.md").read_text("utf-8")
+    simplified_readme = read_localized_readme("zh-Hans")
+    english_readme = read_localized_readme("en")
+    require(root_readme == simplified_readme, "Root README is not the zh-Hans generated output")
+    require_tokens(
+        root_readme,
+        (
+            "简体中文 [zh-Hans] # 当前",
+            ".python/generate_markdown.py",
+            "python .\\.python\\generate_markdown.py --check",
+            "ROADMAP-R5.md",
+        ),
+        "Generated Simplified Chinese default README",
     )
     require_tokens(
-        (ROOT / "README.md").read_text("utf-8"),
+        english_readme,
         (
-            "Generated from localization/source/en/README.md",
-            "[English](README.md) | [简体中文](README.zh-CN.md)",
-            "python tools/generate_localized_content.py --check",
+            "English [en] # current",
+            "complete documentation in 10 languages",
+            "the active R5 plan in [ROADMAP-R5.md]",
         ),
         "Generated English README",
     )
+    require(
+        len(list((ROOT / ".readme").glob("README-*.md"))) == 10
+        and len(list((ROOT / "app/src/main/assets/doc").glob("CHANGELOG*.md"))) == 14,
+        "Generated README/changelog inventory drift",
+    )
+    legacy_paths = (
+        ROOT / "localization",
+        ROOT / "tools/generate_localized_content.py",
+        ROOT / "README.zh-CN.md",
+        ROOT / "CHANGELOG.md",
+        ROOT / "CHANGELOG.zh-CN.md",
+        ROOT / "app/src/main/res/values-zh-rCN/strings.xml",
+    )
+    require(
+        not any(path.exists() or path.is_symlink() for path in legacy_paths),
+        "Legacy localization workflow re-entered the repository",
+    )
+    roadmap = (ROOT / "ROADMAP.md").read_text("utf-8")
+    roadmap_r4 = (ROOT / "ROADMAP-R4.md").read_text("utf-8")
+    roadmap_r5 = (ROOT / "ROADMAP-R5.md").read_text("utf-8")
+    require(
+        re.search(r"^## R5(?:\b|-)", roadmap_r4, re.MULTILINE) is None,
+        "R5 content re-entered the R4 evidence ledger",
+    )
     require_tokens(
-        (ROOT / "README.zh-CN.md").read_text("utf-8"),
+        roadmap_r5,
         (
-            "Generated from localization/source/zh-CN/README.md",
-            "其余八个槽位在获得真实翻译前没有源目录",
+            "# Lua 运行时插件 Roadmap — R5 阶段 (功能优先)",
+            "## R5-0 — 显式构建变体",
+            "## R5-A — 使用者文档与家族多语言机制",
+            "## R5-B — 语言与宿主能力精进",
+            "## R5-C — 需宿主协议演进的能力",
+            "## R5-D — 发布执行",
+            "MARKDOWN_OK languages=10 artifacts=25 mode=check",
+            "R5-A 多语言迁移证据 (2026-08-27)",
+            "原先单列的",
+            '"zh-TW / zh-HK 获得真实翻译后转 active"待办不再存在',
         ),
-        "Generated Simplified Chinese README",
+        "Independent R5 roadmap",
+    )
+    require(
+        "繁体中文槽位真实翻译扩展" not in roadmap_r5,
+        "Obsolete planned Traditional Chinese slot task re-entered R5",
+    )
+    require_tokens(
+        roadmap,
+        ("[ROADMAP-R4.md](ROADMAP-R4.md)", "[ROADMAP-R5.md](ROADMAP-R5.md)"),
+        "Roadmap index",
     )
 
 
@@ -852,23 +923,22 @@ def verify_input_workflows() -> None:
     require_tokens(
         app_build,
         (
-            'flag("autojs.lua.releaseCandidate.enabled")',
             '"lua_runtime_requires_host_version"',
             '"autojs.lua.release.signingPropertiesFile"',
             '"autojs.lua.release.signingStoreFile"',
             '"External release signing paths must be absolute"',
-            'tasks.register("requireReleaseCandidate")',
-            '"Release candidates require native=true, provider=true, and faultHarness=false"',
+            'tasks.register("verifyReleasePreconditions")',
             '"Release candidates require a version name such as 0.1.0-rc.1"',
+            '"providerRelease is unsigned; use tools/build_runnable_provider.ps1',
             'val releaseArtifactTaskNames = setOf(',
-            '"packageReleaseUniversalApk"',
+            '"packageProviderReleaseUniversalApk"',
             "task.name in releaseArtifactTaskNames",
-            'dependsOn("requireReleaseCandidate")',
+            'dependsOn("verifyReleasePreconditions")',
         ),
-        "Explicit signed release-candidate gate",
+        "Release metadata and strict signed artifact gate",
     )
     require(
-        '"packageReleaseResources"' not in app_build,
+        '"packageProviderReleaseResources"' not in app_build,
         "Release resource intermediates must remain available to the unsigned exclusion audit",
     )
     runnable_provider = (ROOT / "tools/build_runnable_provider.ps1").read_text("utf-8")
@@ -876,15 +946,11 @@ def verify_input_workflows() -> None:
         runnable_provider,
         (
             '":app:clean"',
-            '":app:testDebugUnitTest"',
-            '":app:assembleRelease"',
-            '"-Pautojs.lua.native.enabled=true"',
-            '"-Pautojs.lua.provider.enabled=true"',
-            '"-Pautojs.lua.faultHarness.enabled=false"',
-            '"-Pautojs.lua.releaseCandidate.enabled=true"',
+            '":app:testProviderDebugUnitTest"',
+            '":app:assembleProviderRelease"',
             '"--rerun-tasks"',
             '"--offline"',
-            'bool/lua_runtime_provider_enabled',
+            'app/build/outputs/apk/provider/release',
             '"org.autojs.plugin.INFO"',
             '"org.autojs.plugin.lua.RUNTIME"',
             'foreach ($abi in @("arm64-v8a", "x86_64"))',
@@ -1024,10 +1090,15 @@ def verify_input_workflows() -> None:
             "rc2api31-20260825052654",
             "rc2api36-20260825052833",
             "docs/release-candidate-rc2-api-matrix.md",
+            "- **设备安装 + 宿主端到端冒烟归档 — 已裁撤 (2026-08-26)**",
         ),
         "R4-E rc.2 completion ledger",
     )
-    readme = (ROOT / "README.md").read_text("utf-8")
+    require(
+        "- [ ] **设备安装" not in roadmap and "- [x] **设备安装" not in roadmap,
+        "The descoped device-smoke item must not regain a checkbox",
+    )
+    readme = read_localized_readme("en")
     require_tokens(
         readme,
         (
@@ -1037,7 +1108,7 @@ def verify_input_workflows() -> None:
             "device/runtime verification deliberately",
             "docs/release-candidate-rc2.md",
             "docs/release-candidate-rc2-emulator-smoke.md",
-            "arm64 physical-device half remains pending",
+            "arm64 physical-device half was descoped on 2026-08-26",
             "docs/release-candidate-rc2-api-matrix.md",
             "install, real-Host execution, and Provider",
             "uninstall on API 24, 31, and 36",
@@ -1130,14 +1201,16 @@ def verify_input_workflows() -> None:
             "$expectedTests = [int]$verificationProperties.JVM_TEST_COUNT",
             "rev-list --count HEAD",
             "VERSION_BUILD must equal the positive commit count",
-            "app/build/test-results/testDebugUnitTest",
-            "app/build/outputs/apk/debug",
+            "app/build/test-results/testProviderDebugUnitTest",
+            "app/build/outputs/apk/provider/debug",
             "zipalign -c -P 16 4",
             "apksigner verify --verbose --print-certs",
             "llvm-readelf",
-            "app/build/generated/source/buildConfig/debug/",
-            "LUA_NATIVE_ENABLED = true;",
-            "LUA_PROVIDER_ENABLED = false;",
+            "app/build/generated/source/buildConfig/provider/debug/",
+            'DEBUG = Boolean.parseBoolean("true");',
+            "Legacy Lua build-switch resources entered the provider debug APK",
+            "Legacy Lua build switches entered generated provider debug BuildConfig",
+            "Packaged production service boundary drift",
             "DEBUG_ARTIFACT_GATE_PASS",
         ),
         "Debug artifact gate",
@@ -1158,15 +1231,15 @@ def verify_input_workflows() -> None:
             "JVM_TEST_COUNT",
             "$expectedTests = [int]$verificationProperties.JVM_TEST_COUNT",
             "VERSION_BUILD must equal the positive commit count",
-            "app/build/outputs/apk/release",
+            "app/build/outputs/apk/provider/release",
             "zipalign -c -P 16 4",
             "apksigner verify --verbose --print-certs",
             "Release APK must have exactly one signer",
-            "LUA_NATIVE_ENABLED = true;",
-            "LUA_PROVIDER_ENABLED = true;",
-            "LUA_FAULT_HARNESS_ENABLED = false;",
-            "$faultHarnessResourcePresent = $resourceText.Contains('lua_runtime_fault_harness_enabled')",
-            "Packaged release fault harness resource is not false",
+            "app/build/generated/source/buildConfig/provider/release/",
+            "DEBUG = false;",
+            "Legacy Lua build-switch resources entered the provider release APK",
+            "Legacy Lua build switches entered generated provider release BuildConfig",
+            "Packaged release production service boundary drift",
             "SIGNED_RELEASE_CANDIDATE_ARTIFACT_GATE_PASS",
             "deviceVerified = $false",
             "runtimeVerified = $false",
@@ -1183,14 +1256,17 @@ def verify_input_workflows() -> None:
             "--require-build-ready",
             "unittest",
             "discover",
-            ":app:testDebugUnitTest",
-            "-Pautojs.lua.native.enabled=true",
-            "-Pautojs.lua.provider.enabled=false",
+            ":app:testProviderDebugUnitTest",
             "--offline",
-            "app/build/test-results/testDebugUnitTest",
+            "app/build/test-results/testProviderDebugUnitTest",
             "LOCAL_OFFLINE_GATE_PASS",
+            "provider=true network=disabled",
         ),
         "One-command offline local gate",
+    )
+    require(
+        "-Pautojs.lua." not in local_gate,
+        "The local offline gate must not resurrect legacy Lua build switches",
     )
     archive_verifier = (ROOT / "tools/verify_lua_archive.ps1").read_text("utf-8")
     require_tokens(
@@ -1681,18 +1757,18 @@ def verify_native_boundary() -> None:
         / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaRuntimeService.kt"
     ).read_text("utf-8")
     require(
-        "runner = selectLuaExecutionRunner(BuildConfig.LUA_NATIVE_ENABLED)" in runtime_service,
-        "Runtime service no longer selects its runner from the native build flag",
+        "runner = NativeLuaExecutionRunner" in runtime_service,
+        "Runtime service is not wired directly to the mandatory native runner",
     )
     require(
-        "internal fun selectLuaExecutionRunner(nativeEnabled: Boolean): LuaExecutionRunner" in runtime_service
-        and "if (nativeEnabled) NativeLuaExecutionRunner else DisabledLuaExecutionRunner" in runtime_service,
-        "Native/disabled runner selection drift",
+        "selectLuaExecutionRunner" not in runtime_service
+        and "DisabledLuaExecutionRunner" not in runtime_service,
+        "Legacy native/disabled runner selection remains in the runtime service",
     )
 
     native_doc = (ROOT / "docs/native-execution-core.md").read_text("utf-8")
     require(
-        "COMPILED, PACKAGED, AND DEVICE-EXECUTED / PROVIDER DEFAULT-OFF" in native_doc,
+        "COMPILED, PACKAGED, DEVICE-EXECUTED, AND MANDATORY" in native_doc,
         "Native evidence boundary is missing",
     )
     require("flat ASCII names" in native_doc, "Native module boundary is missing")
@@ -1707,7 +1783,7 @@ def verify_native_boundary() -> None:
     )
     require("infinite `__gc` or `__close` handler" in native_doc, "Native teardown limitation is missing")
     require("process-level cleanup watchdog" in native_doc, "Native cleanup watchdog gate is missing")
-    require("Selecting the adapter does not load JNI" in native_doc, "Native adapter status is ambiguous")
+    require("Constructing the adapter does not load JNI" in native_doc, "Native adapter status is ambiguous")
     require("`autojs.now()`" in native_doc, "Native controlled wall-clock API is missing")
     require(
         "`math.randomseed(seed1[, seed2])` wrapper" in native_doc
@@ -1841,7 +1917,7 @@ def verify_native_boundary() -> None:
         ),
         "R4 UI toast completion evidence",
     )
-    readme = (ROOT / "README.md").read_text("utf-8")
+    readme = read_localized_readme("en")
     require(
         'luaL_loadbufferx(..., "t")' in readme,
         "The required text-only execution loader gate is not documented",
@@ -2095,7 +2171,7 @@ def verify_crash_diagnostic_boundary() -> None:
     ).read_text("utf-8")
     debug_service = (
         ROOT
-        / "app/src/debug/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/"
+        / "app/src/faultTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/"
         "LuaRuntimeFaultService.kt"
     ).read_text("utf-8")
     for label, service_text in (("Provider", service), ("fault harness", debug_service)):
@@ -2196,7 +2272,7 @@ def verify_crash_diagnostic_boundary() -> None:
 
     instrumentation = (
         ROOT
-        / "app/src/androidTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/"
+        / "app/src/androidTestFaultTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/"
         "LuaRuntimeFaultRecoveryInstrumentationTest.kt"
     ).read_text("utf-8")
     require_tokens(
@@ -2310,7 +2386,7 @@ def verify_descriptor_boundary() -> None:
     )
     fault_service = (
         ROOT
-        / "app/src/debug/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/LuaRuntimeFaultService.kt"
+        / "app/src/faultTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/LuaRuntimeFaultService.kt"
     ).read_text("utf-8")
     require_tokens(
         fault_service,
@@ -2435,20 +2511,22 @@ def verify_native_android_test_boundary() -> None:
             'testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"',
             'androidTestImplementation("androidx.test:runner:1.7.0")',
             'androidTestImplementation("androidx.test.ext:junit:1.3.0")',
+            'create("nativeTest")',
+            'applicationIdSuffix = ".native_test"',
         ),
         "Provider-disabled native Android test configuration",
     )
 
     test = (
         ROOT
-        / "app/src/androidTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/NativeLuaRuntimeInstrumentationTest.kt"
+        / "app/src/androidTestNativeTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/NativeLuaRuntimeInstrumentationTest.kt"
     ).read_text("utf-8")
     require_tokens(
         test,
         (
-            "assertTrue(BuildConfig.LUA_NATIVE_ENABLED)",
-            "assertFalse(BuildConfig.LUA_PROVIDER_ENABLED)",
-            "providerRemainsDisabledDuringNativeTests",
+            'context.packageName.endsWith(".native_test")',
+            "PackageManager.NameNotFoundException::class.java",
+            "providerServicesAreAbsentDuringNativeTests",
             "nativeCoreAndRunnerReturnV1Scalars",
             "reviewedTimeFormatAndRandomSubsetStaysNarrow",
             "autojs.console.info('notice')",
@@ -2506,17 +2584,17 @@ def verify_fault_harness_boundary() -> None:
     require_tokens(
         build,
         (
-            'flag("autojs.lua.faultHarness.enabled")',
-            "luaFaultHarnessEnabled.get() && (!luaNativeEnabled.get() || luaProviderEnabled.get())",
-            '"LUA_FAULT_HARNESS_ENABLED",\n                luaFaultHarnessEnabled.get().toString()',
-            '"lua_runtime_fault_harness_enabled",\n                luaFaultHarnessEnabled.get().toString()',
+            'create("provider")',
+            'create("nativeTest")',
+            'create("faultTest")',
+            'applicationIdSuffix = ".fault_test"',
             '"-DAUTOJS_LUA_DEBUG_FAULT_HARNESS=ON"',
-            'buildConfigField("boolean", "LUA_FAULT_HARNESS_ENABLED", "false")',
-            'resValue("bool", "lua_runtime_fault_harness_enabled", "false")',
             '"-DAUTOJS_LUA_DEBUG_FAULT_HARNESS=OFF"',
+            'beforeVariants(selector().withBuildType("release"))',
+            'if (runtimeMode != "provider")',
             "task.name in releaseArtifactTaskNames",
         ),
-        "Explicit debug fault-harness build gate",
+        "Explicit faultTest build variant",
     )
     release_artifact_tasks_match = re.search(
         r"val releaseArtifactTaskNames = setOf\((.*?)\)",
@@ -2528,35 +2606,47 @@ def verify_fault_harness_boundary() -> None:
     require(
         release_artifact_tasks
         == {
-            "assembleRelease",
-            "bundleRelease",
-            "packageRelease",
-            "packageReleaseBundle",
-            "packageReleaseUniversalApk",
+            "assembleProviderRelease",
+            "bundleProviderRelease",
+            "packageProviderRelease",
+            "packageProviderReleaseBundle",
+            "packageProviderReleaseUniversalApk",
         },
         "Release artifact task gate either misses an artifact or blocks audit intermediates",
     )
 
-    debug_manifest_path = ROOT / "app/src/debug/AndroidManifest.xml"
-    debug_manifest = ET.parse(debug_manifest_path).getroot()
-    debug_application = debug_manifest.find("application")
-    require(debug_application is not None, "Debug fault manifest has no application node")
-    debug_services = debug_application.findall("service")
+    fault_manifest_path = ROOT / "app/src/faultTest/AndroidManifest.xml"
+    fault_manifest = ET.parse(fault_manifest_path).getroot()
+    fault_application = fault_manifest.find("application")
+    require(fault_application is not None, "faultTest manifest has no application node")
+    fault_services = fault_application.findall("service")
     expected_fault_services = {
         ".debug.LuaRuntimeFaultService": ":lua_runtime",
         ".debug.LuaRuntimeFaultPeerService": ":lua_fault_peer",
     }
-    require(len(debug_services) == len(expected_fault_services), "Debug fault service inventory drift")
-    services_by_name = {service.get(ANDROID + "name"): service for service in debug_services}
-    require(set(services_by_name) == set(expected_fault_services), "Debug fault service names drift")
+    removed_provider_services = {
+        ".service.LuaPluginInfoService",
+        ".service.LuaRuntimeService",
+    }
+    services_by_name = {service.get(ANDROID + "name"): service for service in fault_services}
+    require(
+        set(services_by_name) == set(expected_fault_services) | removed_provider_services,
+        "faultTest service/remove inventory drift",
+    )
+    for name in removed_provider_services:
+        service = services_by_name[name]
+        require(
+            service.get(TOOLS + "node") == "remove" and len(service.attrib) == 2,
+            f"faultTest does not physically remove production service: {name}",
+        )
     for name, process in expected_fault_services.items():
         service = services_by_name[name]
         require(
-            service.get(ANDROID + "enabled") == "@bool/lua_runtime_fault_harness_enabled"
+            service.get(ANDROID + "enabled") is None
             and service.get(ANDROID + "exported") == "false"
             and service.get(ANDROID + "process") == process
             and not service.findall("intent-filter"),
-            f"Debug fault service isolation or explicit-only binding drift: {name}",
+            f"faultTest service isolation or explicit-only binding drift: {name}",
         )
     main_manifest = (ROOT / "app/src/main/AndroidManifest.xml").read_text("utf-8")
     require("LuaRuntimeFault" not in main_manifest, "Fault service entered the main manifest")
@@ -2571,7 +2661,7 @@ def verify_fault_harness_boundary() -> None:
 
     service_text = (
         ROOT
-        / "app/src/debug/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/LuaRuntimeFaultService.kt"
+        / "app/src/faultTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/LuaRuntimeFaultService.kt"
     ).read_text("utf-8")
     require_tokens(
         service_text,
@@ -2602,13 +2692,12 @@ def verify_fault_harness_boundary() -> None:
 
     peer_service_text = (
         ROOT
-        / "app/src/debug/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/LuaRuntimeFaultPeerService.kt"
+        / "app/src/faultTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/LuaRuntimeFaultPeerService.kt"
     ).read_text("utf-8")
     require_tokens(
         peer_service_text,
         (
-            "check(BuildConfig.DEBUG && BuildConfig.LUA_FAULT_HARNESS_ENABLED)",
-            "check(BuildConfig.LUA_NATIVE_ENABLED && !BuildConfig.LUA_PROVIDER_ENABLED)",
+            'check(BuildConfig.DEBUG && BuildConfig.APPLICATION_ID.endsWith(".fault_test"))',
             "object : ILuaExecutionCallback.Stub()",
             "object : ILuaHostCapabilityBroker.Stub()",
             "Binder.getCallingUid() == Process.myUid()",
@@ -2623,15 +2712,13 @@ def verify_fault_harness_boundary() -> None:
 
     native_wrapper = (
         ROOT
-        / "app/src/debug/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/NativeLuaFaults.kt"
+        / "app/src/faultTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/NativeLuaFaults.kt"
     ).read_text("utf-8")
     require_tokens(
         native_wrapper,
         (
             "check(BuildConfig.DEBUG)",
-            "check(BuildConfig.LUA_FAULT_HARNESS_ENABLED)",
-            "check(BuildConfig.LUA_NATIVE_ENABLED)",
-            "check(!BuildConfig.LUA_PROVIDER_ENABLED)",
+            'BuildConfig.APPLICATION_ID.endsWith(".fault_test")',
             "private external fun nativeCrash()",
             "private external fun nativeWedge()",
         ),
@@ -2661,7 +2748,7 @@ def verify_fault_harness_boundary() -> None:
 
     instrumentation = (
         ROOT
-        / "app/src/androidTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/LuaRuntimeFaultRecoveryInstrumentationTest.kt"
+        / "app/src/androidTestFaultTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/LuaRuntimeFaultRecoveryInstrumentationTest.kt"
     ).read_text("utf-8")
     require_tokens(
         instrumentation,
@@ -2670,7 +2757,8 @@ def verify_fault_harness_boundary() -> None:
             "nativeWedgeIsKilledByWatchdogAndRecoversInANewProcess",
             "osFileDescriptorsReturnToBaselineAcrossTerminalAndPeerDeathPaths",
             "hangingPipeSourceIsFailStoppedAndRecoversInANewProcess",
-            "assertFalse(BuildConfig.LUA_PROVIDER_ENABLED)",
+            'BuildConfig.APPLICATION_ID.endsWith(".fault_test")',
+            "PackageManager.NameNotFoundException::class.java",
             "assertProductionProvidersDisabled(context)",
             'assertNotEquals("The fault harness did not enter a remote process", Process.myPid()',
             '"${context.packageName}:lua_runtime"',
@@ -2710,9 +2798,15 @@ def verify_fault_harness_boundary() -> None:
             "status --porcelain --untracked-files=all",
             "VERSION_BUILD must equal the canonical commit count",
             "Artifact predates the canonical invocation",
-            "merged_manifest/release",
+            "merged_manifest/providerRelease",
+            "merged_manifest/faultTestDebug",
+            "faultTest/debug",
+            "provider/release",
+            'DEBUG = Boolean.parseBoolean("true");',
+            "DEBUG = false;",
             "LuaRuntimeService.class",
-            "LUA_FAULT_HARNESS_ENABLED = false;",
+            'Legacy Lua build switches entered $($entry.Label) BuildConfig',
+            "Production Provider services entered faultTestDebug",
             "arm64-v8a",
             "x86_64",
             "NativeLuaFaults_nativeCrash",
@@ -2724,20 +2818,19 @@ def verify_fault_harness_boundary() -> None:
         ),
         "Release fault-harness physical exclusion gate",
     )
-    readme = (ROOT / "README.md").read_text("utf-8")
-    checklist_start = readme.index("### Pre-release fault-harness checklist")
-    checklist_end = readme.index("\n## ", checklist_start)
+    readme = read_localized_readme("en")
+    checklist_start = readme.index("#### Pre-release fault-harness checklist")
+    checklist_end = readme.index("\n******", checklist_start)
     fault_checklist = readme[checklist_start:checklist_end]
     require_tokens(
         fault_checklist,
         (
-            "### Pre-release fault-harness checklist",
+            "#### Pre-release fault-harness checklist",
             ":app:clean",
-            ":app:assembleDebug",
-            ":app:compileReleaseKotlin",
-            ":app:processReleaseMainManifest",
-            ":app:externalNativeBuildRelease",
-            "-Pautojs.lua.faultHarness.enabled=true",
+            ":app:assembleFaultTestDebug",
+            ":app:compileProviderReleaseKotlin",
+            ":app:processProviderReleaseMainManifest",
+            ":app:externalNativeBuildProviderRelease",
             "--rerun-tasks",
             "verify_fault_harness_artifacts.ps1",
             "-InvocationStartedAtUtc $faultStarted",
@@ -2890,7 +2983,9 @@ def verify_host_lifecycle_boundary() -> None:
             "$isQemu -ne '1'",
             "$baselineIdentity.VersionCode -ge $updatedIdentity.VersionCode",
             "$signers.Count -ne 1",
-            "'lua_runtime_provider_enabled'",
+            "'LuaPluginInfoService'",
+            "'LuaRuntimeService'",
+            "'android:enabled=\"false\"'",
             "Install-Apk $updatedHost -Replace",
             "$uninstallOutput = (Invoke-Adb @('uninstall', $HostPackage))",
             "Lua provider was removed with the Host package",
@@ -2922,7 +3017,9 @@ def verify_host_lifecycle_boundary() -> None:
             "$ExpectedRejection = 'HOST_VERSION_UNSUPPORTED'",
             "$signers.Count -ne 1",
             "foreach ($provider in @($rc1Provider, $rc2Provider))",
-            "'lua_runtime_provider_enabled'",
+            "'LuaPluginInfoService'",
+            "'LuaRuntimeService'",
+            "'android:enabled=\"false\"'",
             "Install-Apk $rc1Provider",
             "Install-Apk $rc2Provider -Replace",
             "(?:userId|appId)=([0-9]+)",
@@ -3191,7 +3288,7 @@ def verify_public_release_materials() -> None:
         "Blocked GitHub Release draft",
     )
 
-    for relative in ("README.md", "README.zh-CN.md"):
+    for relative in ("README.md", ".readme/README-en.md"):
         readme = (ROOT / relative).read_text("utf-8")
         require_tokens(
             readme,
@@ -3292,7 +3389,9 @@ def verify_production_soak_boundary() -> None:
     require_tokens(
         plan,
         (
-            "STANDARD FROZEN — FIRST ROUND NOT COMPLETE",
+            "STANDARD RETIRED — PRODUCTION SOAK DESCOPED ON 2026-08-26 (NO ROUND COMPLETED)",
+            "fix-on-report",
+            "future voluntary round",
             "7 consecutive Asia/Shanghai calendar days",
             "250",
             "500 executions per day and 3,500 executions",
@@ -3346,15 +3445,17 @@ def verify_production_soak_boundary() -> None:
     require_tokens(
         round_two,
         (
-            "ROUND 2 IN PROGRESS — DAY 2/7 PASSED",
+            "ROUND 2 CLOSED AFTER DAY 2/7 — PRODUCTION SOAK DESCOPED (2026-08-26)",
             "external Host package replacement",
             "explicitly reserved host-side deployment window",
             "Qualification is not a production day",
-            "R4-E checkbox remains open",
+            "the descoped R4-E item stays permanently unchecked",
+            "No complete-round pass is claimed for round 2",
+            "must use a new RoundId and begin again at day 1",
             "| 1 | 2026-08-25 | 250 | 500 | 8080 | 83 → 83 | **PASS** |",
             "| 2 | 2026-08-26 | 250 | 500 | 8080 | 83 → 83 | **PASS** |",
-            "pending (due 2026-08-27)",
-            "| 7 | pending | 250 | 500 |",
+            "not run (was due 2026-08-27)",
+            "| 7 | not run — descoped | — | — |",
             "7f5bc019367e46aa4533bb6ae71ec7f339cea20d1efb2a988f7f2060d3e07604",
             "9d40666b8f6fedcb2bd5a77dc647fe6d63d4cdb098f24ffdfeccd970fa2246f3",
             "47e07ea5-0187-4553-871a-6c713deab71c",
@@ -3380,14 +3481,20 @@ def verify_production_soak_boundary() -> None:
             "These are two",
             "valid days, not a complete production soak",
         ),
-        "Honest in-progress production soak round-2 ledger",
+        "Honest closed production soak round-2 ledger",
     )
 
     roadmap = (ROOT / "ROADMAP-R4.md").read_text("utf-8")
     require_tokens(
         roadmap,
         (
-            "- [ ] **生产 soak 计划**",
+            "- **生产 soak 计划 — 已裁撤 (2026-08-26)**",
+            "R4-E 长时测试裁撤记录 (2026-08-26)",
+            "裁撤不是完成",
+            "fix-on-report",
+            "不被伪造为 complete",
+            "重启需按原",
+            "规则使用新 RoundId 从 Day 1 开始",
             "R4-E 生产 soak 标准冻结 (2026-08-25)",
             "`N=7` 个 Asia/Shanghai 连续自然日",
             "每日 250 次真实 Host smoke",
@@ -3417,7 +3524,11 @@ def verify_production_soak_boundary() -> None:
             "[`docs/production-soak-round-1.md`](docs/production-soak-round-1.md)",
             "[`docs/production-soak-round-2.md`](docs/production-soak-round-2.md)",
         ),
-        "Open R4-E production soak ledger",
+        "Descoped R4-E production soak ledger",
+    )
+    require(
+        "- [ ] **生产 soak 计划**" not in roadmap and "- [x] **生产 soak 计划**" not in roadmap,
+        "The descoped production soak item must not regain a checkbox",
     )
 
 
@@ -3440,7 +3551,7 @@ def main() -> int:
     protocol_ready = verify_protocol()
     vendor_ready = verify_vendor()
     verify_manifest()
-    verify_default_off()
+    verify_build_modes()
     verify_ci_resilience()
     verify_localization_workflow()
     verify_input_workflows()

@@ -89,38 +89,23 @@ def stage_vendor(root: Path, lock: dict[str, object], files: dict[str, bytes]) -
     write_json(root / "app/src/main/cpp/vendor/vendor-lock.json", lock)
 
 
-def write_default_off_fixture(root: Path) -> None:
-    shutil.copy2(SOURCE_ROOT / "verification.properties", root / "verification.properties")
-    write_text(
-        root / "gradle.properties",
-        "autojs.lua.native.enabled=false\nautojs.lua.provider.enabled=false\n"
-        "autojs.lua.faultHarness.enabled=false\n"
-        "autojs.lua.releaseCandidate.enabled=false\n",
-    )
-    write_text(
-        root / ".github/workflows/ci.yml",
-        """jobs:
-  build:
-    steps:
-      - run: >-
-          for build_attempt in 1 2 3; do
-            if ./gradlew \\
-              :app:assembleDebug \\
-              -Pautojs.lua.native.enabled=true \\
-              -Pautojs.lua.provider.enabled=false \\
-              --no-daemon; then
-              exit 0
-            fi
-          done
-      - run: ./tools/verify_debug_artifacts.ps1 -BuildToolsVersion 36.0.0
-      - run: python tools/verify_repository.py --require-build-ready --github-output
-""",
-    )
-    write_text(
-        root
-        / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaRuntimeService.kt",
-        "override fun onBind(intent: Intent?): IBinder = binder\n",
-    )
+BUILD_MODE_FIXTURE_FILES = (
+    "verification.properties",
+    "gradle.properties",
+    "app/build.gradle.kts",
+    ".github/workflows/ci.yml",
+    "tools/verify_local.ps1",
+    "tools/build_runnable_provider.ps1",
+    "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaRuntimeService.kt",
+)
+
+
+def write_build_modes_fixture(root: Path) -> None:
+    for relative in BUILD_MODE_FIXTURE_FILES:
+        source = SOURCE_ROOT / relative
+        destination = root / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
 
 
 class VerificationPropertiesTest(unittest.TestCase):
@@ -146,21 +131,41 @@ class VerificationPropertiesTest(unittest.TestCase):
 
 
 class LocalizationWorkflowTest(unittest.TestCase):
+    LANGUAGE_CODES = (
+        "zh-Hans",
+        "zh-Hant-HK",
+        "zh-Hant-TW",
+        "en",
+        "fr",
+        "es",
+        "ja",
+        "ko",
+        "ru",
+        "ar",
+    )
     FILES = (
-        "tools/generate_localized_content.py",
-        "localization/locales.json",
-        "localization/source/en/README.md",
-        "localization/source/en/CHANGELOG.md",
-        "localization/source/en/strings.json",
-        "localization/source/zh-CN/README.md",
-        "localization/source/zh-CN/CHANGELOG.md",
-        "localization/source/zh-CN/strings.json",
+        "version.properties",
         "README.md",
-        "README.zh-CN.md",
-        "CHANGELOG.md",
-        "CHANGELOG.zh-CN.md",
+        "ROADMAP.md",
+        "ROADMAP-R4.md",
+        "ROADMAP-R5.md",
         "app/src/main/res/values/strings.xml",
-        "app/src/main/res/values-zh-rCN/strings.xml",
+        "app/src/main/res/values-zh/strings.xml",
+        "app/src/main/res/values-zh-rHK/strings.xml",
+        "app/src/main/res/values-zh-rTW/strings.xml",
+        "app/src/main/res/values-en/strings.xml",
+        "app/src/main/res/values-fr/strings.xml",
+        "app/src/main/res/values-es/strings.xml",
+        "app/src/main/res/values-ja/strings.xml",
+        "app/src/main/res/values-ko/strings.xml",
+        "app/src/main/res/values-ru/strings.xml",
+        "app/src/main/res/values-ar/strings.xml",
+    )
+    DIRECTORIES = (
+        ".python",
+        ".readme",
+        ".changelog",
+        "app/src/main/assets/doc",
     )
 
     def copy_workflow(self, root: Path) -> None:
@@ -168,8 +173,10 @@ class LocalizationWorkflowTest(unittest.TestCase):
             destination = root / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(SOURCE_ROOT / relative, destination)
+        for relative in self.DIRECTORIES:
+            shutil.copytree(SOURCE_ROOT / relative, root / relative)
 
-    def test_current_reviewed_bilingual_outputs_are_exactly_generated(self) -> None:
+    def test_current_family_outputs_are_exactly_generated_in_ten_languages(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             self.copy_workflow(root)
@@ -181,11 +188,11 @@ class LocalizationWorkflowTest(unittest.TestCase):
             root = Path(directory)
             self.copy_workflow(root)
             write_text(root / "README.md", "drift\n")
-            (root / "CHANGELOG.zh-CN.md").unlink()
+            (root / "app/src/main/assets/doc/CHANGELOG-ar.md").unlink()
             completed = subprocess.run(
                 [
                     sys.executable,
-                    str(root / "tools/generate_localized_content.py"),
+                    str(root / ".python/generate_markdown.py"),
                     "--root",
                     str(root),
                 ],
@@ -200,7 +207,7 @@ class LocalizationWorkflowTest(unittest.TestCase):
             with mock.patch.object(verifier, "ROOT", root):
                 verifier.verify_localization_workflow()
 
-    def test_output_drift_placeholder_sources_and_duplicate_manifest_keys_fail_closed(self) -> None:
+    def test_output_source_shape_resource_and_legacy_drift_fail_closed(self) -> None:
         mutations = (
             (
                 "generated README drift",
@@ -210,44 +217,97 @@ class LocalizationWorkflowTest(unittest.TestCase):
                 ),
             ),
             (
-                "planned locale source",
-                lambda root: write_text(
-                    root / "localization/source/ja/README.md",
-                    "# Placeholder\n",
-                ),
+                "missing language source",
+                lambda root: (root / ".readme/lang_ar.json").unlink(),
             ),
             (
                 "unexpected localized output",
-                lambda root: write_text(root / "README.ja.md", "# Placeholder\n"),
+                lambda root: write_text(root / ".readme/README-de.md", "# Placeholder\n"),
             ),
             (
                 "translation marker",
                 lambda root: write_text(
-                    root / "localization/source/zh-CN/README.md",
-                    (root / "localization/source/zh-CN/README.md").read_text("utf-8")
-                    + "TODO_TRANSLATION\n",
-                ),
-            ),
-            (
-                "translated protected literal drift",
-                lambda root: write_text(
-                    root / "localization/source/zh-CN/README.md",
-                    (root / "localization/source/zh-CN/README.md").read_text("utf-8").replace(
-                        "4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae",
-                        "0" * 64,
+                    root / ".readme/lang_ja.json",
+                    (root / ".readme/lang_ja.json").read_text("utf-8").replace(
+                        '"日本語"',
+                        '"日本語 TODO_TRANSLATION"',
                         1,
                     ),
                 ),
             ),
             (
-                "duplicate manifest key",
+                "fullwidth punctuation",
                 lambda root: write_text(
-                    root / "localization/locales.json",
-                    (root / "localization/locales.json").read_text("utf-8").replace(
-                        '"sourceLocale": "en",',
-                        '"sourceLocale": "en",\n  "sourceLocale": "en",',
+                    root / ".readme/lang_zh-Hans.json",
+                    (root / ".readme/lang_zh-Hans.json").read_text("utf-8").replace(
+                        '"当前"',
+                        '"当前。"',
                         1,
                     ),
+                ),
+            ),
+            (
+                "README key mismatch",
+                lambda root: write_text(
+                    root / ".readme/lang_fr.json",
+                    (root / ".readme/lang_fr.json").read_text("utf-8").replace(
+                        '"h3_links":',
+                        '"h3_unreviewed_links":',
+                        1,
+                    ),
+                ),
+            ),
+            (
+                "changelog shape mismatch",
+                lambda root: write_text(
+                    root / ".changelog/lang_es.json",
+                    (root / ".changelog/lang_es.json").read_text("utf-8").replace(
+                        '"dependency": [',
+                        '"unreviewed_dependency": [',
+                        1,
+                    ),
+                ),
+            ),
+            (
+                "duplicate common key",
+                lambda root: write_text(
+                    root / ".readme/common.json",
+                    (root / ".readme/common.json").read_text("utf-8").replace(
+                        '"repo_url":',
+                        '"repo_url": "duplicate",\n  "repo_url":',
+                        1,
+                    ),
+                ),
+            ),
+            (
+                "Android string inventory drift",
+                lambda root: write_text(
+                    root / "app/src/main/res/values-ko/strings.xml",
+                    (root / "app/src/main/res/values-ko/strings.xml").read_text("utf-8").replace(
+                        'name="plugin_instruction"',
+                        'name="unreviewed_instruction"',
+                        1,
+                    ),
+                ),
+            ),
+            (
+                "legacy localization path",
+                lambda root: write_text(root / "localization/locales.json", "{}\n"),
+            ),
+            (
+                "R5 mixed back into R4",
+                lambda root: write_text(
+                    root / "ROADMAP-R4.md",
+                    (root / "ROADMAP-R4.md").read_text("utf-8")
+                    + "\n## R5-A - mixed content\n",
+                ),
+            ),
+            (
+                "obsolete Traditional Chinese slot task",
+                lambda root: write_text(
+                    root / "ROADMAP-R5.md",
+                    (root / "ROADMAP-R5.md").read_text("utf-8")
+                    + "\n- [ ] **繁体中文槽位真实翻译扩展**\n",
                 ),
             ),
         )
@@ -561,72 +621,68 @@ class VendorProvenanceTest(unittest.TestCase):
                     verifier.verify_vendor()
 
 
-class DefaultOffTest(unittest.TestCase):
-    def test_default_off_and_ci_native_only_build_are_admitted(self) -> None:
+class BuildModesTest(unittest.TestCase):
+    def test_explicit_runtime_variants_are_admitted(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            write_default_off_fixture(root)
+            write_build_modes_fixture(root)
             with mock.patch.object(verifier, "ROOT", root):
-                verifier.verify_default_off()
+                verifier.verify_build_modes()
 
-    def test_duplicate_or_enabled_default_is_rejected(self) -> None:
-        invalid = (
-            "autojs.lua.native.enabled=false\nautojs.lua.provider.enabled=true\n"
-            "autojs.lua.faultHarness.enabled=false\n"
-            "autojs.lua.releaseCandidate.enabled=false\n",
-            "autojs.lua.native.enabled=false\nautojs.lua.provider.enabled=false\n"
-            "autojs.lua.provider.enabled=false\nautojs.lua.faultHarness.enabled=false\n"
-            "autojs.lua.releaseCandidate.enabled=false\n",
-            "autojs.lua.native.enabled=false\\\nautojs.lua.provider.enabled=false\n"
-            "autojs.lua.faultHarness.enabled=false\n"
-            "autojs.lua.releaseCandidate.enabled=false\n",
-            "autojs.lua.native.enabled=false\nautojs.lua.provider.enabled=false\n"
-            "autojs.lua.faultHarness.enabled=false\n"
-            "autojs.lua.releaseCandidate.enabled=false\n"
-            "systemProp.org.gradle.project.autojs.lua.provider.enabled=true\n",
-            "autojs.lua.native.enabled=false\nautojs.lua.provider.enabled=false\n"
-            "autojs.lua.faultHarness.enabled=true\n"
-            "autojs.lua.releaseCandidate.enabled=false\n",
-            "autojs.lua.native.enabled=false\nautojs.lua.provider.enabled=false\n"
-            "autojs.lua.faultHarness.enabled=false\n"
-            "autojs.lua.releaseCandidate.enabled=true\n",
-        )
-        for properties in invalid:
-            with self.subTest(properties=properties):
-                with self.assertRaises(RuntimeError):
-                    verifier.parse_default_off_flags(properties)
-
-    def test_inline_or_indirect_ci_provider_enablement_is_rejected(self) -> None:
-        additions = (
-            "      - run: gradle :app:tasks -Pautojs.lua.provider.enabled=true\n",
-            "    env:\n      ORG_GRADLE_PROJECT_autojs.lua.provider.enabled: true\n",
-            "      - run: gradle :app:tasks -Pautojs.lua.faultHarness.enabled=true\n",
-            "      - run: gradle :app:tasks -Pautojs.lua.releaseCandidate.enabled=true\n",
-        )
-        for addition in additions:
-            with self.subTest(addition=addition), tempfile.TemporaryDirectory() as directory:
+    def test_legacy_build_switch_is_rejected_from_every_active_surface(self) -> None:
+        for relative in BUILD_MODE_FIXTURE_FILES[1:]:
+            with self.subTest(relative=relative), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
-                write_default_off_fixture(root)
-                ci = (root / ".github/workflows/ci.yml").read_text("utf-8")
-                write_text(root / ".github/workflows/ci.yml", ci + addition)
+                write_build_modes_fixture(root)
+                path = root / relative
+                write_text(path, path.read_text("utf-8") + "\nautojs.lua.native.enabled=true\n")
+                with mock.patch.object(verifier, "ROOT", root):
+                    with self.assertRaisesRegex(RuntimeError, "Legacy Lua build switch"):
+                        verifier.verify_build_modes()
+
+    def test_variant_topology_or_ci_task_drift_is_rejected(self) -> None:
+        mutations = (
+            ("app/build.gradle.kts", 'create("nativeTest")', 'create("nativeProbe")'),
+            ("app/build.gradle.kts", 'applicationIdSuffix = ".fault_test"', ""),
+            (
+                "app/build.gradle.kts",
+                'beforeVariants(selector().withBuildType("release"))',
+                'beforeVariants(selector().withBuildType("debug"))',
+            ),
+            (
+                "app/build.gradle.kts",
+                "logger.lifecycle(",
+                'check(android.signingConfigs.findByName("release") != null)\n            logger.lifecycle(',
+            ),
+            (".github/workflows/ci.yml", ":app:testProviderDebugUnitTest", ":app:testDebugUnitTest"),
+            (".github/workflows/ci.yml", ":app:assembleProviderDebug", ":app:assembleDebug"),
+        )
+        for relative, old, new in mutations:
+            with self.subTest(relative=relative, old=old), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                write_build_modes_fixture(root)
+                path = root / relative
+                original = path.read_text("utf-8")
+                self.assertIn(old, original)
+                write_text(path, original.replace(old, new, 1))
                 with mock.patch.object(verifier, "ROOT", root):
                     with self.assertRaises(RuntimeError):
-                        verifier.verify_default_off()
+                        verifier.verify_build_modes()
 
     def test_ci_cannot_downgrade_readiness_or_bypass_the_wrapper(self) -> None:
         mutations = (
-            lambda text: text.replace("--require-build-ready ", ""),
+            lambda text: text.replace("--require-build-ready ", "", 1),
             lambda text: text.replace("if ./gradlew \\", "if gradle \\", 1),
         )
         for mutate in mutations:
             with self.subTest(mutate=mutate), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
-                write_default_off_fixture(root)
+                write_build_modes_fixture(root)
                 ci_path = root / ".github/workflows/ci.yml"
                 write_text(ci_path, mutate(ci_path.read_text("utf-8")))
                 with mock.patch.object(verifier, "ROOT", root):
                     with self.assertRaises(RuntimeError):
-                        verifier.verify_default_off()
+                        verifier.verify_build_modes()
 
 
 class CiResilienceTest(unittest.TestCase):
@@ -677,6 +733,7 @@ class InputWorkflowTest(unittest.TestCase):
         "docs/release-candidate-rc2-api-matrix.md",
         "ROADMAP-R4.md",
         "README.md",
+        ".readme/README-en.md",
     )
 
     def copy_inputs(self, root: Path) -> None:
@@ -756,8 +813,26 @@ class InputWorkflowTest(unittest.TestCase):
                 "debug artifact gate admits AndroidTest BuildConfig",
                 "tools/verify_debug_artifacts.ps1",
                 lambda text: text.replace(
-                    "app/build/generated/source/buildConfig/debug/",
+                    "app/build/generated/source/buildConfig/provider/debug/",
                     "app/build/generated/source/buildConfig/",
+                    1,
+                ),
+            ),
+            (
+                "debug artifact gate loses generated DEBUG identity",
+                "tools/verify_debug_artifacts.ps1",
+                lambda text: text.replace(
+                    'DEBUG = Boolean.parseBoolean("true");',
+                    "DEBUG = true;",
+                    1,
+                ),
+            ),
+            (
+                "release artifact gate expects the wrong generated DEBUG shape",
+                "tools/verify_release_candidate_artifacts.ps1",
+                lambda text: text.replace(
+                    "DEBUG = false;",
+                    'DEBUG = Boolean.parseBoolean("false");',
                     1,
                 ),
             ),
@@ -896,12 +971,12 @@ class InputWorkflowTest(unittest.TestCase):
 
 
 class RepositoryCheckpointTest(unittest.TestCase):
-    def test_repository_stays_valid_default_off_and_reports_readiness(self) -> None:
+    def test_repository_stays_valid_and_reports_readiness(self) -> None:
         with mock.patch.object(verifier, "ROOT", SOURCE_ROOT):
             protocol_ready = verifier.verify_protocol()
             vendor_ready = verifier.verify_vendor()
             verifier.verify_manifest()
-            verifier.verify_default_off()
+            verifier.verify_build_modes()
             verifier.verify_ci_resilience()
             verifier.verify_localization_workflow()
             verifier.verify_input_workflows()
@@ -928,6 +1003,7 @@ class NativeBoundaryTest(unittest.TestCase):
     FILES = (
         "ROADMAP-R4.md",
         "README.md",
+        ".readme/README-en.md",
         "app/proguard-rules.pro",
         "app/src/main/cpp/CMakeLists.txt",
         "app/src/main/cpp/cmake/lua54-sources.cmake",
@@ -1185,7 +1261,7 @@ class DescriptorBoundaryTest(unittest.TestCase):
         "app/src/test/java/io/github/supermonster003/autojs6/plugin/lua/runtime/execution/LuaExecutionSessionControllerTest.kt",
         "app/src/test/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaFileDescriptorLedgerTest.kt",
         "app/src/androidTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/BinderLuaHostCapabilityInvokerInstrumentationTest.kt",
-        "app/src/debug/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/LuaRuntimeFaultService.kt",
+        "app/src/faultTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/LuaRuntimeFaultService.kt",
     )
 
     def copy_boundary(self, root: Path) -> None:
@@ -1261,16 +1337,24 @@ class DescriptorBoundaryTest(unittest.TestCase):
 class NativeAndroidBoundaryTest(unittest.TestCase):
     FILES = (
         "app/build.gradle.kts",
-        "app/src/androidTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/NativeLuaRuntimeInstrumentationTest.kt",
+        "app/src/androidTestNativeTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/NativeLuaRuntimeInstrumentationTest.kt",
     )
 
-    def test_provider_enablement_or_service_binding_is_rejected(self) -> None:
+    def test_native_test_identity_service_absence_or_binding_drift_is_rejected(self) -> None:
         mutations = (
             (
-                "provider assertion",
+                "native-test identity",
                 lambda text: text.replace(
-                    "assertFalse(BuildConfig.LUA_PROVIDER_ENABLED)",
-                    "assertTrue(BuildConfig.LUA_PROVIDER_ENABLED)",
+                    'context.packageName.endsWith(".native_test")',
+                    'context.packageName.endsWith(".fault_test")',
+                    1,
+                ),
+            ),
+            (
+                "physical service absence",
+                lambda text: text.replace(
+                    "PackageManager.NameNotFoundException::class.java",
+                    "IllegalStateException::class.java",
                     1,
                 ),
             ),
@@ -1410,16 +1494,16 @@ class NativeAndroidBoundaryTest(unittest.TestCase):
 
 class FaultHarnessBoundaryTest(unittest.TestCase):
     FILES = (
-        "README.md",
+        ".readme/README-en.md",
         "app/build.gradle.kts",
         "app/src/main/AndroidManifest.xml",
-        "app/src/debug/AndroidManifest.xml",
+        "app/src/faultTest/AndroidManifest.xml",
         "app/src/main/cpp/CMakeLists.txt",
         "app/src/main/cpp/lua_runtime_jni.cpp",
-        "app/src/debug/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/NativeLuaFaults.kt",
-        "app/src/debug/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/LuaRuntimeFaultService.kt",
-        "app/src/debug/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/LuaRuntimeFaultPeerService.kt",
-        "app/src/androidTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/LuaRuntimeFaultRecoveryInstrumentationTest.kt",
+        "app/src/faultTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/NativeLuaFaults.kt",
+        "app/src/faultTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/LuaRuntimeFaultService.kt",
+        "app/src/faultTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/LuaRuntimeFaultPeerService.kt",
+        "app/src/androidTestFaultTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/LuaRuntimeFaultRecoveryInstrumentationTest.kt",
         "tools/verify_fault_harness_artifacts.ps1",
     )
 
@@ -1429,7 +1513,7 @@ class FaultHarnessBoundaryTest(unittest.TestCase):
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(SOURCE_ROOT / relative, destination)
 
-    def test_current_fault_harness_is_opt_in_isolated_and_uses_production_sessions(self) -> None:
+    def test_current_fault_variant_is_isolated_and_uses_production_sessions(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             self.copy_boundary(root)
@@ -1440,17 +1524,17 @@ class FaultHarnessBoundaryTest(unittest.TestCase):
         mutations = (
             (
                 "exported service",
-                "app/src/debug/AndroidManifest.xml",
+                "app/src/faultTest/AndroidManifest.xml",
                 lambda text: text.replace('android:exported="false"', 'android:exported="true"'),
             ),
             (
                 "manager bypass",
-                "app/src/debug/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/LuaRuntimeFaultService.kt",
+                "app/src/faultTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/LuaRuntimeFaultService.kt",
                 lambda text: text.replace("executionManager.create(", "bypass.create(", 1),
             ),
             (
                 "peer process isolation",
-                "app/src/debug/AndroidManifest.xml",
+                "app/src/faultTest/AndroidManifest.xml",
                 lambda text: text.replace(
                     'android:process=":lua_fault_peer"',
                     'android:process=":lua_runtime"',
@@ -1459,7 +1543,7 @@ class FaultHarnessBoundaryTest(unittest.TestCase):
             ),
             (
                 "peer kill control",
-                "app/src/debug/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/LuaRuntimeFaultPeerService.kt",
+                "app/src/faultTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/LuaRuntimeFaultPeerService.kt",
                 lambda text: text.replace(
                     "mainHandler.post { Process.killProcess(Process.myPid()) }",
                     "Unit",
@@ -1468,7 +1552,7 @@ class FaultHarnessBoundaryTest(unittest.TestCase):
             ),
             (
                 "blocked pipe evidence",
-                "app/src/androidTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/"
+                "app/src/androidTestFaultTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/"
                 "LuaRuntimeFaultRecoveryInstrumentationTest.kt",
                 lambda text: text.replace("ParcelFileDescriptor.createPipe()", "emptyArray()", 1),
             ),
@@ -1482,11 +1566,16 @@ class FaultHarnessBoundaryTest(unittest.TestCase):
                 ),
             ),
             (
+                "release BuildConfig identity",
+                "tools/verify_fault_harness_artifacts.ps1",
+                lambda text: text.replace("DEBUG = false;", "DEBUG = true;", 1),
+            ),
+            (
                 "release audit intermediate",
                 "app/build.gradle.kts",
                 lambda text: text.replace(
-                    '"packageReleaseUniversalApk",',
-                    '"packageReleaseResources",',
+                    '"packageProviderReleaseUniversalApk",',
+                    '"packageProviderReleaseResources",',
                     1,
                 ),
             ),
@@ -1501,7 +1590,7 @@ class FaultHarnessBoundaryTest(unittest.TestCase):
             ),
             (
                 "missing published release checklist",
-                "README.md",
+                ".readme/README-en.md",
                 lambda text: text.replace(
                     "RELEASE_VARIANT_FAULT_HARNESS_EXCLUSION_PASS",
                     "UNVERIFIED_FAULT_HARNESS",
@@ -1510,17 +1599,17 @@ class FaultHarnessBoundaryTest(unittest.TestCase):
             ),
             (
                 "stale fault intermediates",
-                "README.md",
+                ".readme/README-en.md",
                 lambda text: text.replace(
-                    "    '-Pautojs.lua.faultHarness.enabled=true'\n"
+                    "    ':app:externalNativeBuildProviderRelease'\n"
                     "    '--rerun-tasks'\n",
-                    "    '-Pautojs.lua.faultHarness.enabled=true'\n",
+                    "    ':app:externalNativeBuildProviderRelease'\n",
                     1,
                 ),
             ),
             (
                 "unclean fault intermediates",
-                "README.md",
+                ".readme/README-en.md",
                 lambda text: text.replace(
                     "$faultArgs = @(\n    ':app:clean'\n",
                     "$faultArgs = @(\n",
@@ -1547,7 +1636,7 @@ class PublicReleaseMaterialsTest(unittest.TestCase):
         "THIRD_PARTY_NOTICES.md",
         "ROADMAP-R4.md",
         "README.md",
-        "README.zh-CN.md",
+        ".readme/README-en.md",
         "docs/public-release-policy.md",
         "docs/release-v0.1.0-rc.2-draft.md",
         "third_party/apache-2.0/LICENSE.txt",
@@ -1811,7 +1900,7 @@ class ProductionSoakBoundaryTest(unittest.TestCase):
                 "premature Roadmap completion",
                 "ROADMAP-R4.md",
                 lambda text: text.replace(
-                    "- [ ] **生产 soak 计划**",
+                    "- **生产 soak 计划 — 已裁撤 (2026-08-26)**",
                     "- [x] **生产 soak 计划**",
                     1,
                 ),
@@ -1829,7 +1918,7 @@ class ProductionSoakBoundaryTest(unittest.TestCase):
                 "round-two premature pass",
                 "docs/production-soak-round-2.md",
                 lambda text: text.replace(
-                    "ROUND 2 IN PROGRESS — DAY 2/7 PASSED",
+                    "ROUND 2 CLOSED AFTER DAY 2/7 — PRODUCTION SOAK DESCOPED (2026-08-26)",
                     "ROUND 2 COMPLETE",
                     1,
                 ),
@@ -2131,10 +2220,10 @@ class CrashDiagnosticBoundaryTest(unittest.TestCase):
         "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/execution/LuaExecutionWatchdog.kt",
         "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaRuntimeExecutionManager.kt",
         "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/service/LuaRuntimeService.kt",
-        "app/src/debug/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/LuaRuntimeFaultService.kt",
+        "app/src/faultTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/debug/LuaRuntimeFaultService.kt",
         "app/src/test/java/io/github/supermonster003/autojs6/plugin/lua/runtime/diagnostic/LuaCrashDiagnosticTest.kt",
         "app/src/test/java/io/github/supermonster003/autojs6/plugin/lua/runtime/execution/LuaExecutionSessionControllerTest.kt",
-        "app/src/androidTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/LuaRuntimeFaultRecoveryInstrumentationTest.kt",
+        "app/src/androidTestFaultTest/java/io/github/supermonster003/autojs6/plugin/lua/runtime/LuaRuntimeFaultRecoveryInstrumentationTest.kt",
         "docs/crash-diagnostic-v1.md",
         "ROADMAP-R4.md",
     )

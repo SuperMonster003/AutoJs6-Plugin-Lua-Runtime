@@ -1,0 +1,19 @@
+{
+  "repo_url": "https://github.com/SuperMonster003/AutoJs6-Plugin-Lua-Runtime",
+  "repo_slug": "SuperMonster003/AutoJs6-Plugin-Lua-Runtime",
+  "autojs6_url": "https://github.com/SuperMonster003/AutoJs6",
+  "lua_url": "https://www.lua.org",
+  "license_url": "https://github.com/SuperMonster003/AutoJs6-Plugin-Lua-Runtime/blob/master/LICENSE",
+  "third_party_notices_url": "https://github.com/SuperMonster003/AutoJs6-Plugin-Lua-Runtime/blob/master/THIRD_PARTY_NOTICES.md",
+  "application_id": "io.github.supermonster003.autojs6.plugin.lua.runtime",
+  "plugin_id": "lua-runtime",
+  "plugin_engine": "lua",
+  "plugin_variant": "puc-lua54",
+  "runtime_process": ":lua_runtime",
+  "required_host_build": "5276",
+  "lua_version": "5.4.8",
+  "android_min_sdk": "24",
+  "android_target_sdk": "36",
+  "ndk_version": "28.2.13676358",
+  "cmake_version": "3.22.1"
+}

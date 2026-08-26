@@ -3,6 +3,8 @@
 > 本文件承接 `ROADMAP.md` 中已完成的 R3-A/B/C/D 阶段。勾选规则与 R3 一致:
 > 勾选仅表示对应的源码、测试或静态证据已存在并可复核, 不代表设备、签名或
 > 发布层面的验收。每一项均给出"完成判据", 以便逐项 Check。
+> R5 已独立迁移到 [`ROADMAP-R5.md`](ROADMAP-R5.md); 本文件只保留 R4 的历史
+> 计划与证据台账。
 >
 > 验证约定: 受网络环境限制 (Cloudflare 502/524/529, 尤以 524 超时为甚),
 > 所有 Gradle 验证一律附加 `--offline`; 纯静态验证优先使用
@@ -80,6 +82,8 @@ APK/ABI、16 KiB ZIP/ELF 对齐、签名与 packaged gates。
   zh-CN/en 双语生成脚手架 (脚本生成、单一 source of truth), 其余八语言
   仅在有真实翻译输入时扩展, 不引入机器占位文本。
   完成判据: 生成脚本 + 双语 README 入库; verifier 增加生成物一致性检查。
+  此处记录的是 R4 当时的关闭方式; 当前实现已在 R5-A 迁移为兄弟插件统一的
+  十语言 `.python/.readme/.changelog` 机制。
 
 R4-A 本地账目/竞争证据 (2026-08-24): JVM 套件新增四条 PFD 逻辑账目用例，
 分别覆盖 create 异常、BUSY 不复制、source read/controller finish 双重关闭幂等、
@@ -123,6 +127,11 @@ R4-A 本地化证据 (2026-08-24): `localization/locales.json` 声明恰好十�
 source tree 生成双语 README、双语 changelog 与两套 Android strings，
 `--check`、仓库 verifier 及 Python 敌意用例会拒绝生成物漂移、重复 JSON key、
 planned source 与翻译占位标记。
+
+R4-A 本地化历史说明 (2026-08-27): 上述 R4 管线与路径作为历史证据保留在本段,
+但不再描述当前工作区. 当前多语言输入、生成物和完成判据统一见
+[`ROADMAP-R5.md`](ROADMAP-R5.md) 的 R5-A; 旧 `localization/` 与
+`tools/generate_localized_content.py` 已移除。
 
 ## R4-B — 语言能力精进 (受控扩展, 每项默认关闭直至证据齐备)
 

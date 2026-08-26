@@ -1,0 +1,52 @@
+{
+  "changelog_label_hint": "提示",
+  "changelog_label_feature": "新增",
+  "changelog_label_fix": "修复",
+  "changelog_label_improvement": "优化",
+  "changelog_label_dependency": "依赖",
+  "$data": {
+    "v0.1.0-rc.2": {
+      "released_date": "2026/08/27",
+      "hint": [
+        "当前仍是本地验证的签名打包候选, 尚未创建公开 tag 或 GitHub Release; 不可变候选回执继续保留 `deviceVerified=false/runtimeVerified=false`",
+        "按 owner 决定裁撤 arm64-v8a 物理设备冒烟和七日 production soak, 已完成的两日证据与冻结标准继续归档, 长期稳定性改为 fix-on-report"
+      ],
+      "feature": [
+        "加入受控 coroutine, `autojs.now()`, `console.info/warn`, Provider 侧 `ui.toast.v1`, crash diagnostic 与 `AutoJs6LuaWatchdog` 事件",
+        "开放文本模块 snapshot, 只读执行参数与设备信息桥, 并保持 deadline, cancel, 内存和输出配额贯穿全部路径",
+        "提供 arm64-v8a 与 x86_64 原生库, 并归档 API 24, 31, 36, 37 的 x86_64 真实 Host 验证"
+      ],
+      "fix": [
+        "极小 deadline 在 `start()` 到达前过期时稳定产生唯一 `TIMEOUT/QUEUE` 终态, 不再留下无终态会话",
+        "收紧 `math.randomseed` 和 Host capability 拒绝映射, 使未授权调用稳定结束为 `HOST_CAPABILITY`"
+      ],
+      "improvement": [
+        "用显式 `providerDebug/providerRelease/nativeTestDebug/faultTestDebug` 变体替换四个 Boolean 构建模式, 并物理隔离生产发现服务与破坏性 fault harness",
+        "迁移到兄弟插件统一的 `.python/generate_markdown.py` + `.readme/` + `.changelog/` 机制, 完整提供 10 语言文档并以 `zh-Hans` 作为根 README 默认语言",
+        "将 R5 从 `ROADMAP-R4.md` 独立为 `ROADMAP-R5.md`, 删除已经由完整十语言落地取代的繁体槽位待办",
+        "补齐 PFD 逻辑与 OS 级账目, 一键离线门禁, CI 重试/缓存, release 制品验证和 fault-harness 排除审计"
+      ],
+      "dependency": [
+        "固定 PUC Lua 5.4.8, Android NDK 28.2.13676358 与 CMake 3.22.1"
+      ]
+    },
+    "v0.1.0-rc.1": {
+      "released_date": "2026/08/13",
+      "hint": [
+        "首个 Provider-enabled 本地候选完成签名和设备验证, 但没有创建公开 tag 或 release"
+      ],
+      "feature": [
+        "首次实现独立 `:lua_runtime` 进程, 文本 Lua 执行, console, 标量结果和 AutoJs6 Binder Provider 发现"
+      ],
+      "fix": [
+        "以 fail-closed 协议, 源码摘要, UTF-8, deadline, 内存和输出验证拒绝畸形或超限请求"
+      ],
+      "improvement": [
+        "建立协议 AAR, Lua 源码, ABI, 16 KiB 对齐, 签名和回滚矩阵的可复核证据"
+      ],
+      "dependency": [
+        "基于标准 PUC Lua 5.4.8 与冻结的 AutoJs6 Lua protocol 1.0"
+      ]
+    }
+  }
+}

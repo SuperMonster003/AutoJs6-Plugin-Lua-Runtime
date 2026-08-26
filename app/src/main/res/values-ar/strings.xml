@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">بيئة Lua</string>
+    <string name="plugin_description">إضافة مستقلة لبيئة PUC Lua 5.4</string>
+    <string name="plugin_instruction">توفر بيئة Lua معزولة لتطبيق AutoJs6 ذي التوقيع نفسه</string>
+</resources>

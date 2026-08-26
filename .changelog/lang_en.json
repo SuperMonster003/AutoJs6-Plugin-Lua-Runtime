@@ -1,0 +1,52 @@
+{
+  "changelog_label_hint": "Hint",
+  "changelog_label_feature": "Feature",
+  "changelog_label_fix": "Fix",
+  "changelog_label_improvement": "Improvement",
+  "changelog_label_dependency": "Dependency",
+  "$data": {
+    "v0.1.0-rc.2": {
+      "released_date": "2026/08/27",
+      "hint": [
+        "This remains a locally validated signed-packaging candidate: no public tag or GitHub Release exists, and the immutable receipt still says `deviceVerified=false/runtimeVerified=false`",
+        "The arm64-v8a physical-device smoke and seven-day production soak were descoped by owner decision; the completed two-day evidence and frozen standard remain archived, while long-run stability follows fix-on-report"
+      ],
+      "feature": [
+        "Added controlled coroutines, `autojs.now()`, `console.info/warn`, the Provider side of `ui.toast.v1`, crash diagnostics and `AutoJs6LuaWatchdog` events",
+        "Added text module snapshots, read-only execution arguments and the device-information bridge while carrying deadlines, cancellation, memory and output quotas across every path",
+        "Ships arm64-v8a and x86_64 native libraries and archives real-Host x86_64 evidence on API 24, 31, 36 and 37"
+      ],
+      "fix": [
+        "A tiny deadline expiring before `start()` arrives now yields one deterministic `TIMEOUT/QUEUE` terminal instead of leaving a session without a terminal state",
+        "Tightened `math.randomseed` and Host-capability rejection mapping so ungranted calls terminate deterministically as `HOST_CAPABILITY`"
+      ],
+      "improvement": [
+        "Replaced four Boolean build modes with explicit `providerDebug/providerRelease/nativeTestDebug/faultTestDebug` variants and physically isolated production discovery from the destructive fault harness",
+        "Migrated to the sibling-plugin `.python/generate_markdown.py` + `.readme/` + `.changelog/` convention, with complete documentation in 10 languages and `zh-Hans` as the root README default",
+        "Split R5 out of `ROADMAP-R4.md` into `ROADMAP-R5.md` and removed the obsolete Traditional-Chinese-slot task now superseded by the complete 10-language set",
+        "Added exact logical and OS-level PFD accounting, a one-command offline gate, resilient CI, release artifact validation and fault-harness exclusion audits"
+      ],
+      "dependency": [
+        "Pins PUC Lua 5.4.8, Android NDK 28.2.13676358 and CMake 3.22.1"
+      ]
+    },
+    "v0.1.0-rc.1": {
+      "released_date": "2026/08/13",
+      "hint": [
+        "The first Provider-enabled local candidate was signed and device-tested, but no public tag or release was created"
+      ],
+      "feature": [
+        "Introduced the independent `:lua_runtime` process, text Lua execution, console output, scalar results and AutoJs6 Binder Provider discovery"
+      ],
+      "fix": [
+        "Rejected malformed or excessive requests through fail-closed protocol, source digest, UTF-8, deadline, memory and output validation"
+      ],
+      "improvement": [
+        "Established reviewable evidence for protocol AARs, Lua source, ABIs, 16 KiB alignment, signing and rollback matrices"
+      ],
+      "dependency": [
+        "Built on standard PUC Lua 5.4.8 and the frozen AutoJs6 Lua protocol 1.0"
+      ]
+    }
+  }
+}

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Entorno Lua</string>
+    <string name="plugin_description">Plugin independiente de ejecución PUC Lua 5.4</string>
+    <string name="plugin_instruction">Proporciona un entorno Lua aislado a hosts AutoJs6 con la misma firma</string>
+</resources>

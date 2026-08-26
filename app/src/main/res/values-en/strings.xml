@@ -3,5 +3,4 @@
     <string name="app_name">Lua Runtime</string>
     <string name="plugin_description">Independent PUC Lua 5.4 runtime plugin</string>
     <string name="plugin_instruction">Provides an isolated Lua runtime for same-signature AutoJs6 hosts</string>
-    <string name="plugin_author" translatable="false">SuperMonster003</string>
 </resources>

@@ -3,6 +3,11 @@
 Checked items mean the named source or static record exists. They do not imply
 Gradle, Android, native, device, signing, or release acceptance.
 
+This file covers the completed R3 phases. The completed R4 evidence ledger
+continues in [ROADMAP-R4.md](ROADMAP-R4.md), and the active R5 plan with
+per-item completion criteria is in [ROADMAP-R5.md](ROADMAP-R5.md). Both are
+written in Simplified Chinese.
+
 ## R3-A - Independent scaffold
 
 - [x] Create a separate sibling directory with its own lowercase Gradle project

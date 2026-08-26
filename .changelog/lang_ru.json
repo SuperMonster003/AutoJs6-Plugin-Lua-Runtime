@@ -1,0 +1,52 @@
+{
+  "changelog_label_hint": "Примечание",
+  "changelog_label_feature": "Добавлено",
+  "changelog_label_fix": "Исправлено",
+  "changelog_label_improvement": "Улучшено",
+  "changelog_label_dependency": "Зависимость",
+  "$data": {
+    "v0.1.0-rc.2": {
+      "released_date": "2026/08/27",
+      "hint": [
+        "Это по-прежнему локально проверенный кандидат подписанной упаковки: публичного tag и GitHub Release нет, immutable receipt сохраняет `deviceVerified=false/runtimeVerified=false`",
+        "Физический smoke arm64-v8a и семидневный production soak сняты по решению owner; завершенные два дня и замороженный стандарт сохранены, а стабильность перешла на fix-on-report"
+      ],
+      "feature": [
+        "Добавлены контролируемые coroutine, `autojs.now()`, `console.info/warn`, сторона Provider `ui.toast.v1`, диагностика crash и события `AutoJs6LuaWatchdog`",
+        "Добавлены текстовые snapshot модулей, аргументы только для чтения и мост информации устройства с сохранением deadline, отмены, памяти и квот вывода",
+        "Поставляются native library arm64-v8a и x86_64, а доказательства x86_64 с реальным Host сохранены для API 24, 31, 36 и 37"
+      ],
+      "fix": [
+        "Минимальный deadline до прихода `start()` теперь дает один детерминированный терминал `TIMEOUT/QUEUE`, а не session без завершения",
+        "Усилены `math.randomseed` и mapping отказа capability Host, поэтому неразрешенные вызовы завершаются как `HOST_CAPABILITY`"
+      ],
+      "improvement": [
+        "Четыре Boolean режима заменены на `providerDebug/providerRelease/nativeTestDebug/faultTestDebug`, а производственное обнаружение физически отделено от разрушительного fault harness",
+        "Выполнен переход на соглашение соседних плагинов `.python/generate_markdown.py` + `.readme/` + `.changelog/`, с 10 языками и `zh-Hans` как корневым README",
+        "R5 вынесен из `ROADMAP-R4.md` в `ROADMAP-R5.md`, а устаревшая задача слотов традиционного китайского удалена",
+        "Добавлены логический и OS учет PFD, offline gate одной командой, устойчивая CI, проверка release artifact и аудит исключения fault-harness"
+      ],
+      "dependency": [
+        "Закреплены PUC Lua 5.4.8, Android NDK 28.2.13676358 и CMake 3.22.1"
+      ]
+    },
+    "v0.1.0-rc.1": {
+      "released_date": "2026/08/13",
+      "hint": [
+        "Первый локальный кандидат Provider-enabled был подписан и испытан на устройстве, но публичный tag или release не создавались"
+      ],
+      "feature": [
+        "Введены отдельный процесс `:lua_runtime`, текстовое выполнение Lua, console, скалярные результаты и Binder обнаружение Provider в AutoJs6"
+      ],
+      "fix": [
+        "Некорректные и чрезмерные request отклоняются fail-closed проверками протокола, digest, UTF-8, deadline, памяти и вывода"
+      ],
+      "improvement": [
+        "Созданы проверяемые доказательства для AAR, исходников Lua, ABI, выравнивания 16 KiB, подписи и rollback matrix"
+      ],
+      "dependency": [
+        "Основано на стандартном PUC Lua 5.4.8 и замороженном протоколе AutoJs6 Lua 1.0"
+      ]
+    }
+  }
+}

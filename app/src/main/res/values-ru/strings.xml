@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Среда Lua</string>
+    <string name="plugin_description">Независимый плагин среды PUC Lua 5.4</string>
+    <string name="plugin_instruction">Предоставляет изолированную среду Lua для Host AutoJs6 с той же подписью</string>
+</resources>

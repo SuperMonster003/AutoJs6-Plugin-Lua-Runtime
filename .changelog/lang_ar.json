@@ -1,0 +1,52 @@
+{
+  "changelog_label_hint": "تلميح",
+  "changelog_label_feature": "ميزة",
+  "changelog_label_fix": "إصلاح",
+  "changelog_label_improvement": "تحسين",
+  "changelog_label_dependency": "تبعية",
+  "$data": {
+    "v0.1.0-rc.2": {
+      "released_date": "2026/08/27",
+      "hint": [
+        "ما زال مرشح تغليف موقع تم التحقق منه محليا: لا يوجد tag عام أو GitHub Release, ويحافظ receipt الثابت على `deviceVerified=false/runtimeVerified=false`",
+        "ألغيت تجربة arm64-v8a الفعلية وproduction soak لسبعة أيام بقرار owner; يبقى دليل اليومين والمعيار المجمد محفوظين, وينتقل الاستقرار إلى fix-on-report"
+      ],
+      "feature": [
+        "إضافة coroutine المقيدة و`autojs.now()` و`console.info/warn` وجانب Provider من `ui.toast.v1` وتشخيص crash وأحداث `AutoJs6LuaWatchdog`",
+        "إضافة snapshot لوحدات النص وحجج التنفيذ للقراءة فقط وجسر معلومات الجهاز مع استمرار deadline والإلغاء والذاكرة وحصص الإخراج",
+        "توفير native library لـ arm64-v8a وx86_64 وحفظ دليل x86_64 عبر Host حقيقية على API 24 و31 و36 و37"
+      ],
+      "fix": [
+        "أصبح deadline الصغير الذي ينتهي قبل وصول `start()` ينتج نهاية `TIMEOUT/QUEUE` حتمية واحدة بدلا من session بلا نهاية",
+        "تشديد `math.randomseed` وmapping رفض capability في Host كي تنتهي الاستدعاءات غير الممنوحة كـ `HOST_CAPABILITY`"
+      ],
+      "improvement": [
+        "استبدال أربعة أوضاع Boolean بمتغيرات `providerDebug/providerRelease/nativeTestDebug/faultTestDebug` وعزل اكتشاف الإنتاج فعليا عن fault harness التخريبي",
+        "الانتقال إلى نهج الإضافات الشقيقة `.python/generate_markdown.py` + `.readme/` + `.changelog/` مع توثيق كامل بعشر لغات و`zh-Hans` كملف README جذري",
+        "فصل R5 من `ROADMAP-R4.md` إلى `ROADMAP-R5.md` وإزالة مهمة خانات الصينية التقليدية التي لم تعد لازمة",
+        "إضافة حساب PFD المنطقي وعلى مستوى OS وبوابة offline بأمر واحد وCI مرنة والتحقق من release artifact وتدقيق استبعاد fault-harness"
+      ],
+      "dependency": [
+        "تثبيت PUC Lua 5.4.8 وAndroid NDK 28.2.13676358 وCMake 3.22.1"
+      ]
+    },
+    "v0.1.0-rc.1": {
+      "released_date": "2026/08/13",
+      "hint": [
+        "تم توقيع أول مرشح محلي Provider-enabled واختباره على جهاز, من دون إنشاء tag أو release عام"
+      ],
+      "feature": [
+        "تقديم عملية `:lua_runtime` المستقلة وتنفيذ Lua النصي وconsole والنتائج scalar واكتشاف Binder Provider في AutoJs6"
+      ],
+      "fix": [
+        "رفض الطلبات المشوهة أو الزائدة عبر تحقق fail-closed للبروتوكول وdigest وUTF-8 وdeadline والذاكرة والإخراج"
+      ],
+      "improvement": [
+        "إنشاء دليل قابل للمراجعة لملفات AAR ومصادر Lua وABI ومحاذاة 16 KiB والتوقيع ومصفوفة rollback"
+      ],
+      "dependency": [
+        "مبني على PUC Lua 5.4.8 القياسي وبروتوكول AutoJs6 Lua 1.0 المجمد"
+      ]
+    }
+  }
+}

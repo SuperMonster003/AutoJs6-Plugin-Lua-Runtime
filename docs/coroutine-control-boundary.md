@@ -128,8 +128,9 @@ APK pair has completed the whole class on an Android emulator.
   JNI or frozen wire boundary.
 - Coroutines cannot outlive the execution-local module cache, arguments,
   output bridge, Host bridge, deadline, allocator, or `lua_State`.
-- `pcall`/`xpcall`, debug hooks, unrestricted loaders, OS/process APIs, I/O,
-  package search, and dynamic native modules remain unavailable.
+- `pcall`/`xpcall` remain unavailable after the R5 re-evaluation; debug hooks,
+  unrestricted loaders, OS/process APIs, I/O, package search, and dynamic
+  native modules remain unavailable as well.
 
 ## Recorded device evidence
 

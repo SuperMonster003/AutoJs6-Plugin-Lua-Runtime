@@ -403,6 +403,73 @@ class NativeLuaRuntimeInstrumentationTest {
         assertEquals(LuaRunnerFailureKind.RUNTIME, runnerFailure.kind)
     }
 
+    @Test
+    fun pcallAndXpcallRemainAbsentInMainAndCoroutines() {
+        assertEquals(
+            NativeLuaExecutionValue.BooleanValue(true),
+            execute(
+                """
+                    assert(type(pcall) == 'nil' and type(xpcall) == 'nil')
+                    local worker = coroutine.create(function()
+                        return type(pcall) == 'nil' and type(xpcall) == 'nil'
+                    end)
+                    local ok, absent = coroutine.resume(worker)
+                    return ok and absent and coroutine.status(worker) == 'dead'
+                """.trimIndent(),
+            ),
+        )
+    }
+
+    @Test
+    fun rejectedNestedPcallCannotCatchOrDispatch() {
+        val calls = AtomicInteger()
+        val failure = assertThrows(LuaRunnerException::class.java) {
+            NativeLuaExecutionRunner.execute(
+                runnerRequest(
+                    source = """
+                        return pcall(function()
+                            return pcall(function()
+                                return require('autojs').device.info()
+                            end)
+                        end)
+                    """.trimIndent(),
+                    hostCapabilityInvoker = LuaHostCapabilityInvoker { _, _, _, _ ->
+                        calls.incrementAndGet()
+                        deviceInfo()
+                    },
+                ),
+            )
+        }
+        assertEquals(LuaRunnerFailureKind.RUNTIME, failure.kind)
+        assertEquals(0, calls.get())
+    }
+
+    @Test
+    fun rejectedXpcallCannotRunMessageHandler() {
+        val calls = AtomicInteger()
+        val failure = assertThrows(LuaRunnerException::class.java) {
+            NativeLuaExecutionRunner.execute(
+                runnerRequest(
+                    source = """
+                        return xpcall(
+                            function() error('business error') end,
+                            function()
+                                require('autojs').ui.toast('handler-ran')
+                                return 'transformed'
+                            end
+                        )
+                    """.trimIndent(),
+                    hostCapabilityInvoker = LuaHostCapabilityInvoker { _, _, _, _ ->
+                        calls.incrementAndGet()
+                        toastAccepted()
+                    },
+                ),
+            )
+        }
+        assertEquals(LuaRunnerFailureKind.RUNTIME, failure.kind)
+        assertEquals(0, calls.get())
+    }
+
     @Test(timeout = 5_000L)
     fun infiniteLoopIsCancelledByHook() {
         val polls = AtomicInteger()

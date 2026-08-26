@@ -355,7 +355,7 @@ class R4DesignRecordTest(unittest.TestCase):
             (
                 "pcall status",
                 self.FILES[0],
-                lambda text: text.replace("REJECTED FOR R4", "UNDECIDED", 1),
+                lambda text: text.replace("R5 RE-EVALUATED — REJECTED AGAIN", "UNDECIDED", 1),
             ),
             (
                 "pcall nested catch gate",
@@ -363,6 +363,15 @@ class R4DesignRecordTest(unittest.TestCase):
                 lambda text: text.replace(
                     "repeated catches cannot defer termination",
                     "termination remains untested",
+                    1,
+                ),
+            ),
+            (
+                "pcall device receipt",
+                self.FILES[0],
+                lambda text: text.replace(
+                    "nestedCatchDispatches=0 xpcallHandlerDispatches=0",
+                    "protectedCallDispatches=unknown",
                     1,
                 ),
             ),
@@ -426,6 +435,15 @@ class R4DesignRecordTest(unittest.TestCase):
                 "storage mutation retry",
                 self.FILES[5],
                 lambda text: text.replace("Provider never retries", "Provider retries mutations", 1),
+            ),
+            (
+                "storage transport feasibility",
+                self.FILES[5],
+                lambda text: text.replace(
+                    "cannot fit in one 256 KiB document",
+                    "fits without a transport proof",
+                    1,
+                ),
             ),
             (
                 "toast dispatch retry",
@@ -1376,8 +1394,32 @@ class NativeAndroidBoundaryTest(unittest.TestCase):
                     with self.assertRaises(RuntimeError):
                         verifier.verify_native_android_test_boundary()
 
-    def test_coroutine_deadline_cancel_yield_or_oom_evidence_drift_is_rejected(self) -> None:
+    def test_pcall_coroutine_deadline_cancel_yield_or_oom_evidence_drift_is_rejected(self) -> None:
         mutations = (
+            (
+                "pcall visibility",
+                lambda text: text.replace(
+                    "pcallAndXpcallRemainAbsentInMainAndCoroutines",
+                    "pcallVisibilityUnverified",
+                    1,
+                ),
+            ),
+            (
+                "nested pcall dispatch",
+                lambda text: text.replace(
+                    "rejectedNestedPcallCannotCatchOrDispatch",
+                    "nestedPcallDispatchUnverified",
+                    1,
+                ),
+            ),
+            (
+                "xpcall handler",
+                lambda text: text.replace(
+                    "rejectedXpcallCannotRunMessageHandler",
+                    "xpcallHandlerUnverified",
+                    1,
+                ),
+            ),
             (
                 "deadline",
                 lambda text: text.replace(

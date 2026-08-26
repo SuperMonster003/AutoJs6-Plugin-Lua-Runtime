@@ -1,8 +1,10 @@
 # Persistent storage capability V1
 
-Status: **DESIGN ONLY — NOT IMPLEMENTED OR ADVERTISED**
+Status: **R5 BLOCKED — HOST AND TRANSPORT REVISION REQUIRED**
 
 Design date: 2026-08-25
+
+R5 deployment audit: 2026-08-27
 
 Protocol input reviewed: frozen AutoJs6 revision
 `3b7378758c5a4f68e8680a78cf2c541c23628489`, Lua protocol 1.0.
@@ -17,8 +19,43 @@ of JNI and the dedicated runtime process.
 
 This document does not add a capability constant, Provider metadata entry,
 Binder method, JNI function, Lua API, database, or protocol artifact. The
-current Provider must continue to advertise only `device.info` and
-`module.snapshot.v1`.
+current executable-capability inventory must remain `device.info`,
+`module.snapshot.v1`, and the already implemented Provider-side `ui.toast.v1`
+(an observational crash-diagnostic marker may be appended separately); it must
+not add `storage.kv.v1`.
+
+## R5 deployment blocker
+
+The repository-owned protocol lock points to AutoJs6 revision
+`3b7378758c5a4f68e8680a78cf2c541c23628489`. At that exact revision the Host
+allowlist contains only `device.info` and `module.snapshot.v1`; its dispatcher
+has no `storage.kv.v1` branch, stable script-principal input, persistence
+backend, deletion policy, or migration path. Those Host responsibilities
+cannot be implemented or proved inside this Provider repository.
+
+The frozen transport also contradicts the original value ceiling. Protocol
+1.0 uses `TaggedWireLimits.maxDocumentBytes = 256 * 1024`. A storage `put`
+request must wrap the value inside the operation map and then inside a
+`LuaHostCallRequest`, so a value containing the allowed 256 KiB of logical data
+cannot fit in one 256 KiB document after the required headers and field
+envelopes are added. The proposed 320 KiB canonical encoded-value ceiling is
+larger than the transport ceiling even before that request envelope.
+
+R5 therefore keeps this capability unimplemented and unadvertised. Completion
+requires one coordinated revision that does all of the following:
+
+- gives the Host broker an execution-scoped stable script principal;
+- implements durable, atomic, principal-isolated storage and the Host-side
+  key/value/quota validators;
+- either reduces the value limits to a proved worst-case size below the frozen
+  request/result envelope or introduces a reviewed protocol channel that can
+  carry the frozen 320 KiB representation; and
+- regenerates and locks any changed protocol artifacts before Provider
+  Kotlin/JNI code is admitted.
+
+A fake broker or Provider-owned in-memory map is not completion evidence: it
+cannot prove namespace isolation, durable commit, Host restart, data clear,
+schema migration, or ambiguous-commit behavior.
 
 ## Security principal and namespace
 
@@ -223,6 +260,7 @@ Before capability advertisement, tests must cover:
 - concurrent same-principal ordering and different-principal isolation; and
 - deletion, Host data-clear, update/migration, and downgrade behavior.
 
-Until those gates pass, no `STORAGE_KV_CAPABILITY`, `autojs.storage` field,
+Until those gates and the R5 deployment blocker pass, no `STORAGE_KV_CAPABILITY`,
+`autojs.storage` field,
 Provider metadata entry, JNI method, or Host persistence implementation is
 permitted in this repository.

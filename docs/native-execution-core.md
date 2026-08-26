@@ -64,8 +64,9 @@ before exposing the result.
 The cancellation reason is stored outside the Lua stack. Lua-level `pcall` and
 `xpcall` are unavailable so a script cannot repeatedly swallow the hook error;
 the retained reason also overrides a later Lua result, including the
-`(false, error)` returned by `coroutine.resume`. R4's reviewed rejection and the
-conditions for reopening that decision are recorded in
+`(false, error)` returned by `coroutine.resume`. R5 re-evaluated R4's reviewed
+rejection and reached the same decision. The conditions for
+reopening that decision are recorded in
 [pcall-boundary-decision.md](pcall-boundary-decision.md).
 
 Lua-level metatable discovery and mutation are also unavailable. This prevents

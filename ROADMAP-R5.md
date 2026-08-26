@@ -58,27 +58,52 @@ Android string inventory, 版本一致性及 25 个生成物漂移. 原先单列
 "zh-TW / zh-HK 获得真实翻译后转 active"待办不再存在: 两个繁体区域和其余语言
 已经是同一标准集合中的完整输入, 不是计划槽位.
 
-## R5-B — 语言与宿主能力精进 (Provider 侧可独立完成)
+## R5-B — Provider 语言边界精进 (可独立关闭)
 
-- [ ] **`storage.kv.v1` 实现** (设计已冻结于 `docs/storage-kv-v1.md`).
-  完成判据: Kotlin/JNI fixed-shape 桥落地并进入
-  `LuaProviderMetadata.capabilities`; 64-byte ASCII key, 每 principal
-  256 keys/2 MiB, 每执行 64 次操作/32 次 mutation 与清除语义按设计执行;
-  mutation 不重试; 授予/拒绝 JVM 对称覆盖; verifier 将 design-only 反向断言
-  替换为实现边界检查.
-- [ ] **`module.snapshot.v2` 点分层级模块名实现** (设计已冻结于
+- [x] **受控 `pcall` 重新评估** (按 `docs/pcall-boundary-decision.md` 的
+  Reconsideration gate). R5 再次拒绝脚本可见 `pcall`/`xpcall`: 当前没有提交
+  能阻止 stock `xpcall` handler 在控制事件后运行, 又能覆盖 yieldable
+  continuation 与 OOM 构造路径的可审计 wrapper. 保留二者缺席比引入仅靠错误文本
+  或 watchdog 收尾的 catch 边界更安全.
+  完成判据: main/coroutine 可见性, nested catch, OOM, xpcall handler,
+  deadline 与 cancel 矩阵的 native instrumentation 证据齐备; 再次拒绝的决策记录
+  入库; `TerminationReason` 与 sticky allocator failure 继续在任何结果装箱前优先.
+
+R5-B 本地证据 (2026-08-27): `NativeLuaRuntimeInstrumentationTest` 新增 main 与
+coroutine 中 `pcall`/`xpcall` 同时缺席、嵌套 catch 体不能执行 Host call、
+`xpcall` message handler 不能执行 Host call 三项显式用例. 既有 coroutine
+deadline/cancel 与 caught-OOM 后拒绝成功结果、进程立即复用用例共同组成重新评估
+矩阵. 生产边界继续逐项移除两个全局函数, verifier 同时锁定源码与测试证据.
+API 37 `emulator-5560` (`x86_64,arm64-v8a`, 16 KiB page) 上完整类通过
+20/20; 仅安装 `.native_test` 与其 test APK, 未触碰任何实体设备.
+
+## R5-C — 需宿主协同的 capability (Provider 单方不得关闭)
+
+- [ ] **`storage.kv.v1` 协同实现** (`docs/storage-kv-v1.md`).
+  阻塞判据: 冻结宿主 revision `3b7378758c5a4f68e8680a78cf2c541c23628489`
+  只启用 `device.info` 与 `module.snapshot.v1`, 没有稳定 script principal、存储
+  dispatcher 或持久化层; protocol 1.0 的 `TaggedWire` 单文档上限为 256 KiB,
+  不能承载原设计允许的 256 KiB 逻辑值加 envelope, 更不能承载 320 KiB 编码值.
+  完成判据: 先由宿主冻结 principal/持久化/每 principal 256 keys 与 2 MiB 配额,
+  并修订可传输的单值上限或协议通道; 再落地 Provider Kotlin/JNI fixed-shape 桥、
+  每执行 64 次操作/32 次 mutation、清除语义、授予/拒绝对称测试及 mutation
+  不重试证据. 在此之前不得广告 `storage.kv.v1`.
+- [ ] **`module.snapshot.v2` 点分层级模块名协同实现** (设计已冻结于
   `docs/module-snapshot-v2.md`).
-  完成判据: 点分 ASCII 正则, 16 段/255 字节名称上限, 64 模块/512 KiB 聚合
-  配额落地; 循环加载 fail-closed 测试同步扩展; 测试禁止 V2 到 V1 错误回退.
+  完成判据: 宿主能在 session admission 冻结 V1/V2 选择并授予 V2; Provider
+  点分 ASCII 正则、16 段/255 字节名称上限、64 模块/512 KiB 聚合配额落地;
+  循环加载 fail-closed 测试同步扩展; 测试禁止 V2 错误回退到 V1.
 - [ ] **`ui.toast.v1` 宿主端到端可见交付** (Provider 侧已完成并归档).
-  完成判据: 启用该 capability 的宿主 revision 与真实冒烟证据归档
-  (可见 Toast + 配额/拒绝行为不回退); Provider 侧若需改动则另附回归用例.
-- [ ] **受控 `pcall` 重新评估** (按 `docs/pcall-boundary-decision.md` 的
-  Reconsideration gate).
-  完成判据: nested catch, OOM, xpcall handler 与 coroutine 交互矩阵的
-  native 证据齐备; 采纳或再次拒绝的决策记录入库, "取消错误不可吞"性质保持.
+  完成判据: 启用该 capability 的宿主 revision 与仅在模拟器或明确授权设备上的
+  真实冒烟证据归档 (可见 Toast + 配额/拒绝行为不回退); Provider 侧若需改动则
+  另附回归用例.
 
-## R5-C — 需宿主协议演进的能力 (protocol 1.1 协同, 单方无法关闭)
+R5-C 依赖审计 (2026-08-27): 本仓只锁定 protocol AAR, 不拥有宿主 dispatcher、
+principal 或持久化数据库. 测试内的 fake broker 只能证明 Provider request/response
+形状, 不能替代宿主命名空间隔离、耐久提交、重启、数据清除或迁移证据. 因此这三项
+保持未勾选, 也不会以 Provider metadata 广告来冒充端到端交付.
+
+## R5-D — 需宿主协议演进的能力 (protocol 1.1 协同, 单方无法关闭)
 
 - [ ] **结果模型 V2 落地** (`docs/result-model-v2.md`).
   完成判据: protocol 1.1 + `result.model.v2` 双重协商在宿主与 Provider 两侧
@@ -88,7 +113,7 @@ Android string inventory, 版本一致性及 25 个生成物漂移. 原先单列
   完成判据: 七字段清单, 六位 validity mask 与三个终态父 tag 按设计实现;
   仅统计不含脚本内容; 未协商时不采集, 不广告.
 
-## R5-D — 发布执行
+## R5-E — 发布执行
 
 > 以下是联网项, 统一安排在网络良好窗口. 全程留意 Cloudflare 502/524/529,
 > 尤以 524 超时为甚; 失败时退避重试, 不改变已冻结流程.
@@ -105,9 +130,12 @@ Android string inventory, 版本一致性及 25 个生成物漂移. 原先单列
 ## 执行顺序建议
 
 1. R5-A 与 R5-0 已完成, 后续文档和门禁均以显式 variant 与十语言生成机制为准.
-2. R5-B 每项先更新决策记录再实现, 保持 capability 默认关闭与 fail-closed.
-3. R5-C 必须与 Host/protocol 1.1 同步演进, Provider 单方不得广告未协商能力.
-4. R5-D 只在干净 revision, 完整门禁和人工发布授权同时具备时执行.
+2. R5-B 的 Provider 独立项先更新决策记录再实现, 保持 fail-closed; 当前 pcall
+   重新评估已经关闭.
+3. R5-C 先取得宿主 capability 实现与稳定 principal/session 选择证据, Provider
+   单方不得广告未完成能力.
+4. R5-D 必须与 Host/protocol 1.1 同步演进, 未协商时不得采集或广告.
+5. R5-E 只在干净 revision, 完整门禁和人工发布授权同时具备时执行.
 
 缺陷处理策略: 使用中发现的问题按报告立即修复, 每次修复附最小回归证据
 (JVM 或 instrumentation 用例), 不再设置长时测试前置门禁.

@@ -99,11 +99,3 @@ internal class LuaRunnerException(
     message: String,
     cause: Throwable? = null,
 ) : Exception(message, cause)
-
-/** Keeps the provider non-runnable until a reviewed native adapter is injected. */
-internal object DisabledLuaExecutionRunner : LuaExecutionRunner {
-    override fun execute(request: LuaRunnerRequest): LuaValue = throw LuaRunnerException(
-        LuaRunnerFailureKind.INTERNAL,
-        "The native Lua execution adapter is not deployed",
-    )
-}

@@ -381,15 +381,14 @@ if ($signers.Count -ne 1) {
     throw 'Both Hosts, both Providers, and the lifecycle APK do not share one signer'
 }
 foreach ($provider in @($rc1Provider, $rc2Provider)) {
-    $providerResources = (Invoke-Captured $script:ApkAnalyzer @(
-        'resources', 'value',
-        '--config', 'default',
-        '--type', 'bool',
-        '--name', 'lua_runtime_provider_enabled',
-        $provider
-    )) -join "`n"
-    if ($providerResources -notmatch '(?i)true') {
-        throw "Provider APK does not enable production discovery: $provider"
+    $providerManifest = (Invoke-Captured $script:ApkAnalyzer @('manifest', 'print', $provider)) -join "`n"
+    foreach ($requiredProviderToken in @('LuaPluginInfoService', 'LuaRuntimeService')) {
+        if (-not $providerManifest.Contains($requiredProviderToken)) {
+            throw "Provider APK is missing production discovery service $requiredProviderToken`: $provider"
+        }
+    }
+    if ($providerManifest -match 'android:enabled="false"') {
+        throw "Provider APK contains an explicitly disabled component: $provider"
     }
 }
 

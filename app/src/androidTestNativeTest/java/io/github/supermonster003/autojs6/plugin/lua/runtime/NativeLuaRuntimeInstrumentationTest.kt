@@ -18,7 +18,6 @@ import org.autojs.plugin.lua.runtime.api.LuaOutputStream
 import org.autojs.plugin.lua.runtime.api.LuaRuntimeContract
 import org.autojs.plugin.lua.runtime.api.LuaValue
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -30,11 +29,9 @@ import java.security.MessageDigest
 @RunWith(AndroidJUnit4::class)
 class NativeLuaRuntimeInstrumentationTest {
     @Test
-    fun providerRemainsDisabledDuringNativeTests() {
-        assertTrue(BuildConfig.LUA_NATIVE_ENABLED)
-        assertFalse(BuildConfig.LUA_PROVIDER_ENABLED)
-
+    fun providerServicesAreAbsentDuringNativeTests() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
+        assertTrue(context.packageName.endsWith(".native_test"))
         val packageManager = context.packageManager
         listOf(PLUGIN_INFO_ACTION, LUA_RUNTIME_ACTION).forEach { action ->
             val discovered = queryServices(
@@ -45,8 +42,9 @@ class NativeLuaRuntimeInstrumentationTest {
         }
 
         listOf(LuaPluginInfoService::class.java, LuaRuntimeService::class.java).forEach { service ->
-            val info = serviceInfo(packageManager, ComponentName(context, service))
-            assertFalse("${service.simpleName} must remain disabled", info.enabled)
+            assertThrows(PackageManager.NameNotFoundException::class.java) {
+                serviceInfo(packageManager, ComponentName(context, service))
+            }
         }
     }
 

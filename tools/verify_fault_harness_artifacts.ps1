@@ -11,8 +11,8 @@ param(
 $ErrorActionPreference = 'Stop'
 
 # Release signing and a release APK are intentionally out of scope here. The negative gate binds
-# the unsigned release variant's generated BuildConfig, merged manifest, compiled classes, and both
-# ABI-native outputs to one clean canonical invocation; the debug APK supplies the positive side.
+# the unsigned providerRelease variant's generated BuildConfig, merged manifest, compiled classes,
+# and both ABI-native outputs to one clean canonical invocation; faultTestDebug supplies the positive side.
 
 $repositoryRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $status = @(& git -C $repositoryRoot status --porcelain --untracked-files=all)
@@ -86,28 +86,40 @@ function Read-UniqueBuildConfig([string] $variant) {
     return Get-Content -LiteralPath $path -Raw
 }
 
-$debugBuildConfig = Read-UniqueBuildConfig 'debug'
-$releaseBuildConfig = Read-UniqueBuildConfig 'release'
-if (-not $debugBuildConfig.Contains('LUA_FAULT_HARNESS_ENABLED = true;')) {
-    throw 'Debug BuildConfig did not opt into the fault harness'
-}
-foreach ($token in @(
-    'LUA_FAULT_HARNESS_ENABLED = false;',
-    'LUA_PROVIDER_ENABLED = false;'
-)) {
-    if (-not $releaseBuildConfig.Contains($token)) {
-        throw "Release BuildConfig drift: $token"
+$faultBuildConfig = Read-UniqueBuildConfig 'faultTest/debug'
+$releaseBuildConfig = Read-UniqueBuildConfig 'provider/release'
+foreach ($entry in @(
+    @{
+        Label = 'faultTestDebug'
+        Text = $faultBuildConfig
+        ApplicationId = 'io.github.supermonster003.autojs6.plugin.lua.runtime.fault_test'
+        DebugToken = 'DEBUG = Boolean.parseBoolean("true");'
+    },
+    @{
+        Label = 'providerRelease'
+        Text = $releaseBuildConfig
+        ApplicationId = 'io.github.supermonster003.autojs6.plugin.lua.runtime'
+        DebugToken = 'DEBUG = false;'
     }
-}
-foreach ($buildConfig in @($debugBuildConfig, $releaseBuildConfig)) {
+)) {
+    $buildConfig = $entry.Text
     if (-not $buildConfig.Contains("VERSION_CODE = $versionCode;")) {
         throw "Generated BuildConfig version is not bound to revision $revision"
+    }
+    if (-not $buildConfig.Contains("APPLICATION_ID = `"$($entry.ApplicationId)`";")) {
+        throw "$($entry.Label) BuildConfig application identity drift"
+    }
+    if (-not $buildConfig.Contains($entry.DebugToken)) {
+        throw "$($entry.Label) BuildConfig debug identity drift"
+    }
+    if ($buildConfig.Contains('LUA_')) {
+        throw "Legacy Lua build switches entered $($entry.Label) BuildConfig"
     }
 }
 
 $releaseManifest = Join-Path $repositoryRoot (
-    'app/build/intermediates/merged_manifest/release/' +
-    'processReleaseMainManifest/AndroidManifest.xml'
+    'app/build/intermediates/merged_manifest/providerRelease/' +
+    'processProviderReleaseMainManifest/AndroidManifest.xml'
 )
 if (-not (Test-Path -LiteralPath $releaseManifest -PathType Leaf)) {
     throw "Release main merged manifest is missing: $releaseManifest"
@@ -116,63 +128,71 @@ Assert-CurrentInvocationOutput $releaseManifest
 $releaseManifestText = Get-Content -LiteralPath $releaseManifest -Raw
 if (
     $releaseManifestText.Contains('LuaRuntimeFault') -or
-    $releaseManifestText.Contains('lua_runtime_fault_harness_enabled')
+    $releaseManifestText.Contains('lua_runtime_fault_harness_enabled') -or
+    $releaseManifestText.Contains('lua_runtime_provider_enabled')
 ) {
     throw "Fault harness entered the release main merged manifest: $releaseManifest"
 }
 
-$debugManifest = Join-Path $repositoryRoot (
-    'app/build/intermediates/merged_manifest/debug/' +
-    'processDebugMainManifest/AndroidManifest.xml'
+$faultManifest = Join-Path $repositoryRoot (
+    'app/build/intermediates/merged_manifest/faultTestDebug/' +
+    'processFaultTestDebugMainManifest/AndroidManifest.xml'
 )
-if (-not (Test-Path -LiteralPath $debugManifest -PathType Leaf)) {
-    throw "Debug main merged manifest is missing: $debugManifest"
+if (-not (Test-Path -LiteralPath $faultManifest -PathType Leaf)) {
+    throw "faultTestDebug main merged manifest is missing: $faultManifest"
 }
 $androidNamespace = 'http://schemas.android.com/apk/res/android'
-Assert-CurrentInvocationOutput $debugManifest
-[xml]$debugManifestDocument = Get-Content -LiteralPath $debugManifest -Raw
-$faultServices = @($debugManifestDocument.manifest.application.service | Where-Object {
+Assert-CurrentInvocationOutput $faultManifest
+[xml]$faultManifestDocument = Get-Content -LiteralPath $faultManifest -Raw
+$faultManifestText = Get-Content -LiteralPath $faultManifest -Raw
+if (
+    $faultManifestText.Contains('LuaPluginInfoService') -or
+    $faultManifestText.Contains('io.github.supermonster003.autojs6.plugin.lua.runtime.service.LuaRuntimeService')
+) {
+    throw "Production Provider services entered faultTestDebug: $faultManifest"
+}
+$faultServices = @($faultManifestDocument.manifest.application.service | Where-Object {
     $_.GetAttribute('name', $androidNamespace) -in @(
         '.debug.LuaRuntimeFaultService',
         'io.github.supermonster003.autojs6.plugin.lua.runtime.debug.LuaRuntimeFaultService'
     )
 })
 if ($faultServices.Count -ne 1) {
-    throw "Debug merged fault service inventory drift: $debugManifest"
+    throw "faultTestDebug merged fault service inventory drift: $faultManifest"
 }
 $faultService = $faultServices[0]
 $faultIntentFilters = @($faultService.SelectNodes('./intent-filter'))
 if (
-    $faultService.GetAttribute('enabled', $androidNamespace) -ne '@bool/lua_runtime_fault_harness_enabled' -or
+    $faultService.HasAttribute('enabled', $androidNamespace) -or
     $faultService.GetAttribute('exported', $androidNamespace) -ne 'false' -or
     $faultService.GetAttribute('process', $androidNamespace) -ne ':lua_runtime' -or
     $faultIntentFilters.Count -ne 0
 ) {
-    throw "Debug merged fault service isolation drift: $debugManifest"
+    throw "faultTestDebug merged fault service isolation drift: $faultManifest"
 }
-$faultPeerServices = @($debugManifestDocument.manifest.application.service | Where-Object {
+$faultPeerServices = @($faultManifestDocument.manifest.application.service | Where-Object {
     $_.GetAttribute('name', $androidNamespace) -in @(
         '.debug.LuaRuntimeFaultPeerService',
         'io.github.supermonster003.autojs6.plugin.lua.runtime.debug.LuaRuntimeFaultPeerService'
     )
 })
 if ($faultPeerServices.Count -ne 1) {
-    throw "Debug merged fault peer service inventory drift: $debugManifest"
+    throw "faultTestDebug merged fault peer service inventory drift: $faultManifest"
 }
 $faultPeerService = $faultPeerServices[0]
 $faultPeerIntentFilters = @($faultPeerService.SelectNodes('./intent-filter'))
 if (
-    $faultPeerService.GetAttribute('enabled', $androidNamespace) -ne '@bool/lua_runtime_fault_harness_enabled' -or
+    $faultPeerService.HasAttribute('enabled', $androidNamespace) -or
     $faultPeerService.GetAttribute('exported', $androidNamespace) -ne 'false' -or
     $faultPeerService.GetAttribute('process', $androidNamespace) -ne ':lua_fault_peer' -or
     $faultPeerIntentFilters.Count -ne 0
 ) {
-    throw "Debug merged fault peer service isolation drift: $debugManifest"
+    throw "faultTestDebug merged fault peer service isolation drift: $faultManifest"
 }
 
 $releaseCompiledClasses = @(
     Get-ChildItem -LiteralPath (Join-Path $repositoryRoot 'app/build/intermediates') -Filter '*.class' -File -Recurse |
-        Where-Object { $_.FullName -match '[\\/]release[\\/]' }
+        Where-Object { $_.FullName -match 'providerRelease' }
 )
 if ($releaseCompiledClasses.Count -eq 0) {
     throw 'No compiled release classes were found for the exclusion gate'
@@ -193,7 +213,7 @@ if ($releaseFaultClasses.Count -ne 0) {
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $releaseClassJars = @(
     Get-ChildItem -LiteralPath (Join-Path $repositoryRoot 'app/build/intermediates') -Filter '*.jar' -File -Recurse |
-        Where-Object { $_.FullName -match '[\\/]release[\\/]' }
+        Where-Object { $_.FullName -match 'providerRelease' }
 )
 foreach ($jar in $releaseClassJars) {
     Assert-CurrentInvocationOutput $jar.FullName
@@ -217,8 +237,7 @@ $faultSymbols = @(
 $expectedAbis = @('arm64-v8a', 'x86_64')
 $nativeIntermediates = Join-Path $repositoryRoot 'app/build/intermediates/cxx'
 $nativeVariants = @(
-    @{ Label = 'Debug'; CmakeDirectory = 'Debug'; ExpectedFaultSymbolCount = 1 },
-    @{ Label = 'Release'; CmakeDirectory = 'RelWithDebInfo'; ExpectedFaultSymbolCount = 0 }
+    @{ Label = 'providerRelease'; CmakeDirectory = 'RelWithDebInfo'; ExpectedFaultSymbolCount = 0 }
 )
 foreach ($variant in $nativeVariants) {
     $variantRoot = Join-Path $nativeIntermediates $variant.CmakeDirectory
@@ -250,31 +269,37 @@ foreach ($variant in $nativeVariants) {
 }
 
 
-function Resolve-DebugUniversalApk() {
-    $root = Join-Path $repositoryRoot 'app/build/outputs/apk/debug'
+function Resolve-FaultUniversalApk() {
+    $root = Join-Path $repositoryRoot 'app/build/outputs/apk/faultTest/debug'
     $metadataPath = Join-Path $root 'output-metadata.json'
     Assert-CurrentInvocationOutput $metadataPath
     $metadata = Get-Content -LiteralPath $metadataPath -Raw | ConvertFrom-Json
+    if (
+        $metadata.applicationId -ne 'io.github.supermonster003.autojs6.plugin.lua.runtime.fault_test' -or
+        $metadata.variantName -ne 'faultTestDebug'
+    ) {
+        throw 'faultTestDebug APK metadata identity drift'
+    }
     $matches = @($metadata.elements | Where-Object {
-        $_.outputFile -ceq 'app-universal-debug.apk'
+        $_.outputFile -ceq 'app-faultTest-universal-debug.apk'
     })
     if ($matches.Count -ne 1) {
-        throw 'Unable to resolve one universal debug APK from output metadata'
+        throw 'Unable to resolve one universal faultTestDebug APK from output metadata'
     }
     $path = (Get-Item -LiteralPath (Join-Path $root $matches[0].outputFile)).FullName
     Assert-CurrentInvocationOutput $path
     return $path
 }
 
-$debugApk = Resolve-DebugUniversalApk
+$debugApk = Resolve-FaultUniversalApk
 $debugResources = @(& $aapt dump resources $debugApk)
 if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect debug APK resources' }
 $debugResourceText = $debugResources -join "`n"
 if (
-    $debugResourceText -notmatch 'lua_runtime_provider_enabled[\s\S]*?t=0x12 d=0x00000000' -or
-    $debugResourceText -notmatch 'lua_runtime_fault_harness_enabled[\s\S]*?t=0x12 d=0xffffffff'
+    $debugResourceText.Contains('lua_runtime_provider_enabled') -or
+    $debugResourceText.Contains('lua_runtime_fault_harness_enabled')
 ) {
-    throw 'Debug APK did not package provider=false and faultHarness=true'
+    throw 'Legacy Lua build-switch resources entered the faultTestDebug APK'
 }
 $debugManifest = @(& $aapt dump xmltree $debugApk AndroidManifest.xml)
 if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect the packaged debug manifest' }
@@ -283,6 +308,11 @@ if (@($debugManifest | Select-String 'LuaRuntimeFaultService').Count -ne 1) {
 }
 if (@($debugManifest | Select-String 'LuaRuntimeFaultPeerService').Count -ne 1) {
     throw 'Debug APK does not contain exactly one fault peer service'
+}
+foreach ($productionService in @('LuaPluginInfoService', 'io.github.supermonster003.autojs6.plugin.lua.runtime.service.LuaRuntimeService')) {
+    if (@($debugManifest | Select-String $productionService).Count -ne 0) {
+        throw "Production Provider service entered the faultTestDebug APK: $productionService"
+    }
 }
 
 $temporaryRoot = Join-Path ([IO.Path]::GetTempPath()) (
@@ -322,5 +352,5 @@ try {
 
 Write-Host (
     "RELEASE_VARIANT_FAULT_HARNESS_EXCLUSION_PASS revision=$revision versionCode=$versionCode " +
-    'manifest=absent classes=absent arm64-v8a=absent x86_64=absent'
+    'faultVariant=present releaseManifest=absent releaseClasses=absent arm64-v8a=absent x86_64=absent'
 )

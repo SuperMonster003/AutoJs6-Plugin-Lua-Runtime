@@ -2,8 +2,7 @@
 param(
     [string] $SdkRoot,
     [string] $BuildToolsVersion = '37.0.0',
-    [string] $NdkVersion = '28.2.13676358',
-    [switch] $RequireFaultHarness
+    [string] $NdkVersion = '28.2.13676358'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -67,7 +66,7 @@ if ($versionCode -le 0 -or $versionCode -ne $commitCount) {
     throw "VERSION_BUILD must equal the positive commit count: version=$versionCode commits=$commitCount"
 }
 
-$testRoot = Join-Path $repositoryRoot 'app/build/test-results/testDebugUnitTest'
+$testRoot = Join-Path $repositoryRoot 'app/build/test-results/testProviderDebugUnitTest'
 $testReports = @(Get-ChildItem -LiteralPath $testRoot -Filter '*.xml' -File)
 if ($testReports.Count -eq 0) { throw 'No debug unit-test XML reports were found' }
 $tests = 0
@@ -90,19 +89,19 @@ if (
     throw "Unit-test gate failed: tests=$tests failures=$failures errors=$errors skipped=$skipped"
 }
 
-$apkRoot = Join-Path $repositoryRoot 'app/build/outputs/apk/debug'
+$apkRoot = Join-Path $repositoryRoot 'app/build/outputs/apk/provider/debug'
 $metadataPath = Join-Path $apkRoot 'output-metadata.json'
 $metadata = Get-Content -LiteralPath $metadataPath -Raw | ConvertFrom-Json
 if (
     $metadata.applicationId -ne 'io.github.supermonster003.autojs6.plugin.lua.runtime' -or
-    $metadata.variantName -ne 'debug'
+    $metadata.variantName -ne 'providerDebug'
 ) {
     throw 'Debug APK metadata identity drift'
 }
 $expectedApks = [ordered]@{
-    'app-arm64-v8a-debug.apk' = @('arm64-v8a')
-    'app-x86_64-debug.apk' = @('x86_64')
-    'app-universal-debug.apk' = @('arm64-v8a', 'x86_64')
+    'app-provider-arm64-v8a-debug.apk' = @('arm64-v8a')
+    'app-provider-x86_64-debug.apk' = @('x86_64')
+    'app-provider-universal-debug.apk' = @('arm64-v8a', 'x86_64')
 }
 $elements = @($metadata.elements)
 if ($elements.Count -ne $expectedApks.Count) {
@@ -122,7 +121,7 @@ $faultSymbols = @(
     'Java_io_github_supermonster003_autojs6_plugin_lua_runtime_debug_NativeLuaFaults_nativeCrash',
     'Java_io_github_supermonster003_autojs6_plugin_lua_runtime_debug_NativeLuaFaults_nativeWedge'
 )
-$expectedFaultSymbolCount = if ($RequireFaultHarness) { 1 } else { 0 }
+$expectedFaultSymbolCount = 0
 $artifactRecords = [Collections.Generic.List[object]]::new()
 try {
     foreach ($element in $elements) {
@@ -251,22 +250,15 @@ try {
 }
 if ($signerDigests.Count -ne 1) { throw 'Debug APK signer drift across outputs' }
 
-$universalApk = Join-Path $apkRoot 'app-universal-debug.apk'
+$universalApk = Join-Path $apkRoot 'app-provider-universal-debug.apk'
 $resources = @(& $aapt dump resources $universalApk)
 if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect packaged resource table' }
 $resourceText = $resources -join "`n"
 if (
-    $resourceText -notmatch
-        'lua_runtime_provider_enabled[\s\S]*?t=0x12 d=0x00000000'
+    $resourceText.Contains('lua_runtime_provider_enabled') -or
+    $resourceText.Contains('lua_runtime_fault_harness_enabled')
 ) {
-    throw 'Packaged provider-discovery resource is not false'
-}
-$expectedFaultResource = if ($RequireFaultHarness) { '0xffffffff' } else { '0x00000000' }
-if (
-    $resourceText -notmatch
-        "lua_runtime_fault_harness_enabled[\s\S]*?t=0x12 d=$expectedFaultResource"
-) {
-    throw "Packaged fault-harness resource does not match RequireFaultHarness=$RequireFaultHarness"
+    throw 'Legacy Lua build-switch resources entered the provider debug APK'
 }
 $manifest = @(& $aapt dump xmltree $universalApk AndroidManifest.xml)
 if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect packaged Android manifest' }
@@ -299,25 +291,19 @@ function Get-PackagedServiceBlock([string[]] $lines, [string] $serviceName) {
 foreach ($service in @('LuaPluginInfoService', 'LuaRuntimeService')) {
     $block = Get-PackagedServiceBlock $manifest $service
     if (
-        @($block | Select-String 'android:enabled.*=@0x').Count -ne 1 -or
+        @($block | Select-String 'android:enabled').Count -ne 0 -or
         @($block | Select-String 'android:exported.*0xffffffff').Count -ne 1 -or
         @($block | Select-String 'android:process.*:lua_runtime').Count -ne 1
     ) {
         throw "Packaged production service boundary drift: $service"
     }
 }
-$faultBlock = Get-PackagedServiceBlock $manifest 'LuaRuntimeFaultService'
-if (
-    @($faultBlock | Select-String 'android:enabled.*=@0x').Count -ne 1 -or
-    @($faultBlock | Select-String 'android:exported.*0x0').Count -ne 1 -or
-    @($faultBlock | Select-String 'android:process.*:lua_runtime').Count -ne 1 -or
-    @($faultBlock | Select-String 'E: intent-filter').Count -ne 0
-) {
-    throw 'Packaged debug fault service is not explicit, non-exported, and process-isolated'
+if (@($manifest | Select-String 'LuaRuntimeFault|NativeLuaFault').Count -ne 0) {
+    throw 'Fault harness components entered the provider debug APK'
 }
 
 $buildConfigPath = Join-Path $repositoryRoot (
-    'app/build/generated/source/buildConfig/debug/' +
+    'app/build/generated/source/buildConfig/provider/debug/' +
     'io/github/supermonster003/autojs6/plugin/lua/runtime/BuildConfig.java'
 )
 if (-not (Test-Path -LiteralPath $buildConfigPath -PathType Leaf)) {
@@ -326,11 +312,13 @@ if (-not (Test-Path -LiteralPath $buildConfigPath -PathType Leaf)) {
 $buildConfig = Get-Content -LiteralPath $buildConfigPath -Raw
 foreach ($token in @(
     "VERSION_CODE = $versionCode;",
-    'LUA_NATIVE_ENABLED = true;',
-    'LUA_PROVIDER_ENABLED = false;',
-    "LUA_FAULT_HARNESS_ENABLED = $($RequireFaultHarness.ToString().ToLowerInvariant());"
+    'APPLICATION_ID = "io.github.supermonster003.autojs6.plugin.lua.runtime";',
+    'DEBUG = Boolean.parseBoolean("true");'
 )) {
     if (-not $buildConfig.Contains($token)) { throw "Generated BuildConfig drift: $token" }
+}
+if ($buildConfig.Contains('LUA_')) {
+    throw 'Legacy Lua build switches entered generated provider debug BuildConfig'
 }
 
 $summary = [ordered]@{
@@ -342,4 +330,4 @@ $summary = [ordered]@{
     artifacts = $artifactRecords
 }
 $summary | ConvertTo-Json -Depth 6
-Write-Host "DEBUG_ARTIFACT_GATE_PASS provider=false faultHarness=$($RequireFaultHarness.ToString().ToLowerInvariant()) elfPageAlign=16384 zipPageAlign=16384"
+Write-Host 'DEBUG_ARTIFACT_GATE_PASS variant=providerDebug native=present provider=present fault=absent elfPageAlign=16384 zipPageAlign=16384'

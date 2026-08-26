@@ -4,13 +4,10 @@ import android.app.Service
 import android.content.Intent
 import android.os.IBinder
 import android.os.ParcelFileDescriptor
-import io.github.supermonster003.autojs6.plugin.lua.runtime.BuildConfig
 import io.github.supermonster003.autojs6.plugin.lua.runtime.LuaProviderMetadata
 import io.github.supermonster003.autojs6.plugin.lua.runtime.NativeLuaExecutionRunner
 import io.github.supermonster003.autojs6.plugin.lua.runtime.NativeLuaRuntime
 import io.github.supermonster003.autojs6.plugin.lua.runtime.diagnostic.LuaRuntimeCrashDiagnostics
-import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.DisabledLuaExecutionRunner
-import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaExecutionRunner
 import org.autojs.plugin.lua.runtime.api.ILuaExecutionCallback
 import org.autojs.plugin.lua.runtime.api.ILuaExecutionSession
 import org.autojs.plugin.lua.runtime.api.ILuaHostCapabilityBroker
@@ -19,10 +16,7 @@ import org.autojs.plugin.lua.runtime.api.LuaRuntimeCodec
 import org.autojs.plugin.lua.runtime.api.LuaRuntimeContract
 import org.autojs.plugin.lua.runtime.api.LuaRuntimeValidation
 
-/**
- * R3 service boundary. Discovery is disabled by the manifest resource until
- * native execution, cancellation, descriptor ownership, and conformance gates pass.
- */
+/** Production Lua runtime service backed unconditionally by the pinned native adapter. */
 class LuaRuntimeService : Service() {
     private lateinit var callerVerifier: HostCallerVerifier
     private lateinit var executionManager: LuaRuntimeExecutionManager
@@ -33,7 +27,7 @@ class LuaRuntimeService : Service() {
         callerVerifier = HostCallerVerifier(this)
         executionManager = LuaRuntimeExecutionManager(
             callerVerifier = callerVerifier,
-            runner = selectLuaExecutionRunner(BuildConfig.LUA_NATIVE_ENABLED),
+            runner = NativeLuaExecutionRunner,
         )
     }
 
@@ -99,6 +93,3 @@ class LuaRuntimeService : Service() {
         }
     }
 }
-
-internal fun selectLuaExecutionRunner(nativeEnabled: Boolean): LuaExecutionRunner =
-    if (nativeEnabled) NativeLuaExecutionRunner else DisabledLuaExecutionRunner

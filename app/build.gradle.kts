@@ -9,36 +9,13 @@ val versionProperties = Properties().apply {
     rootProject.file("version.properties").inputStream().use { stream -> load(stream) }
 }
 
-fun flag(name: String) = providers.gradleProperty(name)
-    .orElse("false")
-    .map { value -> value.trim().lowercase() in setOf("true", "1", "yes", "on") }
-
-val luaNativeEnabled = flag("autojs.lua.native.enabled")
-val luaProviderEnabled = flag("autojs.lua.provider.enabled")
-val luaFaultHarnessEnabled = flag("autojs.lua.faultHarness.enabled")
-val luaReleaseCandidateEnabled = flag("autojs.lua.releaseCandidate.enabled")
+val runtimeModeDimension = "runtimeMode"
 val supportedAbis = setOf("arm64-v8a", "x86_64")
 val protocolArtifacts = listOf(
     rootProject.file("protocol/common-plugin-api.aar"),
     rootProject.file("protocol/protocol-wire-api.aar"),
     rootProject.file("protocol/lua-runtime-api.aar"),
 )
-
-if (luaProviderEnabled.get() && !luaNativeEnabled.get()) {
-    throw GradleException("The Lua provider cannot be enabled without the pinned native runtime")
-}
-if (luaFaultHarnessEnabled.get() && (!luaNativeEnabled.get() || luaProviderEnabled.get())) {
-    throw GradleException(
-        "The debug Lua fault harness requires native=true and provider=false",
-    )
-}
-if (luaReleaseCandidateEnabled.get() &&
-    (!luaNativeEnabled.get() || !luaProviderEnabled.get() || luaFaultHarnessEnabled.get())
-) {
-    throw GradleException(
-        "A Lua release candidate requires native=true, provider=true, and faultHarness=false",
-    )
-}
 
 data class ReleaseSigningMaterial(
     val storeFile: File,
@@ -74,11 +51,6 @@ fun loadReleaseSigningMaterial(): ReleaseSigningMaterial? {
         )
     }
     if (externalRequested) {
-        if (!luaReleaseCandidateEnabled.get()) {
-            throw GradleException(
-                "External release signing files require -Pautojs.lua.releaseCandidate.enabled=true",
-            )
-        }
         val signingPropertiesFile = File(
             propertiesPath ?: throw GradleException(
                 "External signing requires -Pautojs.lua.release.signingPropertiesFile=<absolute path>",
@@ -133,14 +105,11 @@ android {
         versionName = versionProperties.getProperty("VERSION_NAME")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField("boolean", "LUA_NATIVE_ENABLED", luaNativeEnabled.get().toString())
-        buildConfigField("boolean", "LUA_PROVIDER_ENABLED", luaProviderEnabled.get().toString())
         buildConfigField(
             "long",
             "REQUIRED_HOST_VERSION_CODE",
             "${versionProperties.getProperty("REQUIRED_HOST_VERSION_CODE")}L",
         )
-        resValue("bool", "lua_runtime_provider_enabled", luaProviderEnabled.get().toString())
         resValue(
             "string",
             "lua_runtime_requires_host_version",
@@ -151,15 +120,13 @@ android {
             abiFilters += supportedAbis
         }
 
-        if (luaNativeEnabled.get()) {
-            externalNativeBuild {
-                cmake {
-                    arguments += listOf(
-                        "-DAUTOJS_LUA_RUNTIME_SLOT=lua54",
-                        "-DANDROID_STL=c++_static",
-                    )
-                    cppFlags += listOf("-std=c++20", "-fvisibility=hidden")
-                }
+        externalNativeBuild {
+            cmake {
+                arguments += listOf(
+                    "-DAUTOJS_LUA_RUNTIME_SLOT=lua54",
+                    "-DANDROID_STL=c++_static",
+                )
+                cppFlags += listOf("-std=c++20", "-fvisibility=hidden")
             }
         }
     }
@@ -189,40 +156,10 @@ android {
     buildTypes {
         debug {
             isMinifyEnabled = false
-            buildConfigField(
-                "boolean",
-                "LUA_FAULT_HARNESS_ENABLED",
-                luaFaultHarnessEnabled.get().toString(),
-            )
-            resValue(
-                "bool",
-                "lua_runtime_fault_harness_enabled",
-                luaFaultHarnessEnabled.get().toString(),
-            )
-            if (luaNativeEnabled.get()) {
-                externalNativeBuild {
-                    cmake {
-                        arguments += if (luaFaultHarnessEnabled.get()) {
-                            "-DAUTOJS_LUA_DEBUG_FAULT_HARNESS=ON"
-                        } else {
-                            "-DAUTOJS_LUA_DEBUG_FAULT_HARNESS=OFF"
-                        }
-                    }
-                }
-            }
         }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            buildConfigField("boolean", "LUA_FAULT_HARNESS_ENABLED", "false")
-            resValue("bool", "lua_runtime_fault_harness_enabled", "false")
-            if (luaNativeEnabled.get()) {
-                externalNativeBuild {
-                    cmake {
-                        arguments += "-DAUTOJS_LUA_DEBUG_FAULT_HARNESS=OFF"
-                    }
-                }
-            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -231,12 +168,40 @@ android {
         }
     }
 
-    if (luaNativeEnabled.get()) {
-        externalNativeBuild {
-            cmake {
-                path = file("src/main/cpp/CMakeLists.txt")
-                version = "3.22.1"
+    flavorDimensions += runtimeModeDimension
+    productFlavors {
+        create("provider") {
+            dimension = runtimeModeDimension
+            externalNativeBuild {
+                cmake {
+                    arguments += "-DAUTOJS_LUA_DEBUG_FAULT_HARNESS=OFF"
+                }
             }
+        }
+        create("nativeTest") {
+            dimension = runtimeModeDimension
+            applicationIdSuffix = ".native_test"
+            externalNativeBuild {
+                cmake {
+                    arguments += "-DAUTOJS_LUA_DEBUG_FAULT_HARNESS=OFF"
+                }
+            }
+        }
+        create("faultTest") {
+            dimension = runtimeModeDimension
+            applicationIdSuffix = ".fault_test"
+            externalNativeBuild {
+                cmake {
+                    arguments += "-DAUTOJS_LUA_DEBUG_FAULT_HARNESS=ON"
+                }
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
         }
     }
 
@@ -274,10 +239,8 @@ tasks.register("verifyPinnedInputs") {
         check(missingProtocol.isEmpty()) {
             "Pinned protocol AARs are missing: ${missingProtocol.joinToString { it.name }}"
         }
-        if (luaNativeEnabled.get()) {
-            check(file("src/main/cpp/vendor/lua-5.4.8/src/lapi.c").isFile) {
-                "Pinned PUC Lua 5.4.8 sources are not vendored"
-            }
+        check(file("src/main/cpp/vendor/lua-5.4.8/src/lapi.c").isFile) {
+            "Pinned PUC Lua 5.4.8 sources are not vendored"
         }
     }
 }
@@ -288,34 +251,41 @@ tasks.matching { task ->
     dependsOn("verifyPinnedInputs")
 }
 
-tasks.register("requireReleaseCandidate") {
+tasks.register("verifyReleasePreconditions") {
     group = "verification"
     doLast {
-        check(luaReleaseCandidateEnabled.get()) {
-            "Release assembly requires -Pautojs.lua.releaseCandidate.enabled=true"
-        }
-        check(luaNativeEnabled.get() && luaProviderEnabled.get() && !luaFaultHarnessEnabled.get()) {
-            "Release candidates require native=true, provider=true, and faultHarness=false"
-        }
         check(
             versionProperties.getProperty("VERSION_NAME")
                 .matches(Regex("^[0-9]+\\.[0-9]+\\.[0-9]+-rc\\.[0-9]+$")),
         ) {
             "Release candidates require a version name such as 0.1.0-rc.1"
         }
-        check(android.signingConfigs.findByName("release") != null) {
-            "Release signing requires either both external signing-file properties or all four AUTOJS_LUA_RELEASE_* variables"
+        if (releaseSigningMaterial == null) {
+            logger.lifecycle(
+                "providerRelease is unsigned; use tools/build_runnable_provider.ps1 with external signing material for a publishable artifact",
+            )
         }
     }
 }
 
 val releaseArtifactTaskNames = setOf(
-    "assembleRelease",
-    "bundleRelease",
-    "packageRelease",
-    "packageReleaseBundle",
-    "packageReleaseUniversalApk",
+    "assembleProviderRelease",
+    "bundleProviderRelease",
+    "packageProviderRelease",
+    "packageProviderReleaseBundle",
+    "packageProviderReleaseUniversalApk",
 )
 tasks.matching { task -> task.name in releaseArtifactTaskNames }.configureEach {
-    dependsOn("requireReleaseCandidate")
+    dependsOn("verifyReleasePreconditions")
+}
+
+androidComponents {
+    beforeVariants(selector().withBuildType("release")) { variantBuilder ->
+        val runtimeMode = variantBuilder.productFlavors
+            .single { (dimension, _) -> dimension == runtimeModeDimension }
+            .second
+        if (runtimeMode != "provider") {
+            variantBuilder.enable = false
+        }
+    }
 }

@@ -66,10 +66,8 @@ jobs:
         run: |
           for build_attempt in 1 2 3; do
             if ./gradlew \
-              :app:testDebugUnitTest \
-              :app:assembleDebug \
-              -Pautojs.lua.native.enabled=true \
-              -Pautojs.lua.provider.enabled=false \
+              :app:testProviderDebugUnitTest \
+              :app:assembleProviderDebug \
               --no-daemon \
               --console=plain; then
               exit 0

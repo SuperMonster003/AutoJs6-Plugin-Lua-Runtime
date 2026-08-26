@@ -502,12 +502,14 @@ $lifecycleIdentity = Read-ApkIdentity $lifecyclePath
 Assert-ArtifactIdentity $hostIdentity 'Host' $HostPackage $ExpectedHostVersionCode $ExpectedHostSha256
 Assert-ArtifactIdentity $providerIdentity 'Provider' $ProviderPackage $ExpectedProviderVersionCode $ExpectedProviderSha256
 Assert-ArtifactIdentity $lifecycleIdentity 'Lifecycle test' $LifecyclePackage 0 $null
-$providerResources = (Invoke-Captured $script:ApkAnalyzer @(
-    'resources', 'value', '--config', 'default', '--type', 'bool',
-    '--name', 'lua_runtime_provider_enabled', $providerPath
-)) -join "`n"
-if ($providerResources -notmatch '(?i)true') {
-    throw 'Provider APK does not enable production discovery'
+$providerManifest = (Invoke-Captured $script:ApkAnalyzer @('manifest', 'print', $providerPath)) -join "`n"
+foreach ($requiredProviderToken in @('LuaPluginInfoService', 'LuaRuntimeService')) {
+    if (-not $providerManifest.Contains($requiredProviderToken)) {
+        throw "Provider APK is missing production discovery service: $requiredProviderToken"
+    }
+}
+if ($providerManifest -match 'android:enabled="false"') {
+    throw 'Provider APK contains an explicitly disabled component'
 }
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path

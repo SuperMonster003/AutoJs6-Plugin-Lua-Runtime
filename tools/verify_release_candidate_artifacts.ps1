@@ -160,7 +160,7 @@ function Assert-CurrentInvocationOutput([string] $path) {
     return $item
 }
 
-$testRoot = Join-Path $repositoryRoot 'app/build/test-results/testDebugUnitTest'
+$testRoot = Join-Path $repositoryRoot 'app/build/test-results/testProviderDebugUnitTest'
 $testReports = @(Get-ChildItem -LiteralPath $testRoot -Filter '*.xml' -File)
 if ($testReports.Count -eq 0) { throw 'No release-invocation unit-test XML reports were found' }
 $tests = 0
@@ -179,18 +179,18 @@ if ($tests -ne $expectedTests -or $failures -ne 0 -or $errors -ne 0 -or $skipped
     throw "Unit-test gate failed: tests=$tests failures=$failures errors=$errors skipped=$skipped"
 }
 
-$apkRoot = Join-Path $repositoryRoot 'app/build/outputs/apk/release'
+$apkRoot = Join-Path $repositoryRoot 'app/build/outputs/apk/provider/release'
 $metadataPath = Join-Path $apkRoot 'output-metadata.json'
 [void](Assert-CurrentInvocationOutput $metadataPath)
 $metadata = Get-Content -LiteralPath $metadataPath -Raw | ConvertFrom-Json
 if ($metadata.applicationId -ne 'io.github.supermonster003.autojs6.plugin.lua.runtime' -or
-    $metadata.variantName -ne 'release') {
+    $metadata.variantName -ne 'providerRelease') {
     throw 'Release APK metadata identity drift'
 }
 $expectedApks = [ordered]@{
-    'app-arm64-v8a-release.apk' = @('arm64-v8a')
-    'app-x86_64-release.apk' = @('x86_64')
-    'app-universal-release.apk' = @('arm64-v8a', 'x86_64')
+    'app-provider-arm64-v8a-release.apk' = @('arm64-v8a')
+    'app-provider-x86_64-release.apk' = @('x86_64')
+    'app-provider-universal-release.apk' = @('arm64-v8a', 'x86_64')
 }
 $elements = @($metadata.elements)
 if ($elements.Count -ne $expectedApks.Count) {
@@ -337,44 +337,74 @@ if ($signerDigests.Count -ne 1 -or @($signerDigests)[0] -ne $expectedSigner) {
     throw 'Release APK signer drift across outputs'
 }
 
-$universalApk = Join-Path $apkRoot 'app-universal-release.apk'
+$universalApk = Join-Path $apkRoot 'app-provider-universal-release.apk'
 $resources = @(& $aapt dump resources $universalApk)
 if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect packaged release resource table' }
 $resourceText = $resources -join "`n"
-if ($resourceText -notmatch 'lua_runtime_provider_enabled[\s\S]*?t=0x12 d=0xffffffff') {
-    throw 'Packaged release Provider discovery is not enabled'
-}
-$faultHarnessResourcePresent = $resourceText.Contains('lua_runtime_fault_harness_enabled')
 if (
-    $faultHarnessResourcePresent -and
-    $resourceText -notmatch 'lua_runtime_fault_harness_enabled[\s\S]*?t=0x12 d=0x00000000'
+    $resourceText.Contains('lua_runtime_provider_enabled') -or
+    $resourceText.Contains('lua_runtime_fault_harness_enabled')
 ) {
-    throw 'Packaged release fault harness resource is not false'
+    throw 'Legacy Lua build-switch resources entered the provider release APK'
 }
 $manifest = @(& $aapt dump xmltree $universalApk AndroidManifest.xml)
 if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect packaged release manifest' }
+
+function Get-PackagedServiceBlock([string[]] $lines, [string] $serviceName) {
+    $nameMatches = @(
+        for ($index = 0; $index -lt $lines.Count; $index++) {
+            if ($lines[$index] -match "android:name.*$([regex]::Escape($serviceName))") {
+                $index
+            }
+        }
+    )
+    if ($nameMatches.Count -ne 1) {
+        throw "Packaged release service inventory drift: $serviceName"
+    }
+    $start = $nameMatches[0]
+    while ($start -ge 0 -and $lines[$start] -notmatch '^(\s*)E: service\b') { $start-- }
+    if ($start -lt 0) { throw "Unable to locate release service node: $serviceName" }
+    $indent = ([regex]::Match($lines[$start], '^(\s*)')).Groups[1].Value.Length
+    $end = $lines.Count
+    for ($index = $start + 1; $index -lt $lines.Count; $index++) {
+        $match = [regex]::Match($lines[$index], '^(\s*)E: ')
+        if ($match.Success -and $match.Groups[1].Value.Length -le $indent) {
+            $end = $index
+            break
+        }
+    }
+    return @($lines[$start..($end - 1)])
+}
+
 foreach ($service in @('LuaPluginInfoService', 'LuaRuntimeService')) {
-    if (@($manifest | Select-String $service).Count -ne 1) {
-        throw "Packaged production service inventory drift: $service"
+    $block = Get-PackagedServiceBlock $manifest $service
+    if (
+        @($block | Select-String 'android:enabled').Count -ne 0 -or
+        @($block | Select-String 'android:exported.*0xffffffff').Count -ne 1 -or
+        @($block | Select-String 'android:process.*:lua_runtime').Count -ne 1
+    ) {
+        throw "Packaged release production service boundary drift: $service"
     }
 }
-if (@($manifest | Select-String 'LuaRuntimeFaultService').Count -ne 0) {
+if (@($manifest | Select-String 'LuaRuntimeFault|NativeLuaFault').Count -ne 0) {
     throw 'Debug fault service entered the release manifest'
 }
 
 $buildConfigPath = Join-Path $repositoryRoot (
-    'app/build/generated/source/buildConfig/release/' +
+    'app/build/generated/source/buildConfig/provider/release/' +
     'io/github/supermonster003/autojs6/plugin/lua/runtime/BuildConfig.java'
 )
 [void](Assert-CurrentInvocationOutput $buildConfigPath)
 $buildConfig = Get-Content -LiteralPath $buildConfigPath -Raw
 foreach ($token in @(
     "VERSION_CODE = $versionCode;",
-    'LUA_NATIVE_ENABLED = true;',
-    'LUA_PROVIDER_ENABLED = true;',
-    'LUA_FAULT_HARNESS_ENABLED = false;'
+    'APPLICATION_ID = "io.github.supermonster003.autojs6.plugin.lua.runtime";',
+    'DEBUG = false;'
 )) {
     if (-not $buildConfig.Contains($token)) { throw "Generated release BuildConfig drift: $token" }
+}
+if ($buildConfig.Contains('LUA_')) {
+    throw 'Legacy Lua build switches entered generated provider release BuildConfig'
 }
 
 $summary = [ordered]@{
@@ -390,4 +420,4 @@ $summary = [ordered]@{
     artifacts = $artifactRecords
 }
 $summary | ConvertTo-Json -Depth 6
-Write-Host 'SIGNED_RELEASE_CANDIDATE_ARTIFACT_GATE_PASS provider=true faultHarness=false elfPageAlign=16384 zipPageAlign=16384 deviceVerified=false runtimeVerified=false'
+Write-Host 'SIGNED_RELEASE_CANDIDATE_ARTIFACT_GATE_PASS variant=providerRelease native=present provider=present fault=absent elfPageAlign=16384 zipPageAlign=16384 deviceVerified=false runtimeVerified=false'

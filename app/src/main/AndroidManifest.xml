@@ -25,7 +25,6 @@
 
         <service
             android:name=".service.LuaPluginInfoService"
-            android:enabled="@bool/lua_runtime_provider_enabled"
             android:exported="true"
             android:permission="org.autojs.permission.PLUGIN"
             android:process=":lua_runtime">
@@ -40,7 +39,6 @@
 
         <service
             android:name=".service.LuaRuntimeService"
-            android:enabled="@bool/lua_runtime_provider_enabled"
             android:exported="true"
             android:permission="org.autojs.permission.PLUGIN"
             android:process=":lua_runtime">

@@ -1,10 +1,18 @@
 # Production soak plan
 
-Status: **STANDARD FROZEN — FIRST ROUND NOT COMPLETE**
+Status: **STANDARD RETIRED — PRODUCTION SOAK DESCOPED ON 2026-08-26 (NO ROUND COMPLETED)**
+
+On 2026-08-26 the owner removed the production soak from the release gates in
+favor of a fix-on-report policy: defects found in real use are fixed as they
+are reported, each with minimal regression evidence. No round was completed;
+round 2 was closed after two valid days. The frozen standard below is retained
+unchanged for any future voluntary round, which must start again at day 1 with
+a new round ID.
 
 This plan defines the R4-E production soak boundary for the exact signed rc.2
 x86_64 candidate. It deliberately does not claim physical-device coverage and
-does not replace the still-open arm64-v8a physical smoke item.
+does not replace the arm64-v8a physical smoke item, which was itself descoped
+on 2026-08-26.
 
 ## Frozen pass standard
 

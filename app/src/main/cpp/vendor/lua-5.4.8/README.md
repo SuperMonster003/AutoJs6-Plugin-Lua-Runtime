@@ -1,10 +1,11 @@
 # PUC Lua 5.4.8 vendor intake
 
-Status: **not vendored**.
+Status: **vendored**.
 
-The repository deliberately contains no placeholder Lua implementation. Obtain
-the official `lua-5.4.8.tar.gz` archive outside the build and review its license.
-From the repository root, use the offline intake command:
+The repository contains the verified upstream source, not a placeholder Lua
+implementation. To reproduce the intake from a clean pre-intake checkout,
+obtain the official `lua-5.4.8.tar.gz` archive outside the build, review its
+license, and run:
 
 ```powershell
 .\tools\stage_lua_source.ps1 -Archive <path-to-lua-5.4.8.tar.gz>
@@ -20,8 +21,8 @@ source directory, and `src` root before it will fingerprint a tree. A vendored
 tree must contain no symlinks, must match its recorded file count and canonical
 path/content SHA-256, and must carry a UTC intake timestamp. In the
 `not-vendored` state, the tree, fingerprint, count, and timestamp must all be
-absent. These checks validate a completed offline intake; they do not download
-the archive or turn the current scaffold into a native build.
+absent. These checks validate a completed offline intake and do not download
+the archive. Every current Android variant compiles the vendored native runtime.
 
 The tree fingerprint proves that the checked-in tree matches its lock; by
 itself it does not prove that an arbitrary re-locked tree came from the pinned
@@ -39,10 +40,10 @@ lua-5.4.8/
     ...
 ```
 
-Do not enable `autojs.lua.native.enabled` until all files listed by
-`../../cmake/lua54-sources.cmake` exist and the intake record is complete. Do
-not enable `autojs.lua.provider.enabled` until execution and Android
-conformance gates also pass.
+All files listed by `../../cmake/lua54-sources.cmake` must exist and match the
+intake record. The build has no native/provider Boolean switches: native Lua is
+mandatory, while production service exposure is selected by the explicit
+Provider variant.
 
 To inspect the fingerprint of an already staged tree without changing the
 lock, run:

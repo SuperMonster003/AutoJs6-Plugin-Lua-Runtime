@@ -30,11 +30,8 @@ class LuaRuntimeFaultPeerService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        check(BuildConfig.DEBUG && BuildConfig.LUA_FAULT_HARNESS_ENABLED) {
-            "The Lua runtime fault peer requires the explicit debug harness"
-        }
-        check(BuildConfig.LUA_NATIVE_ENABLED && !BuildConfig.LUA_PROVIDER_ENABLED) {
-            "The Lua runtime fault peer requires native=true and provider=false"
+        check(BuildConfig.DEBUG && BuildConfig.APPLICATION_ID.endsWith(".fault_test")) {
+            "The Lua runtime fault peer requires the isolated faultTest variant"
         }
     }
 
@@ -129,7 +126,7 @@ class LuaRuntimeFaultPeerService : Service() {
     }
 }
 
-/** Tiny, versionless test wire; it is compiled only into an explicitly enabled debug harness. */
+/** Tiny, versionless test wire compiled only into the dedicated faultTestDebug variant. */
 object LuaRuntimeFaultPeerProtocol {
     const val DESCRIPTOR =
         "io.github.supermonster003.autojs6.plugin.lua.runtime.debug.LuaRuntimeFaultPeerService"

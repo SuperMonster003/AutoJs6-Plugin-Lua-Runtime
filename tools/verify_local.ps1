@@ -31,9 +31,7 @@ try {
     }
 
     $gradleArguments = @(
-        ':app:testDebugUnitTest'
-        '-Pautojs.lua.native.enabled=true'
-        '-Pautojs.lua.provider.enabled=false'
+        ':app:testProviderDebugUnitTest'
         '--offline'
         '--no-daemon'
         '--console=plain'
@@ -45,7 +43,7 @@ try {
 
     $reports = @(
         Get-ChildItem -LiteralPath (
-            Join-Path $repositoryRoot 'app/build/test-results/testDebugUnitTest'
+            Join-Path $repositoryRoot 'app/build/test-results/testProviderDebugUnitTest'
         ) -Filter '*.xml' -File
     )
     if ($reports.Count -eq 0) {
@@ -74,7 +72,7 @@ try {
 
     Write-Host (
         "LOCAL_OFFLINE_GATE_PASS tests=$tests " +
-        'protocol=ready lua=ready provider=false network=disabled'
+        'protocol=ready lua=ready provider=true network=disabled'
     )
 } finally {
     Pop-Location

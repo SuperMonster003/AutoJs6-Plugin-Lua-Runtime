@@ -1,22 +1,25 @@
 # Production soak round 2
 
-Status: **ROUND 2 IN PROGRESS — DAY 2/7 PASSED**
+Status: **ROUND 2 CLOSED AFTER DAY 2/7 — PRODUCTION SOAK DESCOPED (2026-08-26)**
 
 Round 1 was invalidated by an external Host package replacement. Round 2 uses
 the same frozen rc.2 Host and Provider artifacts, a new lifecycle-test identity,
 one new AVD boot ID, and an explicitly reserved host-side deployment window.
-Qualification is not a production day. The R4-E checkbox remains open until all
-seven consecutive days pass.
+Qualification is not a production day. On 2026-08-26 the owner descoped the
+production soak from the release gates; this round was closed after two valid
+days and days 3–7 will not run. No complete-round pass is claimed for round 2,
+and the descoped R4-E item stays permanently unchecked. A future voluntary
+restart must use a new RoundId and begin again at day 1.
 
 | Day | Asia/Shanghai date | Iterations | Executions | Runtime PID | FD baseline → final | Result |
 | ---: | --- | ---: | ---: | ---: | --- | --- |
 | 1 | 2026-08-25 | 250 | 500 | 8080 | 83 → 83 | **PASS** |
 | 2 | 2026-08-26 | 250 | 500 | 8080 | 83 → 83 | **PASS** |
-| 3 | pending (due 2026-08-27) | 250 | 500 | pending | pending | pending |
-| 4 | pending | 250 | 500 | pending | pending | pending |
-| 5 | pending | 250 | 500 | pending | pending | pending |
-| 6 | pending | 250 | 500 | pending | pending | pending |
-| 7 | pending | 250 | 500 | pending | pending | pending |
+| 3 | not run (was due 2026-08-27) | — | — | — | — | not run — descoped |
+| 4 | not run — descoped | — | — | — | — | not run |
+| 5 | not run — descoped | — | — | — | — | not run |
+| 6 | not run — descoped | — | — | — | — | not run |
+| 7 | not run — descoped | — | — | — | — | not run |
 
 ## Qualification and artifact binding
 
@@ -108,7 +111,8 @@ is not counted as a partial day; the pass claim rests only on the later complete
 250-iteration receipt above.
 
 The atomic state is `in_progress`, contains exactly two completed daily records,
-and schedules Day 3 for 2026-08-27 Asia/Shanghai. The AVD must remain booted and
-the versionCode 57 lifecycle APK must not be rebuilt or replaced. These are two
+and, before closure, scheduled Day 3 for 2026-08-27 Asia/Shanghai. The round was
+closed by the 2026-08-26 descope decision instead of running Day 3; the retained
+state stays honest and is not rewritten to `complete`. These are two
 valid days, not a complete production soak; no complete-round pass is claimed
-and the R4-E checkbox remains open.
+for this closed round.

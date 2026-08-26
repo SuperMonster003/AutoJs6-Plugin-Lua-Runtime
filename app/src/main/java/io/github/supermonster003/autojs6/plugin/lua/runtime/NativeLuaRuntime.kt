@@ -30,17 +30,11 @@ import java.util.function.BooleanSupplier
 internal object NativeLuaRuntime {
     private val loadResult: Result<Unit> by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
         runCatching {
-            check(BuildConfig.LUA_NATIVE_ENABLED) {
-                "The pinned native runtime is disabled for this build"
-            }
             System.loadLibrary("autojs_lua_runtime")
         }
     }
 
     fun requireReady() {
-        check(BuildConfig.LUA_PROVIDER_ENABLED) {
-            "The discoverable Lua provider is disabled until the R3 execution gate passes"
-        }
         requireNativeLoaded()
         check(nativeProbe(PROBE_MEMORY_LIMIT_BYTES)) {
             "The bounded PUC Lua runtime probe failed"
@@ -56,13 +50,7 @@ internal object NativeLuaRuntime {
         }
     }
 
-    /**
-     * Runs exactly one text chunk on the calling thread.
-     *
-     * The provider flag is deliberately not required here: a default-disabled build may exercise
-     * the native core in isolated tests without making either discovery service visible. Production
-    * service admission remains guarded by [requireReady].
-     */
+    /** Runs exactly one text chunk on the calling thread. */
     fun execute(request: NativeLuaExecutionRequest): NativeLuaExecutionValue {
         val cancelledBeforeDispatch = try {
             request.cancellationProbe.getAsBoolean()
@@ -101,9 +89,6 @@ internal object NativeLuaRuntime {
     }
 
     private fun requireNativeLoaded() {
-        check(BuildConfig.LUA_NATIVE_ENABLED) {
-            "The pinned native runtime is disabled for this build"
-        }
         loadResult.getOrThrow()
     }
 
@@ -125,12 +110,7 @@ internal object NativeLuaRuntime {
     private const val PROBE_MEMORY_LIMIT_BYTES = 1024L * 1024L
 }
 
-/**
- * Default-off adapter for the Android-free execution seam.
- *
- * The Binder service selects this object only in native-enabled builds. Provider discovery stays
- * independently disabled until the Binder/PFD, watchdog, recovery, and device gates pass.
- */
+/** Production adapter from the Android-free execution seam to the pinned JNI runtime. */
 internal object NativeLuaExecutionRunner : LuaExecutionRunner {
     override fun execute(request: LuaRunnerRequest): LuaValue {
         val nativeRequest = try {

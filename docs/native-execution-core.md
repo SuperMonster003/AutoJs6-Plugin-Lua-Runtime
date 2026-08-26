@@ -1,14 +1,13 @@
 # Native execution core checkpoint
 
-Status: **COMPILED, PACKAGED, AND DEVICE-EXECUTED / PROVIDER DEFAULT-OFF**.
+Status: **COMPILED, PACKAGED, DEVICE-EXECUTED, AND MANDATORY**.
 
-The R3 native core is a blocking, process-local seam. Immutable protocol AARs
-and PUC Lua 5.4.8 are staged, and native-enabled/provider-disabled debug builds
-compile and package both admitted ABIs. The Binder service conditionally
-selects the native runner only when `LUA_NATIVE_ENABLED` is true; provider
-discovery remains independently default-off. Focused device evidence covers
-the native boundary, process recovery, and an explicitly enabled production
-Provider pilot; this does not enable Provider discovery in ordinary builds.
+The native core is a blocking, process-local seam. Immutable protocol AARs and
+PUC Lua 5.4.8 are staged, and every app variant compiles and packages both
+admitted ABIs. The production Binder service is wired directly to the native
+runner. `providerDebug` and `providerRelease` expose the production services;
+the `nativeTestDebug` and `faultTestDebug` manifests physically remove those
+services while retaining the native core for isolated instrumentation.
 
 ## Ownership boundary
 
@@ -28,12 +27,13 @@ Provider pilot; this does not enable Provider discovery in ordinary builds.
 
 It does not receive an Android `Context`, file descriptor, Binder object,
 session controller, Binder interface, Android `Context`, or arbitrary Java
-object. The caller owns the serial worker and terminal race. The default-off
+object. The caller owns the serial worker and terminal race. The mandatory
 runner validates the protocol value again, freezes it into a bounded
 process-private blob, and exposes the decoded execution-local value as
-`require("autojs").arguments`. Selecting the adapter does not load JNI; the
+`require("autojs").arguments`. Constructing the adapter does not load JNI; the
 library is loaded only after an admitted native execution reaches the native
-boundary; the provider switch may remain false for isolated native tests.
+boundary. Isolated test variants remove Provider services through manifest
+overlays instead of runtime flags.
 
 ## Per-call native lifecycle
 
@@ -159,7 +159,7 @@ means accepted for Host enqueueing, not visibly displayed. The Provider
 contract and current Host follow-up boundary are recorded in
 [ui-toast-v1.md](ui-toast-v1.md).
 
-## Known limits before enablement
+## Known limits
 
 - The admitted modules are the built-in `autojs` module and flat ASCII names
   resolved by `module.snapshot.v1`. There is no general module loader: no path,

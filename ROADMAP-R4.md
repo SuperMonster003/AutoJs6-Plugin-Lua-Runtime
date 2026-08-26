@@ -300,10 +300,10 @@ observer → logger → terminator”；observer/logger 异常均被独立遏制
   `tools/build_runnable_provider.ps1` 全程通过, 产出新的 receipt。
   完成判据: receipt 中 revision 为新 HEAD; `deviceVerified`/
   `runtimeVerified` 按流程翻转为 true 的设备证据单独归档。
-- [ ] **设备安装 + 宿主端到端冒烟归档**。在真机 (arm64-v8a) 与模拟器
-  (x86_64) 各完成一次: 安装 → Plugin Center 发现 → 一次真实 Lua 脚本
-  执行 → 结果/console 回传正确。
-  完成判据: 归档带日期与 APK SHA-256 的证据记录 (沿用 R3 证据文体)。
+- **设备安装 + 宿主端到端冒烟归档 — 已裁撤 (2026-08-26)**。x86_64 模拟器
+  半程已完成并归档 (安装 → 真实宿主发现/执行 → 结果/console 全部通过);
+  arm64-v8a 真机既未授权也不可用, 按 owner 决定退出发布门禁, 改为发布后
+  按报告修复。历史证据段落按原文保留, 本项不勾选 [x]。
 - [x] **API 兼容矩阵扩展**。在 API 24 (minSdk)、31、36 (targetSdk) 三档
   完成安装/执行/卸载回归 (R3 曾做 24/31/37 样本, 需对齐当前 targetSdk=36)。
   完成判据: 三档证据归档; 发现的兼容问题各开独立勾选项。
@@ -319,9 +319,10 @@ observer → logger → terminator”；observer/logger 异常均被独立遏制
   草稿 (含 SHA-256 与最低宿主版本声明)、公开 tag 命名方案
   (`v0.1.0` 系列) 。(联网项, 放在网络良好窗口执行)
   完成判据: 物料在仓库内成稿; 实际发布动作单独人工确认。
-- [ ] **生产 soak 计划**。定义 soak 通过标准 (连续 N 天日常脚本零
-  fail-stop、零 FD 增长、零 ANR), 并按标准执行首轮。
-  完成判据: soak 标准文档 + 首轮结果记录。
+- **生产 soak 计划 — 已裁撤 (2026-08-26)**。冻结标准与 Round 1/2 记录
+  按原文保留; Round 2 在 Day 2/7 通过后按 owner 决定关闭, 不再作为发布
+  门禁。长时稳定性改为日常使用中按报告即时修复; soak 执行器与标准保留,
+  供未来自愿重启。本项不勾选 [x]。
 
 R4-E 生产 soak 标准冻结 (2026-08-25): `N=7` 个 Asia/Shanghai 连续自然日，
 每日 250 次真实 Host smoke、每次 2 次 Lua 执行，即每日 500 次、整轮 3,500 次；
@@ -369,6 +370,17 @@ instrumentation failure 均为 0。Day-2 receipt SHA-256 为
 state 诚实保持 `in_progress` / `completedDays=2`，Day 3 只能在 2026-08-27
 Asia/Shanghai 运行；本项仍保持未勾选。完整证据及临时中止审计见
 [`docs/production-soak-round-2.md`](docs/production-soak-round-2.md)。
+
+R4-E 长时测试裁撤记录 (2026-08-26): 应 owner 明确决定，“设备安装 + 宿主端到端
+冒烟归档”与“生产 soak 计划”两项自本日起退出发布门禁，项目转为功能优先、缺陷
+按报告即时修复 (fix-on-report)。裁撤不是完成：两项均不勾选 [x]；已有的 x86_64
+模拟器冒烟、API 24/31/36 矩阵、升级/回滚矩阵与 soak Round 2 两个有效日
+(0 fail-stop、FD 83→83) 证据按原文保留；arm64-v8a 真机冒烟与 7 日完整 soak
+未执行，也不再声称。`docs/production-soak-plan.md` 标注 RETIRED，
+`docs/production-soak-round-2.md` 在 Day 2/7 之后关闭，`state.json` 诚实保持
+`in_progress` / `completedDays=2`，不被伪造为 complete。soak 执行器
+`tools/run_production_soak.ps1` 与冻结标准原样保留，供未来自愿重启；重启需按原
+规则使用新 RoundId 从 Day 1 开始。
 
 R4-E rc.2 签名打包证据 (2026-08-25): 干净 implementation revision
 `a0ae189ac8cba042848412a671c91b0b8a7c44e1` 的提交数/versionCode 同为 43；强化后的

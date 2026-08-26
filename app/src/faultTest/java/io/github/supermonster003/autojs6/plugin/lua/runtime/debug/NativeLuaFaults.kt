@@ -23,10 +23,8 @@ internal object NativeLuaFaults {
 
     private fun requireEnabled() {
         check(BuildConfig.DEBUG) { "The Lua fault harness requires a debug build" }
-        check(BuildConfig.LUA_FAULT_HARNESS_ENABLED) { "The Lua fault harness is disabled" }
-        check(BuildConfig.LUA_NATIVE_ENABLED) { "The Lua native runtime is disabled" }
-        check(!BuildConfig.LUA_PROVIDER_ENABLED) {
-            "The Lua fault harness cannot run while the production provider is enabled"
+        check(BuildConfig.APPLICATION_ID.endsWith(".fault_test")) {
+            "The Lua fault harness requires the isolated faultTest variant"
         }
     }
 

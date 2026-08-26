@@ -4,7 +4,6 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
-import android.os.Build
 import android.os.DeadObjectException
 import android.os.IBinder
 import android.os.Parcel
@@ -46,6 +45,7 @@ import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -240,9 +240,7 @@ class LuaRuntimeFaultRecoveryInstrumentationTest {
 
     private fun assertFaultHarnessConfiguration() {
         assertTrue(BuildConfig.DEBUG)
-        assertTrue(BuildConfig.LUA_NATIVE_ENABLED)
-        assertTrue(BuildConfig.LUA_FAULT_HARNESS_ENABLED)
-        assertFalse(BuildConfig.LUA_PROVIDER_ENABLED)
+        assertTrue(BuildConfig.APPLICATION_ID.endsWith(".fault_test"))
     }
 
     private fun resetCrashDiagnostic(context: Context) {
@@ -588,24 +586,11 @@ class LuaRuntimeFaultRecoveryInstrumentationTest {
         }
     }
 
-    @Suppress("DEPRECATION")
     private fun assertProductionProvidersDisabled(context: Context) {
         listOf(LuaPluginInfoService::class.java, LuaRuntimeService::class.java).forEach { service ->
-            val component = ComponentName(context, service)
-            val info = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                context.packageManager.getServiceInfo(
-                    component,
-                    android.content.pm.PackageManager.ComponentInfoFlags.of(
-                        android.content.pm.PackageManager.MATCH_DISABLED_COMPONENTS.toLong(),
-                    ),
-                )
-            } else {
-                context.packageManager.getServiceInfo(
-                    component,
-                    android.content.pm.PackageManager.MATCH_DISABLED_COMPONENTS,
-                )
+            assertThrows(android.content.pm.PackageManager.NameNotFoundException::class.java) {
+                context.packageManager.getServiceInfo(ComponentName(context, service), 0)
             }
-            assertFalse("${service.simpleName} must remain disabled", info.enabled)
         }
     }
 

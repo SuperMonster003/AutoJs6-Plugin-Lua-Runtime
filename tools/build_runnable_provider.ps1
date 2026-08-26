@@ -99,7 +99,6 @@ if ([string]::IsNullOrWhiteSpace($SdkRoot) -or -not (Split-Path -Path ($SdkRoot.
 }
 $script:ResolvedSdkRoot = (Get-Item -LiteralPath ($SdkRoot.Trim().TrimStart('"').TrimEnd('"').TrimStart("'").TrimEnd("'")) -ErrorAction Stop).FullName
 $script:ApkSigner = Resolve-SdkTool "apksigner.bat"
-$aapt2 = Resolve-SdkTool "aapt2.exe"
 $apkAnalyzer = Join-Path $script:ResolvedSdkRoot "cmdline-tools/latest/bin/apkanalyzer.bat"
 if (-not (Test-Path -LiteralPath $apkAnalyzer -PathType Leaf)) {
     throw "Android SDK tool is unavailable: apkanalyzer.bat"
@@ -131,12 +130,8 @@ if (-not $SkipBuild) {
     )
     $gradleArgs = @(
         ":app:clean"
-        ":app:testDebugUnitTest"
-        ":app:assembleRelease"
-        "-Pautojs.lua.native.enabled=true"
-        "-Pautojs.lua.provider.enabled=true"
-        "-Pautojs.lua.faultHarness.enabled=false"
-        "-Pautojs.lua.releaseCandidate.enabled=true"
+        ":app:testProviderDebugUnitTest"
+        ":app:assembleProviderRelease"
         "-Pautojs.lua.release.signingPropertiesFile=$resolvedSigningProperties"
         "-Pautojs.lua.release.signingStoreFile=$resolvedSigningStore"
         "--rerun-tasks"
@@ -150,7 +145,7 @@ if (-not $SkipBuild) {
     }
 }
 
-$outputRoot = Join-Path $root "app/build/outputs/apk/release"
+$outputRoot = Join-Path $root "app/build/outputs/apk/provider/release"
 $metadataPath = Join-Path $outputRoot "output-metadata.json"
 $metadata = Get-Content -LiteralPath $metadataPath -Raw | ConvertFrom-Json
 $universal = @($metadata.elements) | Where-Object { $_.type -eq "UNIVERSAL" }
@@ -168,11 +163,6 @@ $universalApk = Resolve-RegularFile `
     (Join-Path $outputRoot $universal[0].outputFile) `
     "Universal Lua provider APK"
 
-$resources = Invoke-Captured $aapt2 @("dump", "resources", $universalApk)
-if ($resources -notmatch "(?s)bool/lua_runtime_provider_enabled.*?\(\) true") {
-    throw "Runnable APK does not enable Lua provider discovery"
-}
-
 $manifest = Invoke-Captured $apkAnalyzer @("manifest", "print", $universalApk)
 foreach ($requiredToken in @(
     "org.autojs.plugin.INFO",
@@ -184,6 +174,9 @@ foreach ($requiredToken in @(
     if (-not $manifest.Contains($requiredToken)) {
         throw "Runnable APK manifest is missing $requiredToken"
     }
+}
+if ($manifest -match 'android:enabled="false"') {
+    throw "Runnable APK contains an explicitly disabled component"
 }
 
 $files = Invoke-Captured $apkAnalyzer @("files", "list", $universalApk)

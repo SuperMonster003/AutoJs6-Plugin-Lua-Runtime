@@ -46,11 +46,8 @@ class LuaRuntimeFaultService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        check(BuildConfig.DEBUG && BuildConfig.LUA_FAULT_HARNESS_ENABLED) {
-            "The Lua runtime fault service requires the explicit debug harness"
-        }
-        check(BuildConfig.LUA_NATIVE_ENABLED && !BuildConfig.LUA_PROVIDER_ENABLED) {
-            "Fault recovery requires native=true and production provider=false"
+        check(BuildConfig.DEBUG && BuildConfig.APPLICATION_ID.endsWith(".fault_test")) {
+            "The Lua runtime fault service requires the isolated faultTest variant"
         }
         LuaRuntimeCrashDiagnostics.initialize(this)
         executionManager = LuaRuntimeExecutionManager(

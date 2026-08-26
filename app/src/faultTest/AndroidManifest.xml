@@ -1,15 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <application>
         <service
+            android:name=".service.LuaPluginInfoService"
+            tools:node="remove" />
+        <service
+            android:name=".service.LuaRuntimeService"
+            tools:node="remove" />
+        <service
             android:name=".debug.LuaRuntimeFaultService"
-            android:enabled="@bool/lua_runtime_fault_harness_enabled"
             android:exported="false"
             android:process=":lua_runtime" />
         <service
             android:name=".debug.LuaRuntimeFaultPeerService"
-            android:enabled="@bool/lua_runtime_fault_harness_enabled"
             android:exported="false"
             android:process=":lua_fault_peer" />
     </application>

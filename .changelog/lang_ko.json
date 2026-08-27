@@ -13,6 +13,7 @@
       ],
       "feature": [
         "제어 coroutine, `autojs.now()`, `console.info/warn`, Provider 측 `ui.toast.v1`, crash diagnostic, `AutoJs6LuaWatchdog` event를 추가했습니다",
+        "file script별 Host 영속화, 고정 get/put/remove/clear shape, bounded canonical value, no retry를 적용한 negotiated `storage.kv.v1`과 Host 전달 `ui.toast.v1`을 구현했습니다",
         "텍스트 module snapshot, 읽기 전용 실행 인자, device 정보 브리지를 추가하고 deadline, 취소, memory, output quota를 모든 경로에서 유지합니다",
         "arm64-v8a와 x86_64 native library를 제공하고 API 24, 31, 36, 37의 x86_64 실제 Host 증거를 보관했습니다"
       ],

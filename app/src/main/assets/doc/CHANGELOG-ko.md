@@ -11,6 +11,7 @@
 * `안내` 현재도 로컬 검증된 서명 package 후보입니다. 공개 tag나 GitHub Release는 없고 immutable receipt는 `deviceVerified=false/runtimeVerified=false`를 유지합니다
 * `안내` owner 결정으로 arm64-v8a 실제 기기 smoke와 7일 production soak를 제외했습니다. 완료된 2일 증거와 고정 standard는 보관하며 장기 안정성은 fix-on-report를 따릅니다
 * `추가` 제어 coroutine, `autojs.now()`, `console.info/warn`, Provider 측 `ui.toast.v1`, crash diagnostic, `AutoJs6LuaWatchdog` event를 추가했습니다
+* `추가` file script별 Host 영속화, 고정 get/put/remove/clear shape, bounded canonical value, no retry를 적용한 negotiated `storage.kv.v1`과 Host 전달 `ui.toast.v1`을 구현했습니다
 * `추가` 텍스트 module snapshot, 읽기 전용 실행 인자, device 정보 브리지를 추가하고 deadline, 취소, memory, output quota를 모든 경로에서 유지합니다
 * `추가` arm64-v8a와 x86_64 native library를 제공하고 API 24, 31, 36, 37의 x86_64 실제 Host 증거를 보관했습니다
 * `수정` `start()` 도착 전에 작은 deadline이 만료되면 종료 없는 session 대신 하나의 결정적 `TIMEOUT/QUEUE`를 생성합니다

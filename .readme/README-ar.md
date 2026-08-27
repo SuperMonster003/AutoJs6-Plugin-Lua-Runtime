@@ -61,7 +61,7 @@ minimum host build: 5276
 
 - تشغل نصوص Lua 5.4.8 (`.lua`) النصية من محرر AutoJs6, وتبث console مباشرة, وتعيد نتيجة scalar واحدة عند الاكتمال.
 - توفر مكتبات base وstring وmath وtable وutf8 وcoroutine المقيدة, وترث coroutine حدود deadline والإلغاء وحساب الذاكرة.
-- توفر `autojs.console` و`autojs.now()` و`autojs.arguments` للقراءة فقط و`autojs.device.info()` وجانب Provider من `autojs.ui.toast()`.
+- توفر `autojs.console` و`autojs.now()` و`autojs.arguments` للقراءة فقط و`autojs.device.info()` و`autojs.storage` الدائمة في Host وجسر `autojs.ui.toast()` كاملا.
 - تدعم snapshot الوحدات المجاورة: يمكن لـ `job.lua` تحميل وحدة نصية UTF-8 حتى 64 KiB من `job.modules/name.lua`.
 - تشغل تنفيذا واحدا في كل عملية مع deadline وميزانية ذاكرة وcredits للإخراج وwatchdog من نوع fail-stop يحددها Host.
 - تعيد التحقق من الطول الدقيق وSHA-256 وUTF-8 الصارم قبل التنفيذ, وترفض دائما Lua chunk المترجمة مسبقا أو الثنائية.
@@ -87,7 +87,7 @@ minimum host build: 5276
 
 ******
 
-يستخدم هذا النص capabilities التي تمنحها Host الحالية دائما فقط:
+يستخدم هذا المثال القائم على ملف storage الدائمة وToast في R5 التي تمنحها Host متوافقة:
 
 ```lua
 local autojs = require("autojs")
@@ -105,6 +105,10 @@ autojs.console.info(("sum=%d in %d ms"):format(total, autojs.now() - started))
 local device = autojs.device.info()
 autojs.console.log("running on: " .. device.manufacturer .. " " .. device.model)
 
+local runCount = (autojs.storage.get("run_count") or 0) + 1
+autojs.storage.put("run_count", runCount)
+autojs.ui.toast(("Lua run #%d complete"):format(runCount))
+
 return total
 ```
 
@@ -116,7 +120,7 @@ return total
 
 ******
 
-يعيد `require("autojs")` جدول الجسر. يكتب `autojs.console.log/info(text)` إلى stdout و`error/warn(text)` إلى stderr, وتستخدم `print(...)` و`warn(text)` العامتان التدفقات المقيدة نفسها. يعيد `autojs.now()` أجزاء Unix epoch بالميلي ثانية. يمثل `autojs.arguments` snapshot للقراءة فقط. يعيد `autojs.device.info()` حقول brand وmanufacturer وmodel وdevice وproduct وsdkInt. يسمح `autojs.ui.toast(text)` بأربع استدعاءات كحد أقصى, ويقبل من 1 إلى 1024 bytes من UTF-8 الصارم, ويرسل مرة واحدة بلا إعادة محاولة; لا تمنحه Host الحالية بعد, لذلك ينتهي كـ `HOST_CAPABILITY`.
+يعيد `require("autojs")` جدول الجسر. يكتب `autojs.console.log/info(text)` إلى stdout و`error/warn(text)` إلى stderr, وتستخدم `print(...)` و`warn(text)` العامتان التدفقات المقيدة نفسها. يعيد `autojs.now()` أجزاء Unix epoch بالميلي ثانية. يمثل `autojs.arguments` snapshot للقراءة فقط. يعيد `autojs.device.info()` حقول brand وmanufacturer وmodel وdevice وproduct وsdkInt. للscript القائم على ملف ذي ID ثابت توفر `autojs.storage.get/put/remove/clear` قيما دائمة في Host: key من ASCII بطول 1 إلى 64 bytes, وcanonical value حتى 252 KiB, و256 keys / 2 MiB لكل principal, و64 operations / 32 mutations لكل تنفيذ. يسمح `autojs.ui.toast(text)` بأربع استدعاءات وبـ1 إلى 1024 bytes من UTF-8 الصارم, ويرسل مرة واحدة بلا retry. تعيد Host التي لا تمنح أيا من capability النتيجة `HOST_CAPABILITY` بلا local fallback أو retry.
 
 المكتبات المتاحة هي base وstring وmath وtable وutf8 وcoroutine. أزيلت عمدا `io` و`os` و`debug` و`package` و`load` و`loadfile` و`dofile` و`string.dump` و`pcall` و`xpcall` و`getmetatable` و`setmetatable`. محمل المصدر الوحيد هو `luaL_loadbufferx(..., "t")` في وضع النص, لذلك لا تدخل chunk ثنائية. راجع [`docs/native-execution-core.md`](docs/native-execution-core.md) و[`docs/safe-standard-library-subset.md`](docs/safe-standard-library-subset.md).
 
@@ -271,7 +275,7 @@ $faultArgs = @(
 
 ******
 
-حدود التنفيذ: [`docs/native-execution-core.md`](docs/native-execution-core.md), [`docs/coroutine-control-boundary.md`](docs/coroutine-control-boundary.md), [`docs/pcall-boundary-decision.md`](docs/pcall-boundary-decision.md), [`docs/ui-toast-v1.md`](docs/ui-toast-v1.md). التصاميم المستقبلية: [`docs/module-snapshot-v2.md`](docs/module-snapshot-v2.md), [`docs/storage-kv-v1.md`](docs/storage-kv-v1.md), [`docs/result-model-v2.md`](docs/result-model-v2.md), [`docs/execution-statistics-v1.md`](docs/execution-statistics-v1.md). أدلة الإصدار: [`docs/host-lifecycle-matrix.md`](docs/host-lifecycle-matrix.md), [`docs/release-upgrade-matrix.md`](docs/release-upgrade-matrix.md), [`docs/public-release-policy.md`](docs/public-release-policy.md).
+حدود التنفيذ: [`docs/native-execution-core.md`](docs/native-execution-core.md), [`docs/coroutine-control-boundary.md`](docs/coroutine-control-boundary.md), [`docs/pcall-boundary-decision.md`](docs/pcall-boundary-decision.md), [`docs/storage-kv-v1.md`](docs/storage-kv-v1.md), [`docs/ui-toast-v1.md`](docs/ui-toast-v1.md). التصاميم المستقبلية: [`docs/module-snapshot-v2.md`](docs/module-snapshot-v2.md), [`docs/result-model-v2.md`](docs/result-model-v2.md), [`docs/execution-statistics-v1.md`](docs/execution-statistics-v1.md). أدلة الإصدار: [`docs/host-lifecycle-matrix.md`](docs/host-lifecycle-matrix.md), [`docs/release-upgrade-matrix.md`](docs/release-upgrade-matrix.md), [`docs/public-release-policy.md`](docs/public-release-policy.md).
 
 ******
 
@@ -286,6 +290,7 @@ $faultArgs = @(
 * `تلميح` ما زال مرشح تغليف موقع تم التحقق منه محليا: لا يوجد tag عام أو GitHub Release, ويحافظ receipt الثابت على `deviceVerified=false/runtimeVerified=false`
 * `تلميح` ألغيت تجربة arm64-v8a الفعلية وproduction soak لسبعة أيام بقرار owner; يبقى دليل اليومين والمعيار المجمد محفوظين, وينتقل الاستقرار إلى fix-on-report
 * `ميزة` إضافة coroutine المقيدة و`autojs.now()` و`console.info/warn` وجانب Provider من `ui.toast.v1` وتشخيص crash وأحداث `AutoJs6LuaWatchdog`
+* `ميزة` تنفيذ `storage.kv.v1` المتفاوض عليه مع storage في Host معزولة لكل file script وأشكال get/put/remove/clear ثابتة وcanonical value محدودة ومن دون retry, وإكمال `ui.toast.v1` عبر Host
 * `ميزة` إضافة snapshot لوحدات النص وحجج التنفيذ للقراءة فقط وجسر معلومات الجهاز مع استمرار deadline والإلغاء والذاكرة وحصص الإخراج
 * `ميزة` توفير native library لـ arm64-v8a وx86_64 وحفظ دليل x86_64 عبر Host حقيقية على API 24 و31 و36 و37
 * `إصلاح` أصبح deadline الصغير الذي ينتهي قبل وصول `start()` ينتج نهاية `TIMEOUT/QUEUE` حتمية واحدة بدلا من session بلا نهاية

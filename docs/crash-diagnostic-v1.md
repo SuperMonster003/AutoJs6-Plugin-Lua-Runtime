@@ -19,10 +19,10 @@ terminal callback:
 
 On the next process start, `getRuntimeInfo()` adds the content-free marker
 `diagnostic.last-abnormal-termination.v1` to `LuaRuntimeInfo.capabilities` when
-a valid record exists. The three executable Host capabilities remain exactly
-`device.info`, `module.snapshot.v1`, and `ui.toast.v1`; the diagnostic marker is
-observational state, is never routed through the Host-capability broker, and
-does not create a Lua API.
+a valid record exists. The executable Host capabilities are now exactly
+`device.info`, `module.snapshot.v1`, `storage.kv.v1`, and `ui.toast.v1`; the
+diagnostic marker is observational state, is never routed through the
+Host-capability broker, and does not create a Lua API.
 
 This is one last-event indicator, not a crash history, telemetry upload,
 symbolicated native tombstone, Java exception log, or replacement for Android

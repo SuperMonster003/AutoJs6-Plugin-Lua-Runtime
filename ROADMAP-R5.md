@@ -79,29 +79,36 @@ API 37 `emulator-5560` (`x86_64,arm64-v8a`, 16 KiB page) 上完整类通过
 
 ## R5-C — 需宿主协同的 capability (Provider 单方不得关闭)
 
-- [ ] **`storage.kv.v1` 协同实现** (`docs/storage-kv-v1.md`).
-  阻塞判据: 冻结宿主 revision `3b7378758c5a4f68e8680a78cf2c541c23628489`
-  只启用 `device.info` 与 `module.snapshot.v1`, 没有稳定 script principal、存储
-  dispatcher 或持久化层; protocol 1.0 的 `TaggedWire` 单文档上限为 256 KiB,
-  不能承载原设计允许的 256 KiB 逻辑值加 envelope, 更不能承载 320 KiB 编码值.
-  完成判据: 先由宿主冻结 principal/持久化/每 principal 256 keys 与 2 MiB 配额,
-  并修订可传输的单值上限或协议通道; 再落地 Provider Kotlin/JNI fixed-shape 桥、
-  每执行 64 次操作/32 次 mutation、清除语义、授予/拒绝对称测试及 mutation
-  不重试证据. 在此之前不得广告 `storage.kv.v1`.
+- [x] **`storage.kv.v1` 协同实现** (`docs/storage-kv-v1.md`).
+  宿主以真实文件型 `.lua` 来源的可信语义路径/URI或规范路径生成域分离 SHA-256
+  principal, 原始身份不跨 Binder; 内存或无稳定身份的脚本不申请存储能力. Host
+  使用应用私有、按 principal 分区且同步 `commit()` 的持久化后端, 固定 256 keys /
+  2 MiB; Provider 与 Host 均锁定四组 closed-map 请求/响应, 每执行 64 次操作、32 次
+  mutation、读写各 1 MiB. 单值改为 252 KiB 规范编码上限; 最大 call-id/key 的
+  `put` envelope 实测固定增加 730 bytes, 总计 258,778 bytes, 在 TaggedWire
+  256 KiB 上限下保留 3,366 bytes. 授予、拒绝、畸形值、配额、持久化、隔离、
+  并发、清除及单次派发无重试均有 Host/Provider 对称测试.
 - [ ] **`module.snapshot.v2` 点分层级模块名协同实现** (设计已冻结于
   `docs/module-snapshot-v2.md`).
   完成判据: 宿主能在 session admission 冻结 V1/V2 选择并授予 V2; Provider
   点分 ASCII 正则、16 段/255 字节名称上限、64 模块/512 KiB 聚合配额落地;
   循环加载 fail-closed 测试同步扩展; 测试禁止 V2 错误回退到 V1.
-- [ ] **`ui.toast.v1` 宿主端到端可见交付** (Provider 侧已完成并归档).
-  完成判据: 启用该 capability 的宿主 revision 与仅在模拟器或明确授权设备上的
-  真实冒烟证据归档 (可见 Toast + 配额/拒绝行为不回退); Provider 侧若需改动则
-  另附回归用例.
+- [x] **`ui.toast.v1` 宿主端到端可见交付** (`docs/ui-toast-v1.md`).
+  宿主现在验证唯一 `{text=string}` 形状与 1 至 1,024 bytes 严格 UTF-8, 使用独立
+  四次配额, 在 Host 主线程单次调用 Android Toast, 并仅返回
+  `{accepted=true}`; Provider 仍保持每次显式 Lua 调用只派发一次且无本地回退.
+  API 37 专用模拟器上的真实 Host + 官方 Provider 冒烟覆盖协商、跨进程派发和
+  可见 Toast; fake broker 只继续承担拒绝、畸形 ack、配额与不重试边界回归.
 
-R5-C 依赖审计 (2026-08-27): 本仓只锁定 protocol AAR, 不拥有宿主 dispatcher、
-principal 或持久化数据库. 测试内的 fake broker 只能证明 Provider request/response
-形状, 不能替代宿主命名空间隔离、耐久提交、重启、数据清除或迁移证据. 因此这三项
-保持未勾选, 也不会以 Provider metadata 广告来冒充端到端交付.
+R5-C 协同证据 (2026-08-27): Provider revision
+`ba3a450aa57a88423db386d83090f7d69cde6fc3` 与宿主 capability revision
+`2db8355a5` 保持 protocol 1.0 不变. Provider JVM 门禁为 61 tests, API 37
+`emulator-5560` 上完整 `NativeLuaRuntimeInstrumentationTest` 为 23/23; Host 聚焦
+JVM 为 35/35, `LuaHostStorageInstrumentationTest` 为 3/3, 真实 Host + 官方
+Provider 冒烟为 1/1. 冒烟覆盖同一文件跨执行持久化、不同文件隔离、清除、Toast
+与 V1 module cache; 所有安装/测试命令均显式指定该模拟器, 未触碰已连接实体设备.
+`module.snapshot.v2` 仍缺 Host session admission 的 V1/V2 冻结选择与 Provider V2
+实现, 因此保持未勾选且绝不从 V2 错误回退到 V1.
 
 ## R5-D — 需宿主协议演进的能力 (protocol 1.1 协同, 单方无法关闭)
 

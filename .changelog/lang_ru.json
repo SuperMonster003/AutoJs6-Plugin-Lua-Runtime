@@ -13,6 +13,7 @@
       ],
       "feature": [
         "Добавлены контролируемые coroutine, `autojs.now()`, `console.info/warn`, сторона Provider `ui.toast.v1`, диагностика crash и события `AutoJs6LuaWatchdog`",
+        "Реализован согласованный `storage.kv.v1` с изолированным по файловому script хранилищем Host, фиксированными формами get/put/remove/clear, ограниченными canonical value и без retry, а также доставка `ui.toast.v1` через Host",
         "Добавлены текстовые snapshot модулей, аргументы только для чтения и мост информации устройства с сохранением deadline, отмены, памяти и квот вывода",
         "Поставляются native library arm64-v8a и x86_64, а доказательства x86_64 с реальным Host сохранены для API 24, 31, 36 и 37"
       ],

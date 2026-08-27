@@ -11,6 +11,7 @@
 * `提示` 当前仍是本地验证的签名打包候选, 尚未创建公开 tag 或 GitHub Release; 不可变候选回执继续保留 `deviceVerified=false/runtimeVerified=false`
 * `提示` 按 owner 决定裁撤 arm64-v8a 物理设备冒烟和七日 production soak, 已完成的两日证据与冻结标准继续归档, 长期稳定性改为 fix-on-report
 * `新增` 加入受控 coroutine, `autojs.now()`, `console.info/warn`, Provider 侧 `ui.toast.v1`, crash diagnostic 与 `AutoJs6LuaWatchdog` 事件
+* `新增` 协同实现 `storage.kv.v1`: 按文件脚本隔离的 Host 持久化, 固定 get/put/remove/clear 形状, 有界规范值且无重试, 并完成 Host 交付的 `ui.toast.v1`
 * `新增` 开放文本模块 snapshot, 只读执行参数与设备信息桥, 并保持 deadline, cancel, 内存和输出配额贯穿全部路径
 * `新增` 提供 arm64-v8a 与 x86_64 原生库, 并归档 API 24, 31, 36, 37 的 x86_64 真实 Host 验证
 * `修复` 极小 deadline 在 `start()` 到达前过期时稳定产生唯一 `TIMEOUT/QUEUE` 终态, 不再留下无终态会话

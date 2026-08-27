@@ -157,8 +157,17 @@ acknowledgement `{accepted=true}`. One execution may attempt four toast calls;
 the shared main/coroutine counter is charged before the sole JNI/Binder
 dispatch and is never refunded or retried. Success returns no Lua values and
 means accepted for Host enqueueing, not visibly displayed. The Provider
-contract and current Host follow-up boundary are recorded in
+contract and coordinated Host delivery evidence are recorded in
 [ui-toast-v1.md](ui-toast-v1.md).
+
+`require("autojs").storage` is the negotiated `storage.kv.v1` bridge for
+file-backed scripts. Its fixed `get`, `put`, `remove`, and `clear` functions use
+closed `LuaValue` maps, a 252 KiB canonical value ceiling, 64 operations and 32
+mutations per execution, separate 1 MiB read/write ledgers, and no retry. Native
+code converts scalar or raw dense/map tables without metamethods; Provider
+Kotlin and Host Kotlin independently repeat key, value, shape, and quota checks.
+The stable principal and app-private persistence remain entirely Host-owned.
+See [storage-kv-v1.md](storage-kv-v1.md).
 
 ## Known limits
 
@@ -181,13 +190,16 @@ contract and current Host follow-up boundary are recorded in
   by M3.3. Binder dispatch is never retried. Its worker-side wait polls cancel
   and deadline, and callback UID, execution ID, call ID, terminal uniqueness,
   and zero descriptors are validated before the response reaches JNI.
+- `storage.kv.v1` is advertised but requested only for a stable file-backed
+  script principal selected by the Host. In-memory sources receive no storage
+  grant. Older peers fail as `HOST_CAPABILITY`; there is no Provider-local
+  persistence, namespace selection, alternate shape, or retry.
 - `ui.toast.v1` is advertised by Provider metadata, but it is available only
   when the Host/provider capability intersection grants it. A Host without the
   matching dispatcher produces deterministic `DENIED`/`HOST_CAPABILITY`; there
-  is no Provider-process Android toast fallback. The adjacent Host workspace
-  audited for this implementation does not yet enable this capability, so the
-  fake-invoker native smoke proves Provider dispatch/validation/quota behavior,
-  not end-to-end visual delivery.
+  is no Provider-process Android toast fallback. The coordinated R5 Host now
+  implements the dispatcher and API 37 real-Provider smoke covers its UI lane;
+  fake-invoker tests retain exact validation/quota/no-retry coverage.
 - Console output is synchronous and must be accepted by the session's existing
   sequence, credit, chunk, and total-byte limits. Global `print` plus
   `console.log`/`console.info` route to controlled stdout; global `warn` plus
@@ -227,8 +239,14 @@ artifact identities and the receipt are in
 After the toast bridge was added, the complete class passed 17/17 on the same
 emulator class for implementation revision
 `e26fbc1356dc9e98a0fdf11e4ab732f06079eac4`, with Provider discovery and the
-fault harness disabled. The 50/50 JVM result, fixed-shape/quota/UTF-8/no-retry
-matrix, artifact identities, and current Host follow-up boundary are archived in
+fault harness disabled. The historical 50/50 JVM result,
+fixed-shape/quota/UTF-8/no-retry matrix, artifact identities, and original Host
+follow-up boundary are archived in [ui-toast-v1.md](ui-toast-v1.md).
+After `storage.kv.v1` was added, the repository JVM inventory became 61 tests
+and the complete native class passed 23/23 on API 37 `emulator-5560`. The
+coordinated Host tests passed 35/35 JVM, 3/3 persistent-storage instrumentation,
+and 1/1 real Host + official Provider smoke; exact storage and Toast evidence is
+recorded in [storage-kv-v1.md](storage-kv-v1.md) and
 [ui-toast-v1.md](ui-toast-v1.md).
 The repository JVM gate also covers watchdog token, stop, finish, and
 scheduler-failure races.

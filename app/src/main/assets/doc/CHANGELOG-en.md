@@ -11,6 +11,7 @@
 * `Hint` This remains a locally validated signed-packaging candidate: no public tag or GitHub Release exists, and the immutable receipt still says `deviceVerified=false/runtimeVerified=false`
 * `Hint` The arm64-v8a physical-device smoke and seven-day production soak were descoped by owner decision; the completed two-day evidence and frozen standard remain archived, while long-run stability follows fix-on-report
 * `Feature` Added controlled coroutines, `autojs.now()`, `console.info/warn`, the Provider side of `ui.toast.v1`, crash diagnostics and `AutoJs6LuaWatchdog` events
+* `Feature` Implemented negotiated `storage.kv.v1` with file-script-isolated Host persistence, fixed get/put/remove/clear shapes, bounded canonical values and no retry, and completed Host-delivered `ui.toast.v1`
 * `Feature` Added text module snapshots, read-only execution arguments and the device-information bridge while carrying deadlines, cancellation, memory and output quotas across every path
 * `Feature` Ships arm64-v8a and x86_64 native libraries and archives real-Host x86_64 evidence on API 24, 31, 36 and 37
 * `Fix` A tiny deadline expiring before `start()` arrives now yields one deterministic `TIMEOUT/QUEUE` terminal instead of leaving a session without a terminal state

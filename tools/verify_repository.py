@@ -641,9 +641,17 @@ def verify_localization_workflow() -> None:
             "MARKDOWN_OK languages=10 artifacts=25 mode=check",
             "R5-A 多语言迁移证据 (2026-08-27)",
             "R5-B 本地证据 (2026-08-27)",
-            "R5-C 依赖审计 (2026-08-27)",
-            "不能承载原设计允许的 256 KiB 逻辑值加 envelope",
-            "测试内的 fake broker 只能证明 Provider request/response",
+            "R5-C 协同证据 (2026-08-27)",
+            "- [x] **`storage.kv.v1` 协同实现**",
+            "总计 258,778 bytes",
+            "- [x] **`ui.toast.v1` 宿主端到端可见交付**",
+            "Provider revision",
+            "`ba3a450aa57a88423db386d83090f7d69cde6fc3`",
+            "`2db8355a5` 保持 protocol 1.0 不变",
+            "`NativeLuaRuntimeInstrumentationTest` 为 23/23",
+            "`LuaHostStorageInstrumentationTest` 为 3/3",
+            "真实 Host + 官方",
+            "`module.snapshot.v2` 仍缺 Host session admission",
             "原先单列的",
             '"zh-TW / zh-HK 获得真实翻译后转 active"待办不再存在',
         ),
@@ -802,7 +810,7 @@ def verify_r4_design_records() -> None:
     require_tokens(
         toast_decision,
         (
-            "Status: **IMPLEMENTED PROVIDER-SIDE — HOST FOLLOW-UP REQUIRED**",
+            "Status: **IMPLEMENTED HOST/PROVIDER — API 37 END-TO-END VERIFIED**",
             '`ui.toast.v1`',
             'require("autojs").ui.toast("Saved")',
             'arguments  -> {text=string}',
@@ -816,49 +824,58 @@ def verify_r4_design_records() -> None:
             "`broker.invoke(...)`",
             "Neither layer contains a retry loop",
             "DENIED`/`HOST_CAPABILITY",
-            "no Lua `ui.toast.v1` dispatcher",
-            "visual delivery therefore remains a coordinated Host follow-up",
-            "## Required evidence",
+            "AutoJs6 Host revision `2db8355a5`",
+            "Host-owned `AndroidLuaToastSink`",
+            "## Required evidence and completion",
+            "## R5 Host implementation and end-to-end evidence",
+            "API 37 `emulator-5560`",
+            "passed 1/1",
+            "connected physical devices were not mutated",
         ),
         "R4 UI toast V1 decision",
     )
 
     storage_design = (ROOT / "docs/storage-kv-v1.md").read_text("utf-8")
-    require(
-        isinstance(source_revision, str) and source_revision in storage_design,
-        "Storage KV V1 design does not identify the frozen protocol revision",
-    )
     require_tokens(
         storage_design,
         (
-            "Status: **R5 BLOCKED — HOST AND TRANSPORT REVISION REQUIRED**",
-            "R5 deployment audit: 2026-08-27",
+            "Status: **R5 IMPLEMENTED — HOST/PROVIDER/API 37 VERIFIED**",
+            "Coordinated implementation date: 2026-08-27",
+            "`ba3a450aa57a88423db386d83090f7d69cde6fc3`",
+            "`2db8355a5` (rebased onto `f18c2748d`)",
+            "unchanged Lua protocol 1.0 artifacts",
             "`storage.kv.v1`",
-            "TaggedWireLimits.maxDocumentBytes = 256 * 1024",
-            "cannot fit in one 256 KiB document",
-            "A fake broker or Provider-owned in-memory map is not completion evidence",
-            "Host's stable logical script principal",
-            "single Host-wide or Provider-wide namespace is forbidden",
+            "`252 * 1024 + 730 = 258,778` bytes",
+            "leaving\n3,366 bytes",
+            "Host-private `LuaStoragePrincipal`",
+            "raw path, URI, and digest never cross Binder",
+            "In-memory sources, missing files",
             "`[A-Za-z_][A-Za-z0-9._-]{0,63}`",
             'get     -> {op="get", key=string}',
             'put     -> {op="put", key=string, value=LuaValue}',
             'clear       -> {removedCount=int64}',
             "maximum depth 32",
             "maximum 4,096 nodes",
+            "maximum 252 KiB for the complete canonical",
             "at most 256 keys per principal",
-            "at most 2 MiB of canonical encoded key/value bytes per principal",
+            "at most 2 MiB of canonical encoded key plus value bytes per principal",
             "at most 64 storage operations per execution",
             "at most 32 mutations",
-            "Provider never retries",
-            "## Clear and retention policy",
-            "deterministic `DENIED` / `HOST_CAPABILITY` path",
-            "no `STORAGE_KV_CAPABILITY`",
+            "SharedPreferences.Editor.commit()",
+            "Script deletion or movement does not currently discover and delete",
+            "Each explicit Lua call produces at most one JNI call",
+            "complete Provider",
+            "passed 23/23 on API 37",
+            "Host JVM focused tests passed 35/35",
+            "passed 3/3 on the same emulator",
+            "official Provider smoke passed 1/1",
+            "separate forced Host-process-restart test is not claimed",
         ),
         "R4 storage KV V1 design",
     )
     require(
-        "storage.kv.v1" not in metadata and "STORAGE_KV_CAPABILITY" not in metadata,
-        "Design-only storage KV capability was advertised before implementation",
+        "NativeLuaHostCapabilityBridge.STORAGE_KV_CAPABILITY" in metadata,
+        "Implemented storage KV capability is absent from Provider metadata",
     )
 
     statistics_design = (ROOT / "docs/execution-statistics-v1.md").read_text("utf-8")
@@ -1364,6 +1381,18 @@ def verify_native_boundary() -> None:
         'constexpr uint32_t kMaxToastCallsPerExecution = 4U;': "The UI toast execution quota drifted",
         'int autojs_ui_toast(lua_State* state)': "The fixed UI toast native bridge is missing",
         'control->show_toast_method': "The fixed UI toast JNI call is missing",
+        'constexpr size_t kMaxStorageKeyBytes = 64;': "The storage key byte limit drifted",
+        'constexpr uint32_t kMaxStorageOperationsPerExecution = 64U;': "The storage operation quota drifted",
+        'constexpr uint32_t kMaxStorageMutationsPerExecution = 32U;': "The storage mutation quota drifted",
+        'constexpr jlong kMaxStorageKeysPerPrincipal = 256;': "The storage clear-result bound drifted",
+        'int autojs_storage_get(lua_State* state)': "The fixed storage get bridge is missing",
+        'int autojs_storage_put(lua_State* state)': "The fixed storage put bridge is missing",
+        'int autojs_storage_remove(lua_State* state)': "The fixed storage remove bridge is missing",
+        'int autojs_storage_clear(lua_State* state)': "The fixed storage clear bridge is missing",
+        'control->storage_get_method': "The fixed storage get JNI method is missing",
+        'control->storage_put_method': "The fixed storage put JNI method is missing",
+        'control->storage_remove_method': "The fixed storage remove JNI method is missing",
+        'control->storage_clear_method': "The fixed storage clear JNI method is missing",
         'lua_setfield(state, -2, "console")': "The controlled console module is missing",
         'constexpr jint kStdoutStreamWireCode = 1;': "The stdout wire constant drifted",
         'constexpr jint kStderrStreamWireCode = 2;': "The stderr wire constant drifted",
@@ -1434,7 +1463,7 @@ def verify_native_boundary() -> None:
         "Strict native UI toast UTF-8 validator",
     )
     toast_start = native.index("int autojs_ui_toast(lua_State* state)")
-    toast_end = native.index("bool is_flat_ascii_module_name(", toast_start)
+    toast_end = native.index("bool is_storage_key(", toast_start)
     toast_boundary = native[toast_start:toast_end]
     require_tokens(
         toast_boundary,
@@ -1467,6 +1496,52 @@ def verify_native_boundary() -> None:
         and "while (" not in toast_boundary,
         "UI toast quota is charged late or its native bridge can retry a dispatch",
     )
+    storage_start = native.index("bool is_storage_key(", toast_end)
+    storage_end = native.index("bool is_flat_ascii_module_name(", storage_start)
+    storage_boundary = native[storage_start:storage_end]
+    require_tokens(
+        storage_boundary,
+        (
+            "length == 0U || length > kMaxStorageKeyBytes",
+            "bool charge_storage_call(ExecutionControl* control, bool mutation)",
+            "control->storage_operations >= kMaxStorageOperationsPerExecution",
+            "control->storage_mutations >= kMaxStorageMutationsPerExecution",
+            "int autojs_storage_get(lua_State* state)",
+            "int autojs_storage_put(lua_State* state)",
+            "int autojs_storage_remove(lua_State* state)",
+            "int autojs_storage_clear(lua_State* state)",
+            "removed_count > kMaxStorageKeysPerPrincipal",
+        ),
+        "Fixed native storage boundary",
+    )
+    storage_get = storage_boundary[
+        storage_boundary.index("int autojs_storage_get(lua_State* state)"):
+        storage_boundary.index("enum class StoragePutBridgeResult")
+    ]
+    storage_put = storage_boundary[
+        storage_boundary.index("StoragePutBridgeResult dispatch_storage_put("):
+        storage_boundary.index("int autojs_storage_remove(lua_State* state)")
+    ]
+    storage_remove = storage_boundary[
+        storage_boundary.index("int autojs_storage_remove(lua_State* state)"):
+        storage_boundary.index("int autojs_storage_clear(lua_State* state)")
+    ]
+    storage_clear = storage_boundary[
+        storage_boundary.index("int autojs_storage_clear(lua_State* state)"):
+    ]
+    require(
+        storage_get.count("CallObjectMethod(") == 1
+        and storage_put.count("CallBooleanMethod(") == 1
+        and storage_remove.count("CallBooleanMethod(") == 1
+        and storage_clear.count("CallLongMethod(") == 1
+        and all("for (" not in item and "while (" not in item for item in (
+            storage_get,
+            storage_put,
+            storage_remove,
+            storage_clear,
+        )),
+        "A native storage operation can dispatch more than once or retry",
+    )
     install_start = native.index("int install_autojs_module(lua_State* state)")
     install_end = native.index("bool throw_bridge_exception(", install_start)
     install_boundary = native[install_start:install_end]
@@ -1491,6 +1566,22 @@ def verify_native_boundary() -> None:
         )
         == 1,
         "Console info/warn aliases are not installed as the reviewed two-stream bridges",
+    )
+    require(
+        install_boundary.count(
+            'lua_newtable(state);\n'
+            '    lua_pushcfunction(state, autojs_storage_get);\n'
+            '    lua_setfield(state, -2, "get");\n'
+            '    lua_pushcfunction(state, autojs_storage_put);\n'
+            '    lua_setfield(state, -2, "put");\n'
+            '    lua_pushcfunction(state, autojs_storage_remove);\n'
+            '    lua_setfield(state, -2, "remove");\n'
+            '    lua_pushcfunction(state, autojs_storage_clear);\n'
+            '    lua_setfield(state, -2, "clear");\n'
+            '    lua_setfield(state, -2, "storage");'
+        )
+        == 1,
+        "The fixed autojs.storage table shape drifted",
     )
     require(
         install_boundary.count(
@@ -1624,17 +1715,18 @@ def verify_native_boundary() -> None:
     require(
         "module.snapshot.v2" not in kotlin_boundary
         and "MODULE_SNAPSHOT_V2_CAPABILITY" not in kotlin_boundary
-        and "module.snapshot.v2" not in native
-        and "storage.kv.v1" not in kotlin_boundary
-        and "STORAGE_KV_CAPABILITY" not in kotlin_boundary
-        and "storage.kv.v1" not in native,
-        "A design-only Host capability entered the implementation",
+        and "module.snapshot.v2" not in native,
+        "Design-only module snapshot V2 entered the implementation",
     )
     proguard_rules = (ROOT / "app/proguard-rules.pro").read_text("utf-8")
     require(
         "NativeLuaHostCapabilityBridge" in proguard_rules
         and "byte[] invokeDeviceInfo();" in proguard_rules
         and "byte[] loadModule(byte[]);" in proguard_rules
+        and "byte[] storageGet(byte[]);" in proguard_rules
+        and "boolean storagePut(byte[], byte[]);" in proguard_rules
+        and "boolean storageRemove(byte[]);" in proguard_rules
+        and "long storageClear();" in proguard_rules
         and "void showToast(byte[]);" in proguard_rules
         and "int takeFailureKind();" in proguard_rules,
         "R8 can rename a JNI-reflected host capability bridge member",
@@ -1663,11 +1755,23 @@ def verify_native_boundary() -> None:
         "const val MAX_TOAST_CALLS_PER_EXECUTION = 4",
         "internal fun validateToastAcknowledgement(value: LuaValue)",
         "require(accepted.value)",
+        "fun storageGet(keyUtf8: ByteArray): ByteArray?",
+        "fun storagePut(keyUtf8: ByteArray, encodedValue: ByteArray): Boolean",
+        "fun storageRemove(keyUtf8: ByteArray): Boolean",
+        "fun storageClear(): Long",
+        'const val STORAGE_KV_CAPABILITY = "storage.kv.v1"',
+        "internal object NativeLuaStorageContract",
+        "const val MAX_ENCODED_VALUE_BYTES = 252 * 1024",
+        "const val MAX_OPERATIONS_PER_EXECUTION = 64",
+        "const val MAX_MUTATIONS_PER_EXECUTION = 32",
+        "const val MAX_READ_BYTES_PER_EXECUTION = 1024L * 1024L",
+        "const val MAX_WRITE_BYTES_PER_EXECUTION = 1024L * 1024L",
+        "LuaValueCodec.encode(value)",
         "HOST_FAILURE_INVALID_INPUT = 4",
     ):
         require(token in kotlin_boundary, f"Native Kotlin execution boundary drift: {token}")
     kotlin_toast_start = kotlin_boundary.index("fun showToast(textUtf8: ByteArray)")
-    kotlin_toast_end = kotlin_boundary.index("private fun invokeHostCapability(", kotlin_toast_start)
+    kotlin_toast_end = kotlin_boundary.index("fun storageGet(keyUtf8: ByteArray)", kotlin_toast_start)
     kotlin_toast_boundary = kotlin_boundary[kotlin_toast_start:kotlin_toast_end]
     require(
         kotlin_toast_boundary.count("invokeHostCapability(") == 1
@@ -1678,6 +1782,40 @@ def verify_native_boundary() -> None:
         and "while (" not in kotlin_toast_boundary,
         "Kotlin UI toast bridge is not fixed-shape or can retry",
     )
+    kotlin_storage_start = kotlin_boundary.index("fun storageGet(keyUtf8: ByteArray)")
+    kotlin_storage_end = kotlin_boundary.index("private fun invokeHostCapability(", kotlin_storage_start)
+    kotlin_storage_boundary = kotlin_boundary[kotlin_storage_start:kotlin_storage_end]
+    require_tokens(
+        kotlin_storage_boundary,
+        (
+            'capability = STORAGE_KV_CAPABILITY',
+            'STORAGE_GET',
+            'STORAGE_PUT',
+            'STORAGE_REMOVE',
+            'STORAGE_CLEAR',
+            "NativeLuaStorageContract.canonicalEncodedBytes(value)",
+            "chargeStorageOperation()",
+            "chargeStorageMutation()",
+            "chargeStorageRead(canonicalBytes.size)",
+            "chargeStorageWrite(canonicalBytes.size)",
+        ),
+        "Fixed Kotlin storage boundary",
+    )
+    for start_token, end_token in (
+        ("fun storageGet(keyUtf8: ByteArray)", "fun storagePut(keyUtf8: ByteArray"),
+        ("fun storagePut(keyUtf8: ByteArray", "fun storageRemove(keyUtf8: ByteArray"),
+        ("fun storageRemove(keyUtf8: ByteArray", "fun storageClear(): Long"),
+        ("fun storageClear(): Long", "private fun admitStorageKeyAndOperation"),
+    ):
+        operation = kotlin_storage_boundary[
+            kotlin_storage_boundary.index(start_token):kotlin_storage_boundary.index(end_token)
+        ]
+        require(
+            operation.count("invokeHostCapability(") == 1
+            and "for (" not in operation
+            and "while (" not in operation,
+            f"Kotlin storage operation is not fixed-shape or can retry: {start_token}",
+        )
     provider_metadata = (
         ROOT
         / "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/LuaProviderMetadata.kt"
@@ -1690,7 +1828,12 @@ def verify_native_boundary() -> None:
     )
     require(
         advertised_capabilities
-        == ["DEVICE_INFO_CAPABILITY", "MODULE_SNAPSHOT_CAPABILITY", "UI_TOAST_CAPABILITY"],
+        == [
+            "DEVICE_INFO_CAPABILITY",
+            "MODULE_SNAPSHOT_CAPABILITY",
+            "STORAGE_KV_CAPABILITY",
+            "UI_TOAST_CAPABILITY",
+        ],
         f"Provider capability registry lacks a reviewed fixed-shape bridge: {advertised_capabilities}",
     )
     require(
@@ -1710,6 +1853,14 @@ def verify_native_boundary() -> None:
             "fun loadModule(nameUtf8: ByteArray): ByteArray?",
             "validateModuleSnapshot(value)",
             'assertEquals("module.snapshot.v1", capability)',
+        ),
+        "STORAGE_KV_CAPABILITY": (
+            'const val STORAGE_KV_CAPABILITY = "storage.kv.v1"',
+            "fun storageGet(keyUtf8: ByteArray): ByteArray?",
+            "fun storagePut(keyUtf8: ByteArray, encodedValue: ByteArray): Boolean",
+            "fun storageRemove(keyUtf8: ByteArray): Boolean",
+            "fun storageClear(): Long",
+            'assertEquals("storage.kv.v1", capability)',
         ),
         "UI_TOAST_CAPABILITY": (
             'const val UI_TOAST_CAPABILITY = "ui.toast.v1"',
@@ -1733,6 +1884,11 @@ def verify_native_boundary() -> None:
             "moduleSnapshotCapabilityGrantAndDenialStayDeterministic",
             "toastCapabilityGrantDenialAndClosedShapesStayDeterministic",
             "NativeLuaHostCapabilityBridge.validateToastAcknowledgement",
+            "storageCapabilityUsesOnlyFixedShapesAndCanonicalValues",
+            "storageBridgeEnforcesExecutionQuotasBeforeDispatch",
+            "storageBridgeRejectsMalformedResponsesAndDenialWithoutFallback",
+            "NativeLuaStorageContract.MAX_OPERATIONS_PER_EXECUTION",
+            "NativeLuaStorageContract.MAX_MUTATIONS_PER_EXECUTION",
             "HOST_FAILURE_INVALID_INPUT = 4",
             "LuaHostCapabilityFailureKind.DENIED",
             "HOST_FAILURE_REJECTED = 3",
@@ -1740,7 +1896,7 @@ def verify_native_boundary() -> None:
         "Console and Host-capability JVM boundary",
     )
     require(
-        boundary_tests.count("hostCapabilityInvoker = LuaHostCapabilityInvoker.REJECTING") == 3
+        boundary_tests.count("hostCapabilityInvoker = LuaHostCapabilityInvoker.REJECTING") == 4
         and boundary_tests.count(
             "assertEquals(LuaHostCapabilityFailureKind.DENIED, denial.kind)"
         )
@@ -1750,6 +1906,15 @@ def verify_native_boundary() -> None:
         )
         == 3,
         "Registered Host capabilities lack symmetric grant/denial JVM evidence",
+    )
+    require(
+        "listOf<(NativeLuaHostCapabilityBridge) -> Unit>(" in boundary_tests
+        and "{ it.storageGet(" in boundary_tests
+        and "{ it.storagePut(" in boundary_tests
+        and "{ it.storageRemove(" in boundary_tests
+        and "{ it.storageClear() }" in boundary_tests
+        and "assertEquals(LuaHostCapabilityFailureKind.DENIED, failure.kind)" in boundary_tests,
+        "Storage operations lack symmetric denial/no-fallback JVM evidence",
     )
     for capability in advertised_capabilities:
         for token in capability_boundaries[capability][:-1]:
@@ -1816,6 +1981,13 @@ def verify_native_boundary() -> None:
         and "passed 17/17" in native_doc
         and "e26fbc1356dc9e98a0fdf11e4ab732f06079eac4" in native_doc,
         "Native UI toast boundary or evidence is missing",
+    )
+    require(
+        '`require("autojs").storage`' in native_doc
+        and "252 KiB canonical value ceiling" in native_doc
+        and "passed 23/23" in native_doc
+        and "storage-kv-v1.md" in native_doc,
+        "Native persistent-storage boundary or evidence is missing",
     )
 
     inventory = (ROOT / "app/src/main/cpp/cmake/lua54-sources.cmake").read_text("utf-8")
@@ -2566,7 +2738,7 @@ def verify_native_android_test_boundary() -> None:
             "local child = coroutine.create(function() toast('fifth') end)",
             "toast('sixth')",
             "string.rep('x', 1025)",
-            "string.char(0xc3, 0x28)",
+            "require('autojs').ui.toast(string.char(0xc3, 0x28))",
             "string.char(0xc0, 0x80)",
             "string.char(0xed, 0xa0, 0x80)",
             "string.char(0xf4, 0x90, 0x80, 0x80)",
@@ -2574,6 +2746,28 @@ def verify_native_android_test_boundary() -> None:
             "string.rep('x', 1024)",
             "assertEquals(4, calls)",
             "assertEquals(5, calls)",
+            "nativeRunnerRoundTripsTheFixedStorageCapabilityWithoutRetry",
+            "assert(type(storage) == 'table')",
+            "assert(storage.get('state') == nil)",
+            "assert(storage.put('state', original) == true)",
+            "assert(storage.remove('state') == true)",
+            "assert(storage.clear() == 2)",
+            'assertEquals("storage.kv.v1", capability)',
+            'listOf("get", "put", "get", "remove", "remove", "put", "put", "clear")',
+            "nativeRunnerRejectsInvalidStorageValuesAndKeysBeforeHostDispatch",
+            "require('autojs').storage.get('bad/key')",
+            "require('autojs').storage.put('key', nil)",
+            "value.self = value",
+            "{[1]='a', named='b'}",
+            "setmetatable({}, {})",
+            "require('autojs').storage.put('key', string.char(0xc3, 0x28))",
+            "assertEquals(0, calls)",
+            "nativeRunnerEnforcesStorageOperationAndMutationQuotasBeforeDispatch",
+            "for index = 1, 65 do storage.get('key') end",
+            "for index = 1, 33 do storage.remove('key') end",
+            "NativeLuaStorageContract.MAX_OPERATIONS_PER_EXECUTION",
+            "NativeLuaStorageContract.MAX_MUTATIONS_PER_EXECUTION",
+            "assertEquals(1, malformedCalls)",
             "syntaxAndRuntimeErrorsAreClassified",
             "pcallAndXpcallRemainAbsentInMainAndCoroutines",
             "type(pcall) == 'nil' and type(xpcall) == 'nil'",

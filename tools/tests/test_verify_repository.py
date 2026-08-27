@@ -426,22 +426,26 @@ class R4DesignRecordTest(unittest.TestCase):
                 "storage principal isolation",
                 self.FILES[5],
                 lambda text: text.replace(
-                    "single Host-wide or Provider-wide namespace is forbidden",
-                    "a single shared namespace is allowed",
+                    "raw path, URI, and digest never cross Binder",
+                    "raw path and selectable namespace cross Binder",
                     1,
                 ),
             ),
             (
                 "storage mutation retry",
                 self.FILES[5],
-                lambda text: text.replace("Provider never retries", "Provider retries mutations", 1),
+                lambda text: text.replace(
+                    "Each explicit Lua call produces at most one JNI call",
+                    "A failed mutation may produce another JNI call",
+                    1,
+                ),
             ),
             (
                 "storage transport feasibility",
                 self.FILES[5],
                 lambda text: text.replace(
-                    "cannot fit in one 256 KiB document",
-                    "fits without a transport proof",
+                    "`252 * 1024 + 730 = 258,778` bytes",
+                    "an unproved maximum request size",
                     1,
                 ),
             ),
@@ -458,8 +462,8 @@ class R4DesignRecordTest(unittest.TestCase):
                 "toast Host boundary",
                 self.FILES[8],
                 lambda text: text.replace(
-                    "visual delivery therefore remains a coordinated Host follow-up",
-                    "Provider smoke proves end-to-end delivery",
+                    "Host-owned `AndroidLuaToastSink`",
+                    "Provider-owned unreviewed UI fallback",
                     1,
                 ),
             ),
@@ -1203,6 +1207,96 @@ class NativeBoundaryTest(unittest.TestCase):
                     with self.assertRaises(RuntimeError):
                         verifier.verify_native_boundary()
 
+    def test_storage_shape_quota_registry_or_retry_drift_is_rejected(self) -> None:
+        mutations = (
+            (
+                "native key limit",
+                "app/src/main/cpp/lua_runtime_jni.cpp",
+                lambda text: text.replace(
+                    "constexpr size_t kMaxStorageKeyBytes = 64;",
+                    "constexpr size_t kMaxStorageKeyBytes = 128;",
+                    1,
+                ),
+            ),
+            (
+                "native operation quota",
+                "app/src/main/cpp/lua_runtime_jni.cpp",
+                lambda text: text.replace(
+                    "constexpr uint32_t kMaxStorageOperationsPerExecution = 64U;",
+                    "constexpr uint32_t kMaxStorageOperationsPerExecution = 128U;",
+                    1,
+                ),
+            ),
+            (
+                "single native get dispatch",
+                "app/src/main/cpp/lua_runtime_jni.cpp",
+                lambda text: text.replace(
+                    "control->storage_get_method,",
+                    "control->device_info_method,",
+                    1,
+                ),
+            ),
+            (
+                "Lua storage table shape",
+                "app/src/main/cpp/lua_runtime_jni.cpp",
+                lambda text: text.replace(
+                    'lua_setfield(state, -2, "storage");',
+                    'lua_setfield(state, -2, "unreviewedStorage");',
+                    1,
+                ),
+            ),
+            (
+                "canonical value limit",
+                "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/NativeLuaRuntime.kt",
+                lambda text: text.replace(
+                    "const val MAX_ENCODED_VALUE_BYTES = 252 * 1024",
+                    "const val MAX_ENCODED_VALUE_BYTES = 320 * 1024",
+                    1,
+                ),
+            ),
+            (
+                "Kotlin fixed get",
+                "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/NativeLuaRuntime.kt",
+                lambda text: text.replace(
+                    "fun storageGet(keyUtf8: ByteArray): ByteArray?",
+                    "fun unreviewedStorageGet(keyUtf8: ByteArray): ByteArray?",
+                    1,
+                ),
+            ),
+            (
+                "R8 storage descriptor",
+                "app/proguard-rules.pro",
+                lambda text: text.replace("byte[] storageGet(byte[]);", "byte[] renamedStorage(byte[]);", 1),
+            ),
+            (
+                "capability registry",
+                "app/src/main/java/io/github/supermonster003/autojs6/plugin/lua/runtime/LuaProviderMetadata.kt",
+                lambda text: text.replace(
+                    "        NativeLuaHostCapabilityBridge.STORAGE_KV_CAPABILITY,\n",
+                    "",
+                    1,
+                ),
+            ),
+            (
+                "JVM fixed shapes",
+                "app/src/test/java/io/github/supermonster003/autojs6/plugin/lua/runtime/NativeLuaRuntimeBoundaryTest.kt",
+                lambda text: text.replace(
+                    "storageCapabilityUsesOnlyFixedShapesAndCanonicalValues",
+                    "storageFixedShapesUnreviewed",
+                    1,
+                ),
+            ),
+        )
+        for label, relative, mutate in mutations:
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                self.copy_boundary(root)
+                path = root / relative
+                write_text(path, mutate(path.read_text("utf-8")))
+                with mock.patch.object(verifier, "ROOT", root):
+                    with self.assertRaises(RuntimeError):
+                        verifier.verify_native_boundary()
+
     def test_coroutine_control_or_inventory_drift_is_rejected(self) -> None:
         mutations = (
             (
@@ -1497,7 +1591,11 @@ class NativeAndroidBoundaryTest(unittest.TestCase):
             ),
             (
                 "malformed UTF-8",
-                lambda text: text.replace("string.char(0xc3, 0x28)", "'valid'", 1),
+                lambda text: text.replace(
+                    "require('autojs').ui.toast(string.char(0xc3, 0x28))",
+                    "require('autojs').ui.toast('valid')",
+                    1,
+                ),
             ),
             (
                 "overlong UTF-8",
@@ -1518,6 +1616,66 @@ class NativeAndroidBoundaryTest(unittest.TestCase):
             (
                 "truncated UTF-8",
                 lambda text: text.replace("string.char(0xf0, 0x90)", "'valid'", 1),
+            ),
+        )
+        for label, mutate in mutations:
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                for relative in self.FILES:
+                    destination = root / relative
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(SOURCE_ROOT / relative, destination)
+                test_path = root / self.FILES[1]
+                write_text(test_path, mutate(test_path.read_text("utf-8")))
+                with mock.patch.object(verifier, "ROOT", root):
+                    with self.assertRaises(RuntimeError):
+                        verifier.verify_native_android_test_boundary()
+
+    def test_storage_shape_value_quota_or_denial_evidence_drift_is_rejected(self) -> None:
+        mutations = (
+            (
+                "fixed-shape round trip",
+                lambda text: text.replace(
+                    "nativeRunnerRoundTripsTheFixedStorageCapabilityWithoutRetry",
+                    "nativeRunnerStorageRoundTripRemoved",
+                    1,
+                ),
+            ),
+            (
+                "storage table",
+                lambda text: text.replace(
+                    "assert(type(storage) == 'table')",
+                    "assert(storage == nil)",
+                    1,
+                ),
+            ),
+            (
+                "invalid key",
+                lambda text: text.replace(
+                    "require('autojs').storage.get('bad/key')",
+                    "require('autojs').storage.get('valid_key')",
+                    1,
+                ),
+            ),
+            (
+                "cyclic value",
+                lambda text: text.replace("value.self = value", "value.self = true", 1),
+            ),
+            (
+                "operation quota",
+                lambda text: text.replace(
+                    "for index = 1, 65 do storage.get('key') end",
+                    "for index = 1, 64 do storage.get('key') end",
+                    1,
+                ),
+            ),
+            (
+                "mutation quota",
+                lambda text: text.replace(
+                    "for index = 1, 33 do storage.remove('key') end",
+                    "for index = 1, 32 do storage.remove('key') end",
+                    1,
+                ),
             ),
         )
         for label, mutate in mutations:

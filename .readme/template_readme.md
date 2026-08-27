@@ -84,6 +84,10 @@ autojs.console.info(("sum=%d in %d ms"):format(total, autojs.now() - started))
 local device = autojs.device.info()
 autojs.console.log("running on: " .. device.manufacturer .. " " .. device.model)
 
+local runCount = (autojs.storage.get("run_count") or 0) + 1
+autojs.storage.put("run_count", runCount)
+autojs.ui.toast(("Lua run #%d complete"):format(runCount))
+
 return total
 ```
 

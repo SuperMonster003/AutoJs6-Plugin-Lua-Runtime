@@ -11,6 +11,7 @@
 * `Note` Il s'agit toujours d'un candidat d'empaquetage signé validé localement: aucun tag public ni GitHub Release, et le reçu immuable conserve `deviceVerified=false/runtimeVerified=false`
 * `Note` Le smoke physique arm64-v8a et le soak de sept jours ont été retirés par décision du owner; les deux jours de preuves et le standard gelé restent archivés, puis la stabilité suit fix-on-report
 * `Ajout` Ajout des coroutines contrôlées, `autojs.now()`, `console.info/warn`, du côté Provider de `ui.toast.v1`, des diagnostics de crash et des événements `AutoJs6LuaWatchdog`
+* `Ajout` Implémentation négociée de `storage.kv.v1` avec persistance Host isolée par script fichier, formes get/put/remove/clear fixes, valeurs canoniques bornées et aucune nouvelle tentative, puis livraison Host de `ui.toast.v1`
 * `Ajout` Ajout des snapshots de modules texte, des arguments en lecture seule et du pont d'informations appareil tout en propageant délai, annulation, mémoire et quotas de sortie
 * `Ajout` Fourniture des bibliothèques arm64-v8a et x86_64 avec preuves x86_64 Host réel archivées sur API 24, 31, 36 et 37
 * `Correction` Un délai minime expirant avant l'arrivée de `start()` produit maintenant un seul terminal `TIMEOUT/QUEUE`, sans session orpheline

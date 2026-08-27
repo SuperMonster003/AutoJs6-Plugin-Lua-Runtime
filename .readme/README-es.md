@@ -61,7 +61,7 @@ Los dos servicios de descubrimiento están protegidos por el permiso de firma `o
 
 - Ejecuta scripts Lua 5.4.8 (`.lua`) de texto plano desde el editor AutoJs6, transmite la consola en vivo y devuelve un resultado escalar al terminar.
 - Ofrece las bibliotecas controladas base, string, math, table, utf8 y coroutine; las coroutines heredan deadline, cancelación y contabilidad de memoria.
-- Expone `autojs.console`, `autojs.now()`, `autojs.arguments` de solo lectura, `autojs.device.info()` y el lado Provider de `autojs.ui.toast()`.
+- Expone `autojs.console`, `autojs.now()`, `autojs.arguments` de solo lectura, `autojs.device.info()`, `autojs.storage` persistente en Host y `autojs.ui.toast()` de extremo a extremo.
 - Carga snapshots de módulos adyacentes: `job.lua` puede leer módulos UTF-8 de hasta 64 KiB desde `job.modules/name.lua`.
 - Ejecuta una tarea por proceso con deadline, presupuesto de memoria, créditos de salida y watchdog fail-stop definidos por el host.
 - Verifica de nuevo longitud exacta, SHA-256 y UTF-8 estricto antes de ejecutar; siempre rechaza chunks Lua precompilados o binarios.
@@ -87,7 +87,7 @@ Los dos servicios de descubrimiento están protegidos por el permiso de firma `o
 
 ******
 
-Este script solo usa capacidades que los hosts actuales siempre conceden:
+Este ejemplo basado en archivo usa almacenamiento R5 y Toast concedidos por un Host compatible:
 
 ```lua
 local autojs = require("autojs")
@@ -105,6 +105,10 @@ autojs.console.info(("sum=%d in %d ms"):format(total, autojs.now() - started))
 local device = autojs.device.info()
 autojs.console.log("running on: " .. device.manufacturer .. " " .. device.model)
 
+local runCount = (autojs.storage.get("run_count") or 0) + 1
+autojs.storage.put("run_count", runCount)
+autojs.ui.toast(("Lua run #%d complete"):format(runCount))
+
 return total
 ```
 
@@ -116,7 +120,7 @@ Para reutilizar código, crea `job.modules/` junto al script de entrada `job.lua
 
 ******
 
-`require("autojs")` devuelve la tabla del puente. `autojs.console.log/info(text)` escribe stdout y `error/warn(text)` stderr; las funciones globales `print(...)` y `warn(text)` usan los mismos flujos controlados. `autojs.now()` devuelve milisegundos Unix. `autojs.arguments` es el snapshot de argumentos de solo lectura. `autojs.device.info()` devuelve brand, manufacturer, model, device, product y sdkInt. `autojs.ui.toast(text)` cobra como máximo 4 llamadas, acepta de 1 a 1024 bytes en UTF-8 estricto, envía una sola vez y nunca reintenta; los hosts actuales aún no lo conceden, por lo que finaliza como `HOST_CAPABILITY`.
+`require("autojs")` devuelve la tabla del puente. `autojs.console.log/info(text)` escribe stdout y `error/warn(text)` stderr; las funciones globales `print(...)` y `warn(text)` usan los mismos flujos controlados. `autojs.now()` devuelve milisegundos Unix. `autojs.arguments` es el snapshot de argumentos de solo lectura. `autojs.device.info()` devuelve brand, manufacturer, model, device, product y sdkInt. Para un script de archivo con identidad estable, `autojs.storage.get/put/remove/clear` ofrece valores persistentes del Host: claves ASCII de 1 a 64 bytes, valor canónico de hasta 252 KiB y 256 claves / 2 MiB por principal; cada ejecución admite 64 operaciones y 32 mutaciones. `autojs.ui.toast(text)` admite hasta 4 llamadas y de 1 a 1024 bytes UTF-8 estrictos, envía una vez y nunca reintenta. Un Host que no conceda cualquiera de estas capacidades devuelve `HOST_CAPABILITY`, sin fallback local ni reintento.
 
 Las bibliotecas disponibles son base, string, math, table, utf8 y coroutine. `io`, `os`, `debug`, `package`, `load`, `loadfile`, `dofile`, `string.dump`, `pcall`, `xpcall`, `getmetatable` y `setmetatable` están desactivados a propósito. El único cargador es `luaL_loadbufferx(..., "t")` en modo texto, por lo que ningún chunk binario entra al runtime. Consulta [`docs/native-execution-core.md`](docs/native-execution-core.md) y [`docs/safe-standard-library-subset.md`](docs/safe-standard-library-subset.md).
 
@@ -271,7 +275,7 @@ El marcador debe ser `RELEASE_VARIANT_FAULT_HARNESS_EXCLUSION_PASS`; `faultTestD
 
 ******
 
-Límites de ejecución: [`docs/native-execution-core.md`](docs/native-execution-core.md), [`docs/coroutine-control-boundary.md`](docs/coroutine-control-boundary.md), [`docs/pcall-boundary-decision.md`](docs/pcall-boundary-decision.md), [`docs/ui-toast-v1.md`](docs/ui-toast-v1.md). Diseños futuros: [`docs/module-snapshot-v2.md`](docs/module-snapshot-v2.md), [`docs/storage-kv-v1.md`](docs/storage-kv-v1.md), [`docs/result-model-v2.md`](docs/result-model-v2.md), [`docs/execution-statistics-v1.md`](docs/execution-statistics-v1.md). Evidencia de publicación: [`docs/host-lifecycle-matrix.md`](docs/host-lifecycle-matrix.md), [`docs/release-upgrade-matrix.md`](docs/release-upgrade-matrix.md), [`docs/public-release-policy.md`](docs/public-release-policy.md).
+Límites de ejecución: [`docs/native-execution-core.md`](docs/native-execution-core.md), [`docs/coroutine-control-boundary.md`](docs/coroutine-control-boundary.md), [`docs/pcall-boundary-decision.md`](docs/pcall-boundary-decision.md), [`docs/storage-kv-v1.md`](docs/storage-kv-v1.md), [`docs/ui-toast-v1.md`](docs/ui-toast-v1.md). Diseños futuros: [`docs/module-snapshot-v2.md`](docs/module-snapshot-v2.md), [`docs/result-model-v2.md`](docs/result-model-v2.md), [`docs/execution-statistics-v1.md`](docs/execution-statistics-v1.md). Evidencia de publicación: [`docs/host-lifecycle-matrix.md`](docs/host-lifecycle-matrix.md), [`docs/release-upgrade-matrix.md`](docs/release-upgrade-matrix.md), [`docs/public-release-policy.md`](docs/public-release-policy.md).
 
 ******
 
@@ -286,6 +290,7 @@ Límites de ejecución: [`docs/native-execution-core.md`](docs/native-execution-
 * `Nota` Sigue siendo un candidato de empaquetado firmado validado localmente: no existe tag público ni GitHub Release y el recibo inmutable conserva `deviceVerified=false/runtimeVerified=false`
 * `Nota` El smoke físico arm64-v8a y el soak de siete días se retiraron por decisión del owner; los dos días completados y el estándar congelado siguen archivados y la estabilidad pasa a fix-on-report
 * `Función` Se añadieron coroutines controladas, `autojs.now()`, `console.info/warn`, el lado Provider de `ui.toast.v1`, diagnósticos de crash y eventos `AutoJs6LuaWatchdog`
+* `Función` Se implementó `storage.kv.v1` negociado con persistencia Host aislada por script de archivo, formas fijas get/put/remove/clear, valores canónicos acotados y sin reintento, y se completó `ui.toast.v1` entregado por Host
 * `Función` Se añadieron snapshots de módulos de texto, argumentos de solo lectura y el puente de información del dispositivo manteniendo deadline, cancelación, memoria y cuotas de salida
 * `Función` Se incluyen bibliotecas arm64-v8a y x86_64 con evidencia x86_64 de Host real archivada en API 24, 31, 36 y 37
 * `Corrección` Un deadline mínimo que vence antes de llegar `start()` ahora produce un único terminal `TIMEOUT/QUEUE` en lugar de una sesión sin estado final

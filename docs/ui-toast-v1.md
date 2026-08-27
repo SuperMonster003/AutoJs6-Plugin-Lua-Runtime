@@ -1,8 +1,10 @@
 # UI toast capability V1
 
-Status: **IMPLEMENTED PROVIDER-SIDE — HOST FOLLOW-UP REQUIRED**
+Status: **IMPLEMENTED HOST/PROVIDER — API 37 END-TO-END VERIFIED**
 
 Decision date: 2026-08-25
+
+Host delivery date: 2026-08-27
 
 ## Outcome
 
@@ -15,9 +17,10 @@ require("autojs").ui.toast("Saved")
 The Provider maps that function only to the exact Host capability
 `ui.toast.v1`. The script cannot choose a capability name, duration, Android
 context, view, icon, position, gravity, callback, or any other presentation
-option. A successful call returns no Lua values. It means only that the Host
-accepted the request for enqueueing; it does not prove that Android has already
-made the toast visible.
+option. A successful call returns no Lua values. It means that the Host accepted
+the request into its UI lane and invoked Android Toast on the Host main thread.
+The acknowledgement does not promise how long the platform will keep the Toast
+visible or override Android foreground/suppression policy.
 
 The capability is additive to frozen Lua protocol 1.0 because capability names
 and `LuaValue` request/result trees are already negotiated by the existing Host
@@ -40,10 +43,11 @@ returning control to Lua. Host failures, malformed acknowledgements, cancellatio
 and deadline expiry use the existing deterministic terminal mapping; there is no
 local Android toast fallback.
 
-The response deliberately says `accepted`, not `shown`. The future Host
-implementation must complete the call only after it has accepted the text into
-its Host-owned UI lane. Android may suppress or delay a toast for platform or
-foreground-policy reasons outside this capability's delivery guarantee.
+The response deliberately says `accepted`, not `shown`. The implemented Host
+completes the call only after `Toast.makeText(...).show()` has run on its main
+thread. Android may still suppress or delay presentation when the user has
+disabled notifications/Toasts for the Host, or for other platform and
+foreground-policy reasons outside this capability's guarantee.
 
 ## Text boundary
 
@@ -93,24 +97,22 @@ violate the session policy. Scripts may start a new explicit call only while
 their execution-local four-call quota remains, and the Provider never does so
 on their behalf.
 
-## Negotiation and current Host boundary
+## Negotiation and coordinated Host boundary
 
-The Provider advertises `ui.toast.v1` in `LuaProviderMetadata.capabilities`.
-Actual execution still requires the Host/provider intersection to grant the
-capability. A Host that does not list it supplies no grant, so calling
-`autojs.ui.toast` terminates through the established
-`DENIED`/`HOST_CAPABILITY` path rather than hanging, crashing, displaying a
-Provider-process toast, or downgrading to another API.
+Provider metadata and the Host allowlist both contain `ui.toast.v1`. Actual
+execution still requires their negotiated intersection. A Host that does not
+list it supplies no grant, so calling `autojs.ui.toast` terminates through the
+established `DENIED`/`HOST_CAPABILITY` path rather than hanging, crashing,
+displaying a Provider-process toast, or downgrading to another API.
 
-A read-only audit of the adjacent AutoJs6 workspace on 2026-08-25 found that its
-current `LuaRuntimeHostCapabilities.ENABLED` contains only `device.info` and
-`module.snapshot.v1`; it has no Lua `ui.toast.v1` dispatcher. That dirty Host
-workspace is outside this Provider change and is not modified here. End-to-end
-visual delivery therefore remains a coordinated Host follow-up, while the
-Provider shape, validation, quota, denial behavior, and JNI smoke can be
-completed and verified independently.
+AutoJs6 Host revision `2db8355a5` adds the matching dispatcher. It repeats the
+closed-map, strict UTF-8, 1–1,024-byte, and four-call checks, then invokes a
+Host-owned `AndroidLuaToastSink` on the Android main thread. The Host calls the
+sink exactly once and acknowledges only `{accepted=true}`. Invalid input,
+missing grant, quota exhaustion, or sink failure has no alternate UI lane and
+is never retried.
 
-## Required evidence
+## Required evidence and completion
 
 Provider completion requires all of the following:
 
@@ -127,8 +129,9 @@ Provider completion requires all of the following:
 - the unchanged full local verifier/JVM gates plus a fresh complete native
   instrumentation run on the reviewed emulator.
 
-Host implementation and visible-device UI assertion are separate coordinated
-evidence and must not be inferred from a fake-invoker Provider smoke.
+Host implementation and visible-device UI evidence remain separate from the
+fake-invoker Provider smoke. Both are now present; the fake invoker is retained
+only for exact boundary regression.
 
 ## Provider implementation
 
@@ -193,6 +196,37 @@ UI_TOAST_PROVIDER_PASS serial=emulator-5554 api=37 abis=x86_64,arm64-v8a pageSiz
 The read-only Host audit was repeated at AutoJs6 revision
 `4a9718d63923834c9a99fd70e0cd58c898e138f6` while that workspace contained 27
 pre-existing changes. Its `LuaRuntimeHostCapabilities.ENABLED` still listed
-only `device.info` and `module.snapshot.v1`. No Host file was changed. Therefore
-this receipt closes the Provider-side R4-C criterion but does not claim a visible
-Android toast or Host end-to-end conformance.
+only `device.info` and `module.snapshot.v1`. No Host file was changed in that
+historical Provider revision. The receipt above therefore closes only the
+Provider-side R4-C criterion; the following evidence closes the later Host
+follow-up.
+
+## R5 Host implementation and end-to-end evidence
+
+AutoJs6 Host capability revision `2db8355a5` adds:
+
+- `ui.toast.v1` to the Host allowlist and session capability intersection;
+- an exact Host dispatcher accepting only `{text=StringValue}` and returning
+  only `{accepted=true}`;
+- independent strict UTF-8, 1–1,024-byte, and four-dispatch checks;
+- `AndroidLuaToastSink`, which posts to the main looper when needed and invokes
+  Android `Toast.makeText(..., LENGTH_SHORT).show()` exactly once; and
+- JVM denial, wrong-shape, byte-boundary, independent quota, and no-fallback
+  coverage.
+
+On 2026-08-27 the independently installed debug Host and official Provider were
+tested together on API 37 `emulator-5560`. The opt-in
+`LuaOfficialRuntimeSmokeTest` passed 1/1 and executed the Toast call through the
+real Provider process and Binder broker, alongside device info, persistent
+storage, and module snapshot checks. With notifications enabled for the Host,
+the unique marker reached the Host-owned Android Toast UI lane and was observed
+on the dedicated emulator; no fake broker or Provider-process Toast was
+involved. A control run with that user permission disabled was accepted by the
+Host but explicitly suppressed by Android `NotificationService`, matching the
+`accepted`, not `shown`, contract above.
+
+The same Provider build's complete native class passed 23/23, retaining exact
+request/acknowledgement, four-call quota, malformed UTF-8, denial, and no-retry
+coverage. Host focused JVM tests passed 35/35. Every install and test command
+named `emulator-5560`; connected physical devices were not mutated or used as
+evidence.

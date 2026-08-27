@@ -13,6 +13,7 @@
       ],
       "feature": [
         "制御 coroutine, `autojs.now()`, `console.info/warn`, Provider 側 `ui.toast.v1`, crash diagnostic, `AutoJs6LuaWatchdog` event を追加しました",
+        "file script ごとに分離した Host 永続化, 固定 get/put/remove/clear shape, bounded canonical value, no retry を持つ negotiated `storage.kv.v1` と Host 配信 `ui.toast.v1` を実装しました",
         "テキスト module snapshot, 読み取り専用実行引数, device 情報ブリッジを追加し, deadline, cancel, memory, output quota を全経路で維持します",
         "arm64-v8a と x86_64 native library を提供し, API 24, 31, 36, 37 の x86_64 実 Host 証拠を保存しました"
       ],

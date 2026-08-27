@@ -61,7 +61,7 @@ minimum host build: 5276
 
 - AutoJs6 편집기에서 일반 텍스트 Lua 5.4.8 (`.lua`) 스크립트를 실행하고 console을 실시간 전송하며 완료 시 하나의 스칼라 결과를 반환합니다.
 - 제어된 base, string, math, table, utf8, coroutine 라이브러리를 제공합니다. coroutine도 deadline, 취소, 메모리 계산을 그대로 적용받습니다.
-- `autojs.console`, `autojs.now()`, 읽기 전용 `autojs.arguments`, `autojs.device.info()`, Provider 측 `autojs.ui.toast()`를 제공합니다.
+- `autojs.console`, `autojs.now()`, 읽기 전용 `autojs.arguments`, `autojs.device.info()`, Host 영속 `autojs.storage`, end-to-end `autojs.ui.toast()`를 제공합니다.
 - 인접 모듈 snapshot을 지원합니다. `job.lua`는 `job.modules/name.lua`에서 최대 64 KiB UTF-8 텍스트 모듈을 불러올 수 있습니다.
 - 런타임 프로세스마다 한 번에 하나만 실행하며 Host가 지정한 deadline, 메모리 예산, 출력 credit, fail-stop watchdog를 적용합니다.
 - 실행 전에 정확한 길이, SHA-256, 엄격한 UTF-8을 다시 검증하며 사전 컴파일 또는 바이너리 Lua chunk는 항상 거부합니다.
@@ -87,7 +87,7 @@ minimum host build: 5276
 
 ******
 
-이 스크립트는 현재 Host가 항상 승인하는 capability만 사용합니다:
+이 파일 기반 예제는 호환 R5 Host가 승인한 영속 storage와 Toast capability를 사용합니다:
 
 ```lua
 local autojs = require("autojs")
@@ -105,6 +105,10 @@ autojs.console.info(("sum=%d in %d ms"):format(total, autojs.now() - started))
 local device = autojs.device.info()
 autojs.console.log("running on: " .. device.manufacturer .. " " .. device.model)
 
+local runCount = (autojs.storage.get("run_count") or 0) + 1
+autojs.storage.put("run_count", runCount)
+autojs.ui.toast(("Lua run #%d complete"):format(runCount))
+
 return total
 ```
 
@@ -116,7 +120,7 @@ return total
 
 ******
 
-`require("autojs")`는 브리지 테이블을 반환합니다. `autojs.console.log/info(text)`는 stdout, `error/warn(text)`는 stderr에 기록하며 전역 `print(...)`와 `warn(text)`도 같은 제어 스트림을 사용합니다. `autojs.now()`는 Unix epoch 밀리초를 반환합니다. `autojs.arguments`는 실행 인자의 읽기 전용 snapshot입니다. `autojs.device.info()`는 brand, manufacturer, model, device, product, sdkInt를 반환합니다. `autojs.ui.toast(text)`는 실행당 최대 4회, 엄격한 UTF-8 1에서 1024 bytes, 한 번만 dispatch하고 재시도하지 않습니다. 현재 Host는 아직 승인하지 않으므로 `HOST_CAPABILITY`로 끝납니다.
+`require("autojs")`는 브리지 테이블을 반환합니다. `autojs.console.log/info(text)`는 stdout, `error/warn(text)`는 stderr에 기록하며 전역 `print(...)`와 `warn(text)`도 같은 제어 스트림을 사용합니다. `autojs.now()`는 Unix epoch 밀리초를 반환합니다. `autojs.arguments`는 실행 인자의 읽기 전용 snapshot입니다. `autojs.device.info()`는 brand, manufacturer, model, device, product, sdkInt를 반환합니다. 안정된 파일 ID가 있는 script에서 `autojs.storage.get/put/remove/clear`는 Host 영속 값을 제공합니다: key는 1에서 64 bytes ASCII, canonical value는 최대 252 KiB, principal당 256 keys / 2 MiB, 실행당 64 operations / 32 mutations입니다. `autojs.ui.toast(text)`는 최대 4회, 엄격한 UTF-8 1에서 1024 bytes, 한 번만 dispatch하고 재시도하지 않습니다. Host가 어느 capability든 승인하지 않으면 local fallback이나 retry 없이 `HOST_CAPABILITY`로 끝납니다.
 
 사용 가능한 라이브러리는 base, string, math, table, utf8, coroutine입니다. `io`, `os`, `debug`, `package`, `load`, `loadfile`, `dofile`, `string.dump`, `pcall`, `xpcall`, `getmetatable`, `setmetatable`은 의도적으로 비활성화했습니다. 유일한 소스 로더는 텍스트 모드 `luaL_loadbufferx(..., "t")`이므로 바이너리 chunk는 들어올 수 없습니다. 자세한 경계는 [`docs/native-execution-core.md`](docs/native-execution-core.md)와 [`docs/safe-standard-library-subset.md`](docs/safe-standard-library-subset.md)를 참고하세요.
 
@@ -271,7 +275,7 @@ $faultArgs = @(
 
 ******
 
-실행 경계: [`docs/native-execution-core.md`](docs/native-execution-core.md), [`docs/coroutine-control-boundary.md`](docs/coroutine-control-boundary.md), [`docs/pcall-boundary-decision.md`](docs/pcall-boundary-decision.md), [`docs/ui-toast-v1.md`](docs/ui-toast-v1.md). 향후 설계: [`docs/module-snapshot-v2.md`](docs/module-snapshot-v2.md), [`docs/storage-kv-v1.md`](docs/storage-kv-v1.md), [`docs/result-model-v2.md`](docs/result-model-v2.md), [`docs/execution-statistics-v1.md`](docs/execution-statistics-v1.md). release 증거: [`docs/host-lifecycle-matrix.md`](docs/host-lifecycle-matrix.md), [`docs/release-upgrade-matrix.md`](docs/release-upgrade-matrix.md), [`docs/public-release-policy.md`](docs/public-release-policy.md).
+실행 경계: [`docs/native-execution-core.md`](docs/native-execution-core.md), [`docs/coroutine-control-boundary.md`](docs/coroutine-control-boundary.md), [`docs/pcall-boundary-decision.md`](docs/pcall-boundary-decision.md), [`docs/storage-kv-v1.md`](docs/storage-kv-v1.md), [`docs/ui-toast-v1.md`](docs/ui-toast-v1.md). 향후 설계: [`docs/module-snapshot-v2.md`](docs/module-snapshot-v2.md), [`docs/result-model-v2.md`](docs/result-model-v2.md), [`docs/execution-statistics-v1.md`](docs/execution-statistics-v1.md). release 증거: [`docs/host-lifecycle-matrix.md`](docs/host-lifecycle-matrix.md), [`docs/release-upgrade-matrix.md`](docs/release-upgrade-matrix.md), [`docs/public-release-policy.md`](docs/public-release-policy.md).
 
 ******
 
@@ -286,6 +290,7 @@ $faultArgs = @(
 * `안내` 현재도 로컬 검증된 서명 package 후보입니다. 공개 tag나 GitHub Release는 없고 immutable receipt는 `deviceVerified=false/runtimeVerified=false`를 유지합니다
 * `안내` owner 결정으로 arm64-v8a 실제 기기 smoke와 7일 production soak를 제외했습니다. 완료된 2일 증거와 고정 standard는 보관하며 장기 안정성은 fix-on-report를 따릅니다
 * `추가` 제어 coroutine, `autojs.now()`, `console.info/warn`, Provider 측 `ui.toast.v1`, crash diagnostic, `AutoJs6LuaWatchdog` event를 추가했습니다
+* `추가` file script별 Host 영속화, 고정 get/put/remove/clear shape, bounded canonical value, no retry를 적용한 negotiated `storage.kv.v1`과 Host 전달 `ui.toast.v1`을 구현했습니다
 * `추가` 텍스트 module snapshot, 읽기 전용 실행 인자, device 정보 브리지를 추가하고 deadline, 취소, memory, output quota를 모든 경로에서 유지합니다
 * `추가` arm64-v8a와 x86_64 native library를 제공하고 API 24, 31, 36, 37의 x86_64 실제 Host 증거를 보관했습니다
 * `수정` `start()` 도착 전에 작은 deadline이 만료되면 종료 없는 session 대신 하나의 결정적 `TIMEOUT/QUEUE`를 생성합니다

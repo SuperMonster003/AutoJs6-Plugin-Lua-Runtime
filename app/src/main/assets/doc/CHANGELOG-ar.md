@@ -11,6 +11,7 @@
 * `تلميح` ما زال مرشح تغليف موقع تم التحقق منه محليا: لا يوجد tag عام أو GitHub Release, ويحافظ receipt الثابت على `deviceVerified=false/runtimeVerified=false`
 * `تلميح` ألغيت تجربة arm64-v8a الفعلية وproduction soak لسبعة أيام بقرار owner; يبقى دليل اليومين والمعيار المجمد محفوظين, وينتقل الاستقرار إلى fix-on-report
 * `ميزة` إضافة coroutine المقيدة و`autojs.now()` و`console.info/warn` وجانب Provider من `ui.toast.v1` وتشخيص crash وأحداث `AutoJs6LuaWatchdog`
+* `ميزة` تنفيذ `storage.kv.v1` المتفاوض عليه مع storage في Host معزولة لكل file script وأشكال get/put/remove/clear ثابتة وcanonical value محدودة ومن دون retry, وإكمال `ui.toast.v1` عبر Host
 * `ميزة` إضافة snapshot لوحدات النص وحجج التنفيذ للقراءة فقط وجسر معلومات الجهاز مع استمرار deadline والإلغاء والذاكرة وحصص الإخراج
 * `ميزة` توفير native library لـ arm64-v8a وx86_64 وحفظ دليل x86_64 عبر Host حقيقية على API 24 و31 و36 و37
 * `إصلاح` أصبح deadline الصغير الذي ينتهي قبل وصول `start()` ينتج نهاية `TIMEOUT/QUEUE` حتمية واحدة بدلا من session بلا نهاية

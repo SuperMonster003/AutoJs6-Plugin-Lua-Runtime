@@ -11,6 +11,7 @@
 * `注記` 現在もローカル検証済み署名 package 候補です. 公開 tag と GitHub Release はなく, immutable receipt は `deviceVerified=false/runtimeVerified=false` のままです
 * `注記` owner の決定で arm64-v8a 実機 smoke と 7 日 production soak を対象外にしました. 完了した 2 日分と凍結 standard は保存し, 長期安定性は fix-on-report に移行します
 * `追加` 制御 coroutine, `autojs.now()`, `console.info/warn`, Provider 側 `ui.toast.v1`, crash diagnostic, `AutoJs6LuaWatchdog` event を追加しました
+* `追加` file script ごとに分離した Host 永続化, 固定 get/put/remove/clear shape, bounded canonical value, no retry を持つ negotiated `storage.kv.v1` と Host 配信 `ui.toast.v1` を実装しました
 * `追加` テキスト module snapshot, 読み取り専用実行引数, device 情報ブリッジを追加し, deadline, cancel, memory, output quota を全経路で維持します
 * `追加` arm64-v8a と x86_64 native library を提供し, API 24, 31, 36, 37 の x86_64 実 Host 証拠を保存しました
 * `修正` `start()` 到着前に小さな deadline が切れた場合, 終端なし session ではなく 1 個の決定的な `TIMEOUT/QUEUE` を返します

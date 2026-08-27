@@ -61,7 +61,7 @@ minimum host build: 5276
 
 - AutoJs6 エディターからプレーンテキストの Lua 5.4.8 (`.lua`) を実行し, console をリアルタイム配信して, 完了時に 1 個のスカラー結果を返します.
 - 制御された base, string, math, table, utf8, coroutine を提供します. coroutine も deadline, cancel, メモリ計測を継承します.
-- `autojs.console`, `autojs.now()`, 読み取り専用 `autojs.arguments`, `autojs.device.info()`, Provider 側 `autojs.ui.toast()` を公開します.
+- `autojs.console`, `autojs.now()`, 読み取り専用 `autojs.arguments`, `autojs.device.info()`, Host 永続化 `autojs.storage`, end-to-end `autojs.ui.toast()` を公開します.
 - 隣接モジュール snapshot に対応します. `job.lua` は `job.modules/name.lua` から最大 64 KiB の UTF-8 テキストモジュールを読み込めます.
 - 各ランタイムプロセスで 1 実行のみを動かし, Host 指定の deadline, メモリ予算, 出力 credit, fail-stop watchdog を適用します.
 - 実行前に正確な長さ, SHA-256, 厳格な UTF-8 を再検証します. プリコンパイル済みまたはバイナリ Lua chunk は常に拒否します.
@@ -87,7 +87,7 @@ minimum host build: 5276
 
 ******
 
-このスクリプトは現在の Host が常に許可する capability だけを使います:
+このファイル型サンプルは対応 R5 Host が許可する永続 storage と Toast capability を使います:
 
 ```lua
 local autojs = require("autojs")
@@ -105,6 +105,10 @@ autojs.console.info(("sum=%d in %d ms"):format(total, autojs.now() - started))
 local device = autojs.device.info()
 autojs.console.log("running on: " .. device.manufacturer .. " " .. device.model)
 
+local runCount = (autojs.storage.get("run_count") or 0) + 1
+autojs.storage.put("run_count", runCount)
+autojs.ui.toast(("Lua run #%d complete"):format(runCount))
+
 return total
 ```
 
@@ -116,7 +120,7 @@ return total
 
 ******
 
-`require("autojs")` はブリッジテーブルを返します. `autojs.console.log/info(text)` は stdout, `error/warn(text)` は stderr に書き込み, グローバル `print(...)` と `warn(text)` も同じ制御済みストリームを使います. `autojs.now()` は Unix epoch ミリ秒を返します. `autojs.arguments` は実行引数の読み取り専用 snapshot です. `autojs.device.info()` は brand, manufacturer, model, device, product, sdkInt を返します. `autojs.ui.toast(text)` は 1 実行あたり最大 4 回, 厳格な UTF-8 で 1 から 1024 bytes, 1 回だけ dispatch して retry しません. 現在の Host はまだ許可しないため `HOST_CAPABILITY` で終了します.
+`require("autojs")` はブリッジテーブルを返します. `autojs.console.log/info(text)` は stdout, `error/warn(text)` は stderr に書き込み, グローバル `print(...)` と `warn(text)` も同じ制御済みストリームを使います. `autojs.now()` は Unix epoch ミリ秒を返します. `autojs.arguments` は実行引数の読み取り専用 snapshot です. `autojs.device.info()` は brand, manufacturer, model, device, product, sdkInt を返します. 安定したファイル ID を持つ script では `autojs.storage.get/put/remove/clear` が Host 永続値を提供します: key は 1 から 64 bytes の ASCII, canonical value は最大 252 KiB, principal ごとに 256 keys / 2 MiB, 実行ごとに 64 operations / 32 mutations です. `autojs.ui.toast(text)` は最大 4 回, 厳格な UTF-8 で 1 から 1024 bytes, 1 回だけ dispatch して retry しません. Host がいずれかの capability を許可しない場合は local fallback や retry なしで `HOST_CAPABILITY` になります.
 
 利用可能なライブラリは base, string, math, table, utf8, coroutine です. `io`, `os`, `debug`, `package`, `load`, `loadfile`, `dofile`, `string.dump`, `pcall`, `xpcall`, `getmetatable`, `setmetatable` は意図的に無効です. ソースローダーはテキストモードの `luaL_loadbufferx(..., "t")` だけなので, バイナリ chunk は入りません. 詳細は [`docs/native-execution-core.md`](docs/native-execution-core.md) と [`docs/safe-standard-library-subset.md`](docs/safe-standard-library-subset.md) を参照してください.
 
@@ -271,7 +275,7 @@ $faultArgs = @(
 
 ******
 
-実行境界: [`docs/native-execution-core.md`](docs/native-execution-core.md), [`docs/coroutine-control-boundary.md`](docs/coroutine-control-boundary.md), [`docs/pcall-boundary-decision.md`](docs/pcall-boundary-decision.md), [`docs/ui-toast-v1.md`](docs/ui-toast-v1.md). 将来設計: [`docs/module-snapshot-v2.md`](docs/module-snapshot-v2.md), [`docs/storage-kv-v1.md`](docs/storage-kv-v1.md), [`docs/result-model-v2.md`](docs/result-model-v2.md), [`docs/execution-statistics-v1.md`](docs/execution-statistics-v1.md). release 証拠: [`docs/host-lifecycle-matrix.md`](docs/host-lifecycle-matrix.md), [`docs/release-upgrade-matrix.md`](docs/release-upgrade-matrix.md), [`docs/public-release-policy.md`](docs/public-release-policy.md).
+実行境界: [`docs/native-execution-core.md`](docs/native-execution-core.md), [`docs/coroutine-control-boundary.md`](docs/coroutine-control-boundary.md), [`docs/pcall-boundary-decision.md`](docs/pcall-boundary-decision.md), [`docs/storage-kv-v1.md`](docs/storage-kv-v1.md), [`docs/ui-toast-v1.md`](docs/ui-toast-v1.md). 将来設計: [`docs/module-snapshot-v2.md`](docs/module-snapshot-v2.md), [`docs/result-model-v2.md`](docs/result-model-v2.md), [`docs/execution-statistics-v1.md`](docs/execution-statistics-v1.md). release 証拠: [`docs/host-lifecycle-matrix.md`](docs/host-lifecycle-matrix.md), [`docs/release-upgrade-matrix.md`](docs/release-upgrade-matrix.md), [`docs/public-release-policy.md`](docs/public-release-policy.md).
 
 ******
 
@@ -286,6 +290,7 @@ $faultArgs = @(
 * `注記` 現在もローカル検証済み署名 package 候補です. 公開 tag と GitHub Release はなく, immutable receipt は `deviceVerified=false/runtimeVerified=false` のままです
 * `注記` owner の決定で arm64-v8a 実機 smoke と 7 日 production soak を対象外にしました. 完了した 2 日分と凍結 standard は保存し, 長期安定性は fix-on-report に移行します
 * `追加` 制御 coroutine, `autojs.now()`, `console.info/warn`, Provider 側 `ui.toast.v1`, crash diagnostic, `AutoJs6LuaWatchdog` event を追加しました
+* `追加` file script ごとに分離した Host 永続化, 固定 get/put/remove/clear shape, bounded canonical value, no retry を持つ negotiated `storage.kv.v1` と Host 配信 `ui.toast.v1` を実装しました
 * `追加` テキスト module snapshot, 読み取り専用実行引数, device 情報ブリッジを追加し, deadline, cancel, memory, output quota を全経路で維持します
 * `追加` arm64-v8a と x86_64 native library を提供し, API 24, 31, 36, 37 の x86_64 実 Host 証拠を保存しました
 * `修正` `start()` 到着前に小さな deadline が切れた場合, 終端なし session ではなく 1 個の決定的な `TIMEOUT/QUEUE` を返します

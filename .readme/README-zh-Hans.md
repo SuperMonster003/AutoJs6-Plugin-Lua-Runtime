@@ -61,7 +61,7 @@ minimum host build: 5276
 
 - 从 AutoJs6 编辑器运行纯文本 Lua 5.4.8 (`.lua`) 脚本, 实时输出 console, 并在结束时返回一个标量结果.
 - 开放 base, string, math, table, utf8 与 coroutine 的受控子集; 协程同样受 deadline, cancel 与内存账目约束.
-- 提供 `autojs.console`, `autojs.now()`, 只读 `autojs.arguments`, `autojs.device.info()` 和 Provider 侧 `autojs.ui.toast()` 桥.
+- 提供 `autojs.console`, `autojs.now()`, 只读 `autojs.arguments`, `autojs.device.info()`, Host 持久化 `autojs.storage` 与端到端 `autojs.ui.toast()` 桥.
 - 支持同目录模块快照: `job.lua` 可从 `job.modules/name.lua` 加载最多 64 KiB 的 UTF-8 文本模块.
 - 每个运行时进程一次只执行一个脚本, 每次执行都有宿主给定的 deadline, 内存预算, 输出额度与 fail-stop watchdog.
 - 源码在执行前按精确长度, SHA-256 和严格 UTF-8 复核; 预编译或二进制 Lua chunk 一律拒绝.
@@ -87,7 +87,7 @@ minimum host build: 5276
 
 ******
 
-下面脚本只使用当前宿主始终授予的能力:
+下面的文件型示例使用匹配 R5 Host 授予的持久化存储与 Toast 能力:
 
 ```lua
 local autojs = require("autojs")
@@ -105,6 +105,10 @@ autojs.console.info(("sum=%d in %d ms"):format(total, autojs.now() - started))
 local device = autojs.device.info()
 autojs.console.log("running on: " .. device.manufacturer .. " " .. device.model)
 
+local runCount = (autojs.storage.get("run_count") or 0) + 1
+autojs.storage.put("run_count", runCount)
+autojs.ui.toast(("Lua run #%d complete"):format(runCount))
+
 return total
 ```
 
@@ -116,7 +120,7 @@ return total
 
 ******
 
-`require("autojs")` 返回桥接表. `autojs.console.log/info(text)` 写 stdout, `error/warn(text)` 写 stderr; 全局 `print(...)` 与 `warn(text)` 走同一受控双流. `autojs.now()` 返回 Unix epoch 毫秒. `autojs.arguments` 是本次执行参数的只读快照. `autojs.device.info()` 返回 brand, manufacturer, model, device, product 与 sdkInt. `autojs.ui.toast(text)` 每次执行最多计费 4 次, 文本为 1 至 1024 bytes 严格 UTF-8, 只派发一次且不重试; 当前宿主尚未授予它, 因此调用会得到 `HOST_CAPABILITY`.
+`require("autojs")` 返回桥接表. `autojs.console.log/info(text)` 写 stdout, `error/warn(text)` 写 stderr; 全局 `print(...)` 与 `warn(text)` 走同一受控双流. `autojs.now()` 返回 Unix epoch 毫秒. `autojs.arguments` 是本次执行参数的只读快照. `autojs.device.info()` 返回 brand, manufacturer, model, device, product 与 sdkInt. 对具有稳定文件身份的脚本, `autojs.storage.get/put/remove/clear` 提供 Host 持久化值: key 是 1 至 64 bytes ASCII 标识符, 规范值最多 252 KiB, 每个 principal 最多 256 keys / 2 MiB; 每次执行最多 64 次操作与 32 次 mutation. `autojs.ui.toast(text)` 最多计费 4 次, 接受 1 至 1024 bytes 严格 UTF-8, 只派发一次且不重试. Host 未授予任一协商能力时稳定得到 `HOST_CAPABILITY`, 没有本地回退或重试.
 
 可用标准库为 base, string, math, table, utf8 和 coroutine. `io`, `os`, `debug`, `package`, `load`, `loadfile`, `dofile`, `string.dump`, `pcall`, `xpcall`, `getmetatable` 与 `setmetatable` 均有意关闭. 唯一源码加载器是文本模式 `luaL_loadbufferx(..., "t")`, 因而二进制 chunk 无法进入运行时. 详细边界见 [`docs/native-execution-core.md`](docs/native-execution-core.md) 与 [`docs/safe-standard-library-subset.md`](docs/safe-standard-library-subset.md).
 
@@ -271,7 +275,7 @@ $faultArgs = @(
 
 ******
 
-运行边界: [`docs/native-execution-core.md`](docs/native-execution-core.md), [`docs/coroutine-control-boundary.md`](docs/coroutine-control-boundary.md), [`docs/pcall-boundary-decision.md`](docs/pcall-boundary-decision.md), [`docs/ui-toast-v1.md`](docs/ui-toast-v1.md). 前向设计: [`docs/module-snapshot-v2.md`](docs/module-snapshot-v2.md), [`docs/storage-kv-v1.md`](docs/storage-kv-v1.md), [`docs/result-model-v2.md`](docs/result-model-v2.md), [`docs/execution-statistics-v1.md`](docs/execution-statistics-v1.md). 发布证据: [`docs/host-lifecycle-matrix.md`](docs/host-lifecycle-matrix.md), [`docs/release-upgrade-matrix.md`](docs/release-upgrade-matrix.md), [`docs/public-release-policy.md`](docs/public-release-policy.md).
+运行边界: [`docs/native-execution-core.md`](docs/native-execution-core.md), [`docs/coroutine-control-boundary.md`](docs/coroutine-control-boundary.md), [`docs/pcall-boundary-decision.md`](docs/pcall-boundary-decision.md), [`docs/storage-kv-v1.md`](docs/storage-kv-v1.md), [`docs/ui-toast-v1.md`](docs/ui-toast-v1.md). 前向设计: [`docs/module-snapshot-v2.md`](docs/module-snapshot-v2.md), [`docs/result-model-v2.md`](docs/result-model-v2.md), [`docs/execution-statistics-v1.md`](docs/execution-statistics-v1.md). 发布证据: [`docs/host-lifecycle-matrix.md`](docs/host-lifecycle-matrix.md), [`docs/release-upgrade-matrix.md`](docs/release-upgrade-matrix.md), [`docs/public-release-policy.md`](docs/public-release-policy.md).
 
 ******
 
@@ -286,6 +290,7 @@ $faultArgs = @(
 * `提示` 当前仍是本地验证的签名打包候选, 尚未创建公开 tag 或 GitHub Release; 不可变候选回执继续保留 `deviceVerified=false/runtimeVerified=false`
 * `提示` 按 owner 决定裁撤 arm64-v8a 物理设备冒烟和七日 production soak, 已完成的两日证据与冻结标准继续归档, 长期稳定性改为 fix-on-report
 * `新增` 加入受控 coroutine, `autojs.now()`, `console.info/warn`, Provider 侧 `ui.toast.v1`, crash diagnostic 与 `AutoJs6LuaWatchdog` 事件
+* `新增` 协同实现 `storage.kv.v1`: 按文件脚本隔离的 Host 持久化, 固定 get/put/remove/clear 形状, 有界规范值且无重试, 并完成 Host 交付的 `ui.toast.v1`
 * `新增` 开放文本模块 snapshot, 只读执行参数与设备信息桥, 并保持 deadline, cancel, 内存和输出配额贯穿全部路径
 * `新增` 提供 arm64-v8a 与 x86_64 原生库, 并归档 API 24, 31, 36, 37 的 x86_64 真实 Host 验证
 * `修复` 极小 deadline 在 `start()` 到达前过期时稳定产生唯一 `TIMEOUT/QUEUE` 终态, 不再留下无终态会话

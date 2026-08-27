@@ -61,7 +61,7 @@ minimum host build: 5276
 
 - Запускает текстовые сценарии Lua 5.4.8 (`.lua`) из редактора AutoJs6, передает console в реальном времени и возвращает один скалярный результат.
 - Предоставляет контролируемые библиотеки base, string, math, table, utf8 и coroutine; coroutine наследуют deadline, отмену и учет памяти.
-- Открывает `autojs.console`, `autojs.now()`, доступный только для чтения `autojs.arguments`, `autojs.device.info()` и сторону Provider для `autojs.ui.toast()`.
+- Открывает `autojs.console`, `autojs.now()`, доступный только для чтения `autojs.arguments`, `autojs.device.info()`, постоянное хранилище Host `autojs.storage` и сквозной `autojs.ui.toast()`.
 - Поддерживает соседние snapshot модулей: `job.lua` может загрузить текстовый модуль UTF-8 до 64 KiB из `job.modules/name.lua`.
 - Выполняет одну задачу на процесс с заданными Host deadline, бюджетом памяти, кредитами вывода и fail-stop watchdog.
 - Перед выполнением повторно проверяет точную длину, SHA-256 и строгий UTF-8; предварительно скомпилированные и бинарные Lua chunk всегда отклоняются.
@@ -87,7 +87,7 @@ minimum host build: 5276
 
 ******
 
-Этот сценарий использует только capability, которые текущие Host всегда разрешают:
+Этот файловый пример использует постоянное хранилище R5 и Toast, разрешенные совместимым Host:
 
 ```lua
 local autojs = require("autojs")
@@ -105,6 +105,10 @@ autojs.console.info(("sum=%d in %d ms"):format(total, autojs.now() - started))
 local device = autojs.device.info()
 autojs.console.log("running on: " .. device.manufacturer .. " " .. device.model)
 
+local runCount = (autojs.storage.get("run_count") or 0) + 1
+autojs.storage.put("run_count", runCount)
+autojs.ui.toast(("Lua run #%d complete"):format(runCount))
+
 return total
 ```
 
@@ -116,7 +120,7 @@ return total
 
 ******
 
-`require("autojs")` возвращает таблицу моста. `autojs.console.log/info(text)` пишет в stdout, `error/warn(text)` в stderr; глобальные `print(...)` и `warn(text)` используют те же контролируемые потоки. `autojs.now()` возвращает миллисекунды Unix epoch. `autojs.arguments` содержит snapshot аргументов только для чтения. `autojs.device.info()` возвращает brand, manufacturer, model, device, product и sdkInt. `autojs.ui.toast(text)` допускает не более 4 вызовов, принимает от 1 до 1024 bytes строгого UTF-8, отправляет один раз и не повторяет; текущие Host его еще не разрешают, поэтому вызов завершается как `HOST_CAPABILITY`.
+`require("autojs")` возвращает таблицу моста. `autojs.console.log/info(text)` пишет в stdout, `error/warn(text)` в stderr; глобальные `print(...)` и `warn(text)` используют те же контролируемые потоки. `autojs.now()` возвращает миллисекунды Unix epoch. `autojs.arguments` содержит snapshot аргументов только для чтения. `autojs.device.info()` возвращает brand, manufacturer, model, device, product и sdkInt. Для файлового script со стабильным ID `autojs.storage.get/put/remove/clear` хранит значения в Host: ASCII key от 1 до 64 bytes, canonical value до 252 KiB, 256 keys / 2 MiB на principal, 64 operations / 32 mutations на выполнение. `autojs.ui.toast(text)` допускает до 4 вызовов и от 1 до 1024 bytes строгого UTF-8, отправляет один раз и не повторяет. Host без любой из этих capability возвращает `HOST_CAPABILITY` без local fallback или retry.
 
 Доступны base, string, math, table, utf8 и coroutine. `io`, `os`, `debug`, `package`, `load`, `loadfile`, `dofile`, `string.dump`, `pcall`, `xpcall`, `getmetatable` и `setmetatable` намеренно выключены. Единственный загрузчик исходного кода работает в текстовом режиме `luaL_loadbufferx(..., "t")`, поэтому бинарный chunk не попадет в среду. Подробности в [`docs/native-execution-core.md`](docs/native-execution-core.md) и [`docs/safe-standard-library-subset.md`](docs/safe-standard-library-subset.md).
 
@@ -271,7 +275,7 @@ $faultArgs = @(
 
 ******
 
-Границы выполнения: [`docs/native-execution-core.md`](docs/native-execution-core.md), [`docs/coroutine-control-boundary.md`](docs/coroutine-control-boundary.md), [`docs/pcall-boundary-decision.md`](docs/pcall-boundary-decision.md), [`docs/ui-toast-v1.md`](docs/ui-toast-v1.md). Будущие проекты: [`docs/module-snapshot-v2.md`](docs/module-snapshot-v2.md), [`docs/storage-kv-v1.md`](docs/storage-kv-v1.md), [`docs/result-model-v2.md`](docs/result-model-v2.md), [`docs/execution-statistics-v1.md`](docs/execution-statistics-v1.md). Доказательства выпуска: [`docs/host-lifecycle-matrix.md`](docs/host-lifecycle-matrix.md), [`docs/release-upgrade-matrix.md`](docs/release-upgrade-matrix.md), [`docs/public-release-policy.md`](docs/public-release-policy.md).
+Границы выполнения: [`docs/native-execution-core.md`](docs/native-execution-core.md), [`docs/coroutine-control-boundary.md`](docs/coroutine-control-boundary.md), [`docs/pcall-boundary-decision.md`](docs/pcall-boundary-decision.md), [`docs/storage-kv-v1.md`](docs/storage-kv-v1.md), [`docs/ui-toast-v1.md`](docs/ui-toast-v1.md). Будущие проекты: [`docs/module-snapshot-v2.md`](docs/module-snapshot-v2.md), [`docs/result-model-v2.md`](docs/result-model-v2.md), [`docs/execution-statistics-v1.md`](docs/execution-statistics-v1.md). Доказательства выпуска: [`docs/host-lifecycle-matrix.md`](docs/host-lifecycle-matrix.md), [`docs/release-upgrade-matrix.md`](docs/release-upgrade-matrix.md), [`docs/public-release-policy.md`](docs/public-release-policy.md).
 
 ******
 
@@ -286,6 +290,7 @@ $faultArgs = @(
 * `Примечание` Это по-прежнему локально проверенный кандидат подписанной упаковки: публичного tag и GitHub Release нет, immutable receipt сохраняет `deviceVerified=false/runtimeVerified=false`
 * `Примечание` Физический smoke arm64-v8a и семидневный production soak сняты по решению owner; завершенные два дня и замороженный стандарт сохранены, а стабильность перешла на fix-on-report
 * `Добавлено` Добавлены контролируемые coroutine, `autojs.now()`, `console.info/warn`, сторона Provider `ui.toast.v1`, диагностика crash и события `AutoJs6LuaWatchdog`
+* `Добавлено` Реализован согласованный `storage.kv.v1` с изолированным по файловому script хранилищем Host, фиксированными формами get/put/remove/clear, ограниченными canonical value и без retry, а также доставка `ui.toast.v1` через Host
 * `Добавлено` Добавлены текстовые snapshot модулей, аргументы только для чтения и мост информации устройства с сохранением deadline, отмены, памяти и квот вывода
 * `Добавлено` Поставляются native library arm64-v8a и x86_64, а доказательства x86_64 с реальным Host сохранены для API 24, 31, 36 и 37
 * `Исправлено` Минимальный deadline до прихода `start()` теперь дает один детерминированный терминал `TIMEOUT/QUEUE`, а не session без завершения

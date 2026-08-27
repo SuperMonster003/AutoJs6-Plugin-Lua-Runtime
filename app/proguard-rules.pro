@@ -11,6 +11,10 @@
 -keepclassmembers class io.github.supermonster003.autojs6.plugin.lua.runtime.NativeLuaHostCapabilityBridge {
     byte[] invokeDeviceInfo();
     byte[] loadModule(byte[]);
+    byte[] storageGet(byte[]);
+    boolean storagePut(byte[], byte[]);
+    boolean storageRemove(byte[]);
+    long storageClear();
     void showToast(byte[]);
     int takeFailureKind();
 }

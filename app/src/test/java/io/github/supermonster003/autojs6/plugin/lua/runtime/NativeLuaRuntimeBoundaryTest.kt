@@ -60,6 +60,10 @@ class NativeLuaRuntimeBoundaryTest {
             NativeLuaArgumentCodec.encode(arguments),
             request.argumentsSnapshot(),
         )
+        assertEquals(arguments, NativeLuaArgumentCodec.decode(NativeLuaArgumentCodec.encode(arguments)))
+        assertThrows(IllegalArgumentException::class.java) {
+            NativeLuaArgumentCodec.decode(NativeLuaArgumentCodec.encode(arguments) + byteArrayOf(0))
+        }
     }
 
     @Test
@@ -307,6 +311,213 @@ class NativeLuaRuntimeBoundaryTest {
         assertEquals(HOST_FAILURE_REJECTED, deniedBridge.takeFailureKind())
     }
 
+    @Test(timeout = 2_000L)
+    fun storageCapabilityUsesOnlyFixedShapesAndCanonicalValues() {
+        val stored = linkedMapOf<String, LuaValue>()
+        val calls = mutableListOf<String>()
+        val bridge = NativeLuaHostCapabilityBridge(
+            runnerRequest(
+                sourceName = "storage-fixed-shapes.lua",
+                hostCapabilityInvoker = LuaHostCapabilityInvoker { capability, arguments, _, _ ->
+                    assertEquals("storage.kv.v1", capability)
+                    val fields = (arguments as LuaValue.MapValue).values
+                    val operation = (fields["op"] as LuaValue.StringValue).value
+                    calls += operation
+                    when (operation) {
+                        "get" -> {
+                            assertEquals(setOf("op", "key"), fields.keys)
+                            val value = stored[(fields["key"] as LuaValue.StringValue).value]
+                            if (value == null) {
+                                LuaValue.MapValue(mapOf("found" to LuaValue.BooleanValue(false)))
+                            } else {
+                                LuaValue.MapValue(
+                                    linkedMapOf(
+                                        "found" to LuaValue.BooleanValue(true),
+                                        "value" to value,
+                                    ),
+                                )
+                            }
+                        }
+                        "put" -> {
+                            assertEquals(setOf("op", "key", "value"), fields.keys)
+                            stored[(fields["key"] as LuaValue.StringValue).value] = checkNotNull(fields["value"])
+                            LuaValue.MapValue(mapOf("stored" to LuaValue.BooleanValue(true)))
+                        }
+                        "remove" -> {
+                            assertEquals(setOf("op", "key"), fields.keys)
+                            LuaValue.MapValue(
+                                mapOf(
+                                    "removed" to LuaValue.BooleanValue(
+                                        stored.remove((fields["key"] as LuaValue.StringValue).value) != null,
+                                    ),
+                                ),
+                            )
+                        }
+                        "clear" -> {
+                            assertEquals(setOf("op"), fields.keys)
+                            val count = stored.size.toLong()
+                            stored.clear()
+                            LuaValue.MapValue(mapOf("removedCount" to LuaValue.Int64Value(count)))
+                        }
+                        else -> error("unexpected operation")
+                    }
+                },
+            ),
+        )
+        val value = LuaValue.MapValue(
+            linkedMapOf(
+                "enabled" to LuaValue.BooleanValue(true),
+                "items" to LuaValue.ArrayValue(
+                    listOf(LuaValue.Int64Value(7L), LuaValue.StringValue("保存")),
+                ),
+            ),
+        )
+
+        assertEquals(null, bridge.storageGet("state".toByteArray()))
+        assertTrue(bridge.storagePut("state".toByteArray(), NativeLuaArgumentCodec.encode(value)))
+        assertEquals(value, NativeLuaArgumentCodec.decode(checkNotNull(bridge.storageGet("state".toByteArray()))))
+        assertTrue(bridge.storageRemove("state".toByteArray()))
+        assertFalse(bridge.storageRemove("state".toByteArray()))
+        assertTrue(bridge.storagePut("one".toByteArray(), NativeLuaArgumentCodec.encode(LuaValue.Int64Value(1))))
+        assertTrue(bridge.storagePut("two".toByteArray(), NativeLuaArgumentCodec.encode(LuaValue.Int64Value(2))))
+        assertEquals(2L, bridge.storageClear())
+        assertEquals(listOf("get", "put", "get", "remove", "remove", "put", "put", "clear"), calls)
+
+        listOf(
+            byteArrayOf(),
+            "1bad".toByteArray(),
+            "bad/key".toByteArray(),
+            "é".toByteArray(),
+            ByteArray(65) { 'a'.code.toByte() },
+        ).forEach { key ->
+            assertThrows(IllegalArgumentException::class.java) { bridge.storageGet(key) }
+            assertEquals(HOST_FAILURE_INVALID_INPUT, bridge.takeFailureKind())
+        }
+        listOf(
+            LuaValue.Nil,
+            LuaValue.BytesValue(byteArrayOf(1)),
+            LuaValue.ArrayValue(listOf(LuaValue.BytesValue(byteArrayOf(1)))),
+        ).forEach { rejected ->
+            assertThrows(IllegalArgumentException::class.java) {
+                bridge.storagePut("bad".toByteArray(), NativeLuaArgumentCodec.encode(rejected))
+            }
+            assertEquals(HOST_FAILURE_INVALID_INPUT, bridge.takeFailureKind())
+        }
+    }
+
+    @Test(timeout = 2_000L)
+    fun storageBridgeEnforcesExecutionQuotasBeforeDispatch() {
+        var getCalls = 0
+        val readBridge = NativeLuaHostCapabilityBridge(
+            runnerRequest(
+                sourceName = "storage-operation-quota.lua",
+                hostCapabilityInvoker = LuaHostCapabilityInvoker { _, _, _, _ ->
+                    getCalls += 1
+                    LuaValue.MapValue(mapOf("found" to LuaValue.BooleanValue(false)))
+                },
+            ),
+        )
+        repeat(NativeLuaStorageContract.MAX_OPERATIONS_PER_EXECUTION) {
+            assertEquals(null, readBridge.storageGet("key".toByteArray()))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            readBridge.storageGet("key".toByteArray())
+        }
+        assertEquals(NativeLuaStorageContract.MAX_OPERATIONS_PER_EXECUTION, getCalls)
+        assertEquals(HOST_FAILURE_INVALID_INPUT, readBridge.takeFailureKind())
+
+        var mutationCalls = 0
+        val mutationBridge = NativeLuaHostCapabilityBridge(
+            runnerRequest(
+                sourceName = "storage-mutation-quota.lua",
+                hostCapabilityInvoker = LuaHostCapabilityInvoker { _, _, _, _ ->
+                    mutationCalls += 1
+                    LuaValue.MapValue(mapOf("removed" to LuaValue.BooleanValue(false)))
+                },
+            ),
+        )
+        repeat(NativeLuaStorageContract.MAX_MUTATIONS_PER_EXECUTION) {
+            assertFalse(mutationBridge.storageRemove("key".toByteArray()))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            mutationBridge.storageRemove("key".toByteArray())
+        }
+        assertEquals(NativeLuaStorageContract.MAX_MUTATIONS_PER_EXECUTION, mutationCalls)
+        assertEquals(HOST_FAILURE_INVALID_INPUT, mutationBridge.takeFailureKind())
+
+        val largeValue = LuaValue.ArrayValue(
+            List(4) { LuaValue.StringValue("x".repeat(60 * 1024)) },
+        )
+        val privateValue = NativeLuaArgumentCodec.encode(largeValue)
+        val canonicalSize = NativeLuaStorageContract.canonicalEncodedBytes(largeValue).size
+        val successfulWrites = (NativeLuaStorageContract.MAX_WRITE_BYTES_PER_EXECUTION / canonicalSize).toInt()
+        var writeCalls = 0
+        val writeBridge = NativeLuaHostCapabilityBridge(
+            runnerRequest(
+                sourceName = "storage-write-quota.lua",
+                hostCapabilityInvoker = LuaHostCapabilityInvoker { _, _, _, _ ->
+                    writeCalls += 1
+                    LuaValue.MapValue(mapOf("stored" to LuaValue.BooleanValue(true)))
+                },
+            ),
+        )
+        repeat(successfulWrites) { index ->
+            assertTrue(writeBridge.storagePut("key$index".toByteArray(), privateValue))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            writeBridge.storagePut("overflow".toByteArray(), privateValue)
+        }
+        assertEquals(successfulWrites, writeCalls)
+        assertEquals(HOST_FAILURE_INVALID_INPUT, writeBridge.takeFailureKind())
+    }
+
+    @Test(timeout = 1_000L)
+    fun storageBridgeRejectsMalformedResponsesAndDenialWithoutFallback() {
+        val malformed = listOf(
+            LuaValue.Nil,
+            LuaValue.MapValue(mapOf("found" to LuaValue.StringValue("yes"))),
+            LuaValue.MapValue(
+                mapOf(
+                    "found" to LuaValue.BooleanValue(false),
+                    "value" to LuaValue.Int64Value(1),
+                ),
+            ),
+            LuaValue.MapValue(
+                mapOf(
+                    "found" to LuaValue.BooleanValue(true),
+                    "value" to LuaValue.BytesValue(byteArrayOf(1)),
+                ),
+            ),
+        )
+        malformed.forEach { response ->
+            val bridge = NativeLuaHostCapabilityBridge(
+                runnerRequest(
+                    sourceName = "storage-malformed.lua",
+                    hostCapabilityInvoker = LuaHostCapabilityInvoker { _, _, _, _ -> response },
+                ),
+            )
+            assertThrows(IllegalArgumentException::class.java) { bridge.storageGet("key".toByteArray()) }
+            assertEquals(HOST_FAILURE_NONE, bridge.takeFailureKind())
+        }
+
+        listOf<(NativeLuaHostCapabilityBridge) -> Unit>(
+            { it.storageGet("key".toByteArray()) },
+            { it.storagePut("key".toByteArray(), NativeLuaArgumentCodec.encode(LuaValue.Int64Value(1))) },
+            { it.storageRemove("key".toByteArray()) },
+            { it.storageClear() },
+        ).forEach { operation ->
+            val denied = NativeLuaHostCapabilityBridge(
+                runnerRequest(
+                    sourceName = "storage-denied.lua",
+                    hostCapabilityInvoker = LuaHostCapabilityInvoker.REJECTING,
+                ),
+            )
+            val failure = assertThrows(LuaHostCapabilityException::class.java) { operation(denied) }
+            assertEquals(LuaHostCapabilityFailureKind.DENIED, failure.kind)
+            assertEquals(HOST_FAILURE_REJECTED, denied.takeFailureKind())
+        }
+    }
+
     @Test(timeout = 1_000L)
     fun moduleSnapshotCapabilityGrantAndDenialStayDeterministic() {
         val observedNames = mutableListOf<String>()
@@ -384,6 +595,19 @@ class NativeLuaRuntimeBoundaryTest {
         assertEquals(HOST_FAILURE_REJECTED, deniedBridge.takeFailureKind())
     }
 
+    private fun runnerRequest(
+        sourceName: String,
+        hostCapabilityInvoker: LuaHostCapabilityInvoker,
+    ) = LuaRunnerRequest(
+        sourceUtf8 = "return 1".toByteArray(),
+        sourceName = sourceName,
+        arguments = LuaValue.Nil,
+        memoryLimitBytes = LuaRuntimeContract.DEFAULT_MEMORY_BYTES,
+        timeoutMillis = LuaRuntimeContract.DEFAULT_TIMEOUT_MILLIS,
+        cancellationProbe = LuaCancellationProbe { false },
+        hostCapabilityInvoker = hostCapabilityInvoker,
+    )
+
     private fun request(
         source: ByteArray,
         sourceName: String = "native-boundary.lua",
@@ -416,6 +640,7 @@ class NativeLuaRuntimeBoundaryTest {
     )
 
     private companion object {
+        const val HOST_FAILURE_NONE = 0
         const val HOST_FAILURE_REJECTED = 3
         const val HOST_FAILURE_INVALID_INPUT = 4
     }

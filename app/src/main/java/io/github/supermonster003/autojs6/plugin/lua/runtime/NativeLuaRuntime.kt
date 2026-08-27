@@ -9,14 +9,18 @@ import org.autojs.plugin.lua.runtime.api.LuaContractException
 import org.autojs.plugin.lua.runtime.api.LuaOutputStream
 import org.autojs.plugin.lua.runtime.api.LuaRuntimeContract
 import org.autojs.plugin.lua.runtime.api.LuaValue
+import org.autojs.plugin.lua.runtime.api.LuaValueCodec
 import org.autojs.plugin.lua.runtime.api.LuaValueValidation
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
+import java.nio.BufferUnderflowException
 import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.nio.CharBuffer
 import java.nio.charset.CharacterCodingException
 import java.nio.charset.CodingErrorAction
 import java.security.MessageDigest
+import java.util.LinkedHashMap
 import java.util.function.BooleanSupplier
 
 /**
@@ -226,6 +230,10 @@ internal class NativeLuaHostCapabilityBridge private constructor(
     private val deadlineNanos: Long,
 ) {
     private val lastFailure = java.util.concurrent.atomic.AtomicInteger(HOST_FAILURE_NONE)
+    private var storageOperations = 0
+    private var storageMutations = 0
+    private var storageReadBytes = 0L
+    private var storageWriteBytes = 0L
     constructor(request: LuaRunnerRequest) : this(
         request = request,
         deadlineNanos = deadlineAfter(request.timeoutMillis),
@@ -281,6 +289,173 @@ internal class NativeLuaHostCapabilityBridge private constructor(
         validateToastAcknowledgement(value)
     }
 
+    @Suppress("unused") // Called by JNI with an exact private method contract.
+    fun storageGet(keyUtf8: ByteArray): ByteArray? {
+        val key = admitStorageKeyAndOperation(keyUtf8)
+        val result = invokeHostCapability(
+            label = "storage get",
+            capability = STORAGE_KV_CAPABILITY,
+            arguments = LuaValue.MapValue(
+                linkedMapOf(
+                    STORAGE_OPERATION_KEY to LuaValue.StringValue(STORAGE_GET),
+                    STORAGE_KEY_KEY to LuaValue.StringValue(key),
+                ),
+            ),
+        )
+        val fields = requireClosedMap(result, "storage get")
+        val found = fields[STORAGE_FOUND_KEY] as? LuaValue.BooleanValue
+            ?: throw IllegalArgumentException("storage get field found must be a boolean")
+        if (!found.value) {
+            require(fields.keys == setOf(STORAGE_FOUND_KEY)) {
+                "A missing storage value returned unexpected fields"
+            }
+            return null
+        }
+        require(fields.keys == setOf(STORAGE_FOUND_KEY, STORAGE_VALUE_KEY)) {
+            "A present storage value returned unexpected fields"
+        }
+        val value = fields[STORAGE_VALUE_KEY]
+            ?: throw IllegalArgumentException("A present storage value omitted its value")
+        val canonicalBytes = NativeLuaStorageContract.canonicalEncodedBytes(value)
+        chargeStorageRead(canonicalBytes.size)
+        return NativeLuaArgumentCodec.encode(value)
+    }
+
+    @Suppress("unused") // Called by JNI with an exact private method contract.
+    fun storagePut(keyUtf8: ByteArray, encodedValue: ByteArray): Boolean {
+        val admitted = localStorageInput {
+            val key = decodeStorageKey(keyUtf8)
+            val value = NativeLuaArgumentCodec.decode(encodedValue)
+            val canonicalBytes = NativeLuaStorageContract.canonicalEncodedBytes(value)
+            chargeStorageOperation()
+            chargeStorageMutation()
+            chargeStorageWrite(canonicalBytes.size)
+            key to value
+        }
+        val result = invokeHostCapability(
+            label = "storage put",
+            capability = STORAGE_KV_CAPABILITY,
+            arguments = LuaValue.MapValue(
+                linkedMapOf(
+                    STORAGE_OPERATION_KEY to LuaValue.StringValue(STORAGE_PUT),
+                    STORAGE_KEY_KEY to LuaValue.StringValue(admitted.first),
+                    STORAGE_VALUE_KEY to admitted.second,
+                ),
+            ),
+        )
+        val fields = requireClosedMap(result, "storage put")
+        require(fields.keys == setOf(STORAGE_STORED_KEY)) {
+            "storage put returned unexpected fields"
+        }
+        val stored = fields[STORAGE_STORED_KEY] as? LuaValue.BooleanValue
+            ?: throw IllegalArgumentException("storage put field stored must be a boolean")
+        require(stored.value) { "storage put did not commit the value" }
+        return true
+    }
+
+    @Suppress("unused") // Called by JNI with an exact private method contract.
+    fun storageRemove(keyUtf8: ByteArray): Boolean {
+        val key = localStorageInput {
+            decodeStorageKey(keyUtf8).also {
+                chargeStorageOperation()
+                chargeStorageMutation()
+            }
+        }
+        val result = invokeHostCapability(
+            label = "storage remove",
+            capability = STORAGE_KV_CAPABILITY,
+            arguments = LuaValue.MapValue(
+                linkedMapOf(
+                    STORAGE_OPERATION_KEY to LuaValue.StringValue(STORAGE_REMOVE),
+                    STORAGE_KEY_KEY to LuaValue.StringValue(key),
+                ),
+            ),
+        )
+        val fields = requireClosedMap(result, "storage remove")
+        require(fields.keys == setOf(STORAGE_REMOVED_KEY)) {
+            "storage remove returned unexpected fields"
+        }
+        return (fields[STORAGE_REMOVED_KEY] as? LuaValue.BooleanValue)?.value
+            ?: throw IllegalArgumentException("storage remove field removed must be a boolean")
+    }
+
+    @Suppress("unused") // Called by JNI with an exact private method contract.
+    fun storageClear(): Long {
+        localStorageInput {
+            chargeStorageOperation()
+            chargeStorageMutation()
+        }
+        val result = invokeHostCapability(
+            label = "storage clear",
+            capability = STORAGE_KV_CAPABILITY,
+            arguments = LuaValue.MapValue(
+                mapOf(STORAGE_OPERATION_KEY to LuaValue.StringValue(STORAGE_CLEAR)),
+            ),
+        )
+        val fields = requireClosedMap(result, "storage clear")
+        require(fields.keys == setOf(STORAGE_REMOVED_COUNT_KEY)) {
+            "storage clear returned unexpected fields"
+        }
+        val removedCount = fields[STORAGE_REMOVED_COUNT_KEY] as? LuaValue.Int64Value
+            ?: throw IllegalArgumentException("storage clear field removedCount must be an integer")
+        require(removedCount.value in 0L..NativeLuaStorageContract.MAX_KEYS_PER_PRINCIPAL.toLong()) {
+            "storage clear returned an invalid removedCount"
+        }
+        return removedCount.value
+    }
+
+    private fun admitStorageKeyAndOperation(keyUtf8: ByteArray): String = localStorageInput {
+        decodeStorageKey(keyUtf8).also { chargeStorageOperation() }
+    }
+
+    private fun decodeStorageKey(keyUtf8: ByteArray): String {
+        require(keyUtf8.size in 1..NativeLuaStorageContract.MAX_KEY_BYTES) {
+            "Lua storage key exceeds its byte limit"
+        }
+        return decodeStrictUtf8(keyUtf8, "Lua storage key").also(
+            NativeLuaStorageContract::requireValidKey,
+        )
+    }
+
+    @Synchronized
+    private fun chargeStorageOperation() {
+        require(storageOperations < NativeLuaStorageContract.MAX_OPERATIONS_PER_EXECUTION) {
+            "Lua storage operation quota is exhausted"
+        }
+        storageOperations += 1
+    }
+
+    @Synchronized
+    private fun chargeStorageMutation() {
+        require(storageMutations < NativeLuaStorageContract.MAX_MUTATIONS_PER_EXECUTION) {
+            "Lua storage mutation quota is exhausted"
+        }
+        storageMutations += 1
+    }
+
+    @Synchronized
+    private fun chargeStorageRead(bytes: Int) = localStorageInput {
+        require(storageReadBytes <= NativeLuaStorageContract.MAX_READ_BYTES_PER_EXECUTION - bytes.toLong()) {
+            "Lua storage read-byte quota is exhausted"
+        }
+        storageReadBytes += bytes
+    }
+
+    @Synchronized
+    private fun chargeStorageWrite(bytes: Int) {
+        require(storageWriteBytes <= NativeLuaStorageContract.MAX_WRITE_BYTES_PER_EXECUTION - bytes.toLong()) {
+            "Lua storage write-byte quota is exhausted"
+        }
+        storageWriteBytes += bytes
+    }
+
+    private inline fun <T> localStorageInput(block: () -> T): T = try {
+        block()
+    } catch (failure: Throwable) {
+        lastFailure.set(HOST_FAILURE_INVALID_INPUT)
+        throw failure
+    }
+
     private fun invokeHostCapability(
         label: String,
         capability: String,
@@ -326,6 +501,7 @@ internal class NativeLuaHostCapabilityBridge private constructor(
     companion object {
         const val DEVICE_INFO_CAPABILITY = "device.info"
         const val MODULE_SNAPSHOT_CAPABILITY = "module.snapshot.v1"
+        const val STORAGE_KV_CAPABILITY = "storage.kv.v1"
         const val UI_TOAST_CAPABILITY = "ui.toast.v1"
         const val MAX_TOAST_TEXT_BYTES = 1024
         const val MAX_TOAST_CALLS_PER_EXECUTION = 4
@@ -347,6 +523,17 @@ internal class NativeLuaHostCapabilityBridge private constructor(
         private val MODULE_NAME_PATTERN = Regex("[A-Za-z_][A-Za-z0-9_]{0,63}")
         private const val TOAST_TEXT_KEY = "text"
         private const val TOAST_ACCEPTED_KEY = "accepted"
+        private const val STORAGE_OPERATION_KEY = "op"
+        private const val STORAGE_KEY_KEY = "key"
+        private const val STORAGE_VALUE_KEY = "value"
+        private const val STORAGE_FOUND_KEY = "found"
+        private const val STORAGE_STORED_KEY = "stored"
+        private const val STORAGE_REMOVED_KEY = "removed"
+        private const val STORAGE_REMOVED_COUNT_KEY = "removedCount"
+        private const val STORAGE_GET = "get"
+        private const val STORAGE_PUT = "put"
+        private const val STORAGE_REMOVE = "remove"
+        private const val STORAGE_CLEAR = "clear"
 
         internal fun validateDeviceInfo(value: LuaValue) {
             LuaValueValidation.validate(value)
@@ -407,6 +594,12 @@ internal class NativeLuaHostCapabilityBridge private constructor(
             require(accepted.value) { "ui.toast.v1 did not accept the toast" }
         }
 
+        private fun requireClosedMap(value: LuaValue, label: String): Map<String, LuaValue> {
+            LuaValueValidation.validate(value)
+            return (value as? LuaValue.MapValue)?.values
+                ?: throw IllegalArgumentException("$label must return a map")
+        }
+
         private fun deadlineAfter(timeoutMillis: Long): Long {
             val now = System.nanoTime()
             val duration = timeoutMillis.coerceAtMost(Long.MAX_VALUE / NANOS_PER_MILLI) * NANOS_PER_MILLI
@@ -414,6 +607,49 @@ internal class NativeLuaHostCapabilityBridge private constructor(
         }
 
         private const val SHA256_BYTES = 32
+    }
+}
+
+internal object NativeLuaStorageContract {
+    const val MAX_KEY_BYTES = 64
+    const val MAX_KEYS_PER_PRINCIPAL = 256
+    const val MAX_ENCODED_VALUE_BYTES = 252 * 1024
+    const val MAX_OPERATIONS_PER_EXECUTION = 64
+    const val MAX_MUTATIONS_PER_EXECUTION = 32
+    const val MAX_READ_BYTES_PER_EXECUTION = 1024L * 1024L
+    const val MAX_WRITE_BYTES_PER_EXECUTION = 1024L * 1024L
+
+    private val KEY_PATTERN = Regex("[A-Za-z_][A-Za-z0-9._-]{0,63}")
+
+    fun requireValidKey(key: String) {
+        require(KEY_PATTERN.matches(key)) { "Lua storage key is invalid" }
+    }
+
+    fun canonicalEncodedBytes(value: LuaValue): ByteArray {
+        require(value !== LuaValue.Nil) { "Lua storage does not accept a nil value" }
+        requireTextOnlyValue(value)
+        LuaValueValidation.validate(value)
+        return LuaValueCodec.encode(value).also { encoded ->
+            require(encoded.size <= MAX_ENCODED_VALUE_BYTES) {
+                "Lua storage value exceeds its canonical encoded byte limit"
+            }
+        }
+    }
+
+    private fun requireTextOnlyValue(value: LuaValue) {
+        when (value) {
+            LuaValue.Nil -> Unit
+            is LuaValue.BooleanValue,
+            is LuaValue.Int64Value,
+            is LuaValue.Float64Value,
+            is LuaValue.StringValue,
+            -> Unit
+            is LuaValue.BytesValue -> throw IllegalArgumentException(
+                "Lua storage V1 does not admit byte-string values",
+            )
+            is LuaValue.ArrayValue -> value.values.forEach(::requireTextOnlyValue)
+            is LuaValue.MapValue -> value.values.values.forEach(::requireTextOnlyValue)
+        }
     }
 }
 
@@ -453,6 +689,93 @@ internal object NativeLuaArgumentCodec {
             require(snapshot.size <= MAX_SNAPSHOT_BYTES) {
                 "Lua argument snapshot exceeds its private native bound"
             }
+        }
+    }
+
+    fun decode(snapshot: ByteArray): LuaValue {
+        require(snapshot.size <= MAX_SNAPSHOT_BYTES) {
+            "Lua argument snapshot exceeds its private native bound"
+        }
+        return try {
+            val reader = Reader(snapshot)
+            require(reader.readInt() == MAGIC) { "Lua argument snapshot has an invalid magic" }
+            require(reader.readUnsignedByte() == VERSION) { "Lua argument snapshot has an invalid version" }
+            val value = reader.readValue(depth = 0)
+            require(!reader.hasRemaining()) { "Lua argument snapshot contains trailing bytes" }
+            LuaValueValidation.validate(value)
+            value
+        } catch (failure: BufferUnderflowException) {
+            throw IllegalArgumentException("Lua argument snapshot is truncated", failure)
+        }
+    }
+
+    private class Reader(snapshot: ByteArray) {
+        private val input = ByteBuffer.wrap(snapshot).order(ByteOrder.BIG_ENDIAN)
+        private var nodes = 0
+        private var dataBytes = 0
+
+        fun hasRemaining(): Boolean = input.hasRemaining()
+
+        fun readUnsignedByte(): Int = input.get().toInt() and 0xff
+
+        fun readInt(): Int = input.int
+
+        private fun readLong(): Long = input.long
+
+        fun readValue(depth: Int): LuaValue {
+            require(depth <= LuaRuntimeContract.MAX_VALUE_DEPTH) {
+                "Lua argument snapshot exceeds its depth limit"
+            }
+            require(nodes < LuaRuntimeContract.MAX_VALUE_NODES) {
+                "Lua argument snapshot exceeds its node limit"
+            }
+            nodes += 1
+            return when (readUnsignedByte()) {
+                NIL -> LuaValue.Nil
+                FALSE -> LuaValue.BooleanValue(false)
+                TRUE -> LuaValue.BooleanValue(true)
+                INT64 -> LuaValue.Int64Value(readLong())
+                FLOAT64 -> LuaValue.Float64Value(Double.fromBits(readLong()))
+                STRING -> LuaValue.StringValue(
+                    decodeStrictUtf8(readBytes(LuaRuntimeContract.MAX_VALUE_STRING_OR_BYTES), "Lua argument string"),
+                )
+                BYTES -> LuaValue.BytesValue(readBytes(LuaRuntimeContract.MAX_VALUE_STRING_OR_BYTES))
+                ARRAY -> {
+                    val count = readContainerCount()
+                    LuaValue.ArrayValue(List(count) { readValue(depth + 1) })
+                }
+                MAP -> {
+                    val count = readContainerCount()
+                    val values = LinkedHashMap<String, LuaValue>(count)
+                    repeat(count) {
+                        val key = decodeStrictUtf8(
+                            readBytes(LuaRuntimeContract.MAX_MAP_KEY_BYTES),
+                            "Lua argument map key",
+                        )
+                        require(!values.containsKey(key)) { "Lua argument snapshot contains a duplicate map key" }
+                        values[key] = readValue(depth + 1)
+                    }
+                    LuaValue.MapValue(values)
+                }
+                else -> throw IllegalArgumentException("Lua argument snapshot contains an unknown value kind")
+            }
+        }
+
+        private fun readContainerCount(): Int = readInt().also { count ->
+            require(count in 0..LuaRuntimeContract.MAX_VALUE_CONTAINER_ENTRIES) {
+                "Lua argument snapshot exceeds its container-entry limit"
+            }
+        }
+
+        private fun readBytes(maximum: Int): ByteArray {
+            val length = readInt()
+            require(length in 0..maximum) { "Lua argument snapshot contains an invalid byte length" }
+            require(length <= input.remaining()) { "Lua argument snapshot is truncated" }
+            require(dataBytes <= LuaRuntimeContract.MAX_VALUE_DATA_BYTES - length) {
+                "Lua argument snapshot exceeds its aggregate data limit"
+            }
+            dataBytes += length
+            return ByteArray(length).also(input::get)
         }
     }
 

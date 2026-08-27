@@ -19,6 +19,7 @@ internal object LuaProviderMetadata {
     private val EXECUTION_CAPABILITIES = listOf(
         NativeLuaHostCapabilityBridge.DEVICE_INFO_CAPABILITY,
         NativeLuaHostCapabilityBridge.MODULE_SNAPSHOT_CAPABILITY,
+        NativeLuaHostCapabilityBridge.STORAGE_KV_CAPABILITY,
         NativeLuaHostCapabilityBridge.UI_TOAST_CAPABILITY,
     )
 

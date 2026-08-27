@@ -34,6 +34,10 @@ constexpr jint kStderrStreamWireCode = 2;
 constexpr size_t kMaxScalarStringBytes = 64 * 1024;
 constexpr size_t kMaxModuleNameBytes = 64;
 constexpr jsize kMaxModuleSourceBytes = 64 * 1024;
+constexpr size_t kMaxStorageKeyBytes = 64;
+constexpr uint32_t kMaxStorageOperationsPerExecution = 64U;
+constexpr uint32_t kMaxStorageMutationsPerExecution = 32U;
+constexpr jlong kMaxStorageKeysPerPrincipal = 256;
 constexpr size_t kMaxToastTextBytes = 1024;
 constexpr uint32_t kMaxToastCallsPerExecution = 4U;
 constexpr jsize kMaxArgumentSnapshotBytes = 256 * 1024 + 17 * 4096 + 16;
@@ -196,8 +200,14 @@ struct ExecutionControl {
     jobject host_capability_bridge;
     jmethodID device_info_method;
     jmethodID load_module_method;
+    jmethodID storage_get_method;
+    jmethodID storage_put_method;
+    jmethodID storage_remove_method;
+    jmethodID storage_clear_method;
     jmethodID show_toast_method;
     jmethodID host_failure_method;
+    uint32_t storage_operations;
+    uint32_t storage_mutations;
     uint32_t toast_dispatches;
     std::chrono::steady_clock::time_point deadline;
     TerminationReason termination_reason;
@@ -415,6 +425,230 @@ bool push_native_arguments(lua_State* state, const NativeArgumentView* arguments
         return false;
     }
     return !reader.failed && reader.cursor == reader.end;
+}
+
+bool is_strict_utf8(const char* text, size_t length);
+
+struct NativeArgumentWriter {
+    uint8_t* begin;
+    uint8_t* cursor;
+    uint8_t* end;
+    size_t nodes;
+    size_t data_bytes;
+    const void* ancestors[kMaxArgumentDepth + 1U];
+};
+
+bool write_argument_u8(NativeArgumentWriter* writer, uint8_t value) {
+    if (writer->cursor == writer->end) {
+        return false;
+    }
+    *writer->cursor++ = value;
+    return true;
+}
+
+bool write_argument_u32(NativeArgumentWriter* writer, uint32_t value) {
+    if (static_cast<size_t>(writer->end - writer->cursor) < 4U) {
+        return false;
+    }
+    writer->cursor[0] = static_cast<uint8_t>((value >> 24U) & 0xFFU);
+    writer->cursor[1] = static_cast<uint8_t>((value >> 16U) & 0xFFU);
+    writer->cursor[2] = static_cast<uint8_t>((value >> 8U) & 0xFFU);
+    writer->cursor[3] = static_cast<uint8_t>(value & 0xFFU);
+    writer->cursor += 4;
+    return true;
+}
+
+bool write_argument_u64(NativeArgumentWriter* writer, uint64_t value) {
+    if (static_cast<size_t>(writer->end - writer->cursor) < 8U) {
+        return false;
+    }
+    for (size_t offset = 0U; offset < 8U; ++offset) {
+        writer->cursor[offset] = static_cast<uint8_t>(
+            (value >> static_cast<unsigned>((7U - offset) * 8U)) & 0xFFU);
+    }
+    writer->cursor += 8;
+    return true;
+}
+
+bool write_argument_bytes(
+    NativeArgumentWriter* writer,
+    const char* bytes,
+    size_t length,
+    size_t maximum_length) {
+    if (bytes == nullptr || length > maximum_length || length > UINT32_MAX ||
+        writer->data_bytes > kMaxArgumentDataBytes - length ||
+        static_cast<size_t>(writer->end - writer->cursor) < 4U + length) {
+        return false;
+    }
+    if (!write_argument_u32(writer, static_cast<uint32_t>(length))) {
+        return false;
+    }
+    if (length > 0U) {
+        std::memcpy(writer->cursor, bytes, length);
+        writer->cursor += length;
+    }
+    writer->data_bytes += length;
+    return true;
+}
+
+bool write_storage_value(
+    lua_State* state,
+    int value_index,
+    NativeArgumentWriter* writer,
+    size_t depth) {
+    if (depth > kMaxArgumentDepth || writer->nodes >= kMaxArgumentNodes) {
+        return false;
+    }
+    ++writer->nodes;
+    const int absolute_index = lua_absindex(state, value_index);
+    switch (lua_type(state, absolute_index)) {
+        case LUA_TBOOLEAN:
+            return write_argument_u8(writer, lua_toboolean(state, absolute_index) != 0 ? 2U : 1U);
+        case LUA_TNUMBER:
+            if (lua_isinteger(state, absolute_index)) {
+                return write_argument_u8(writer, 3U) && write_argument_u64(
+                    writer,
+                    static_cast<uint64_t>(lua_tointeger(state, absolute_index)));
+            } else {
+                const double value = static_cast<double>(lua_tonumber(state, absolute_index));
+                return std::isfinite(value) && write_argument_u8(writer, 4U) &&
+                    write_argument_u64(writer, std::bit_cast<uint64_t>(value));
+            }
+        case LUA_TSTRING: {
+            size_t length = 0U;
+            const char* value = lua_tolstring(state, absolute_index, &length);
+            return value != nullptr && is_strict_utf8(value, length) &&
+                write_argument_u8(writer, 5U) &&
+                write_argument_bytes(writer, value, length, kMaxArgumentStringOrBytes);
+        }
+        case LUA_TTABLE:
+            break;
+        default:
+            return false;
+    }
+
+    if (lua_getmetatable(state, absolute_index) != 0) {
+        lua_pop(state, 1);
+        return false;
+    }
+    const void* identity = lua_topointer(state, absolute_index);
+    if (identity == nullptr) {
+        return false;
+    }
+    for (size_t index = 0U; index < depth; ++index) {
+        if (writer->ancestors[index] == identity) {
+            return false;
+        }
+    }
+    writer->ancestors[depth] = identity;
+
+    enum class TableKind {
+        kEmpty,
+        kArray,
+        kMap,
+        kInvalid,
+    };
+    TableKind kind = TableKind::kEmpty;
+    size_t entry_count = 0U;
+    lua_Integer maximum_array_index = 0;
+    lua_pushnil(state);
+    while (lua_next(state, absolute_index) != 0) {
+        ++entry_count;
+        bool valid_key = entry_count <= kMaxArgumentContainerEntries;
+        if (valid_key && lua_isinteger(state, -2)) {
+            const lua_Integer key = lua_tointeger(state, -2);
+            valid_key = key >= 1 &&
+                static_cast<uint64_t>(key) <= static_cast<uint64_t>(kMaxArgumentContainerEntries) &&
+                (kind == TableKind::kEmpty || kind == TableKind::kArray);
+            if (valid_key) {
+                kind = TableKind::kArray;
+                maximum_array_index = std::max(maximum_array_index, key);
+            }
+        } else if (valid_key && lua_type(state, -2) == LUA_TSTRING) {
+            size_t key_length = 0U;
+            const char* key = lua_tolstring(state, -2, &key_length);
+            valid_key = key != nullptr && key_length <= kMaxArgumentMapKeyBytes &&
+                is_strict_utf8(key, key_length) &&
+                (kind == TableKind::kEmpty || kind == TableKind::kMap);
+            if (valid_key) {
+                kind = TableKind::kMap;
+            }
+        } else {
+            valid_key = false;
+        }
+        lua_pop(state, 1);
+        if (!valid_key) {
+            lua_pop(state, 1);
+            return false;
+        }
+    }
+
+    if (kind == TableKind::kArray &&
+        maximum_array_index != static_cast<lua_Integer>(entry_count)) {
+        return false;
+    }
+    if (kind == TableKind::kEmpty || kind == TableKind::kArray) {
+        if (!write_argument_u8(writer, 7U) ||
+            !write_argument_u32(writer, static_cast<uint32_t>(entry_count))) {
+            return false;
+        }
+        for (size_t index = 1U; index <= entry_count; ++index) {
+            lua_rawgeti(state, absolute_index, static_cast<lua_Integer>(index));
+            const bool encoded = write_storage_value(state, -1, writer, depth + 1U);
+            lua_pop(state, 1);
+            if (!encoded) {
+                return false;
+            }
+        }
+        return true;
+    }
+    if (kind != TableKind::kMap || !write_argument_u8(writer, 8U) ||
+        !write_argument_u32(writer, static_cast<uint32_t>(entry_count))) {
+        return false;
+    }
+    lua_pushnil(state);
+    while (lua_next(state, absolute_index) != 0) {
+        size_t key_length = 0U;
+        const char* key = lua_tolstring(state, -2, &key_length);
+        const bool encoded = write_argument_bytes(
+            writer,
+            key,
+            key_length,
+            kMaxArgumentMapKeyBytes) &&
+            write_storage_value(state, -1, writer, depth + 1U);
+        lua_pop(state, 1);
+        if (!encoded) {
+            lua_pop(state, 1);
+            return false;
+        }
+    }
+    return true;
+}
+
+bool encode_storage_value(
+    lua_State* state,
+    int value_index,
+    uint8_t* destination,
+    size_t capacity,
+    size_t* encoded_length) {
+    if (destination == nullptr || encoded_length == nullptr || capacity > UINT32_MAX) {
+        return false;
+    }
+    NativeArgumentWriter writer{
+        destination,
+        destination,
+        destination + capacity,
+        0U,
+        0U,
+        {},
+    };
+    if (!write_argument_u32(&writer, kArgumentMagic) ||
+        !write_argument_u8(&writer, kArgumentVersion) ||
+        !write_storage_value(state, value_index, &writer, 0U)) {
+        return false;
+    }
+    *encoded_length = static_cast<size_t>(writer.cursor - writer.begin);
+    return *encoded_length >= 6U;
 }
 
 bool poll_execution_control(ExecutionControl* control) {
@@ -831,6 +1065,309 @@ int autojs_ui_toast(lua_State* state) {
     return 0;
 }
 
+bool is_storage_key(const char* key, size_t length) {
+    if (key == nullptr || length == 0U || length > kMaxStorageKeyBytes) {
+        return false;
+    }
+    const auto first = static_cast<unsigned char>(key[0]);
+    if (!((first >= 'A' && first <= 'Z') || (first >= 'a' && first <= 'z') || first == '_')) {
+        return false;
+    }
+    for (size_t index = 1U; index < length; ++index) {
+        const auto character = static_cast<unsigned char>(key[index]);
+        if (!((character >= 'A' && character <= 'Z') ||
+              (character >= 'a' && character <= 'z') ||
+              (character >= '0' && character <= '9') ||
+              character == '_' || character == '.' || character == '-')) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool charge_storage_call(ExecutionControl* control, bool mutation) {
+    if (control->storage_operations >= kMaxStorageOperationsPerExecution ||
+        (mutation && control->storage_mutations >= kMaxStorageMutationsPerExecution)) {
+        return false;
+    }
+    ++control->storage_operations;
+    if (mutation) {
+        ++control->storage_mutations;
+    }
+    return true;
+}
+
+jbyteArray copy_to_java_bytes(
+    ExecutionControl* control,
+    const char* bytes,
+    size_t length) {
+    if (bytes == nullptr || length > static_cast<size_t>(std::numeric_limits<jsize>::max())) {
+        control->termination_reason = TerminationReason::kControlFailure;
+        return nullptr;
+    }
+    auto* result = control->environment->NewByteArray(static_cast<jsize>(length));
+    if (result == nullptr) {
+        if (control->environment->ExceptionCheck()) {
+            control->environment->ExceptionClear();
+        }
+        control->termination_reason = TerminationReason::kControlFailure;
+        return nullptr;
+    }
+    if (length > 0U) {
+        control->environment->SetByteArrayRegion(
+            result,
+            0,
+            static_cast<jsize>(length),
+            reinterpret_cast<const jbyte*>(bytes));
+    }
+    if (control->environment->ExceptionCheck()) {
+        control->environment->ExceptionClear();
+        control->environment->DeleteLocalRef(result);
+        control->termination_reason = TerminationReason::kControlFailure;
+        return nullptr;
+    }
+    return result;
+}
+
+int autojs_storage_get(lua_State* state) {
+    ExecutionControl* control = execution_control(state);
+    if (control == nullptr || lua_gettop(state) != 1 || lua_type(state, 1) != LUA_TSTRING) {
+        return luaL_error(state, "autojs.storage.get expects exactly one string key");
+    }
+    size_t key_length = 0U;
+    const char* key = lua_tolstring(state, 1, &key_length);
+    if (!is_storage_key(key, key_length)) {
+        return luaL_error(state, "autojs.storage.get key is outside the ASCII allowlist");
+    }
+    if (!poll_execution_control(control)) {
+        return luaL_error(state, "AutoJs Lua execution interrupted");
+    }
+    if (!charge_storage_call(control, false)) {
+        return luaL_error(state, "autojs.storage operation quota exceeded");
+    }
+    jbyteArray key_bytes = copy_to_java_bytes(control, key, key_length);
+    if (key_bytes == nullptr) {
+        return luaL_error(state, "AutoJs storage key bridge allocation failed");
+    }
+    auto* encoded = static_cast<jbyteArray>(control->environment->CallObjectMethod(
+        control->host_capability_bridge,
+        control->storage_get_method,
+        key_bytes));
+    control->environment->DeleteLocalRef(key_bytes);
+    if (control->environment->ExceptionCheck()) {
+        control->environment->ExceptionClear();
+        record_host_call_failure(control);
+        return luaL_error(state, "AutoJs storage get host call failed");
+    }
+    if (encoded == nullptr) {
+        if (!poll_execution_control(control)) {
+            return luaL_error(state, "AutoJs Lua execution interrupted");
+        }
+        lua_pushnil(state);
+        return 1;
+    }
+    const jsize length = control->environment->GetArrayLength(encoded);
+    if (length < 6 || length > kMaxArgumentSnapshotBytes) {
+        control->environment->DeleteLocalRef(encoded);
+        control->termination_reason = TerminationReason::kControlFailure;
+        return luaL_error(state, "AutoJs storage get response exceeds its native limit");
+    }
+    lua_pushcfunction(state, push_host_result);
+    const ProtectedHostMappingResult mapping =
+        copy_and_map_host_result(state, control, encoded, length);
+    switch (mapping) {
+        case ProtectedHostMappingResult::kOk:
+            break;
+        case ProtectedHostMappingResult::kCopyAllocationFailed:
+            control->termination_reason = TerminationReason::kControlFailure;
+            return luaL_error(state, "AutoJs storage get response copy allocation failed");
+        case ProtectedHostMappingResult::kCopyUnavailable:
+            control->termination_reason = TerminationReason::kControlFailure;
+            return luaL_error(state, "AutoJs storage get response bytes are unavailable");
+        case ProtectedHostMappingResult::kMemoryLimit:
+            return luaL_error(state, "AutoJs storage get mapping exceeded the memory limit");
+        case ProtectedHostMappingResult::kInvalid:
+            control->termination_reason = TerminationReason::kControlFailure;
+            return luaL_error(state, "AutoJs storage get response is invalid");
+    }
+    if (!poll_execution_control(control)) {
+        return luaL_error(state, "AutoJs Lua execution interrupted");
+    }
+    return 1;
+}
+
+enum class StoragePutBridgeResult {
+    kOk,
+    kInvalidValue,
+    kQuotaExceeded,
+    kControlFailure,
+    kHostFailure,
+    kInterrupted,
+};
+
+StoragePutBridgeResult dispatch_storage_put(
+    lua_State* state,
+    ExecutionControl* control,
+    const char* key,
+    size_t key_length,
+    bool* stored) {
+    auto encoded = std::unique_ptr<uint8_t[]>(
+        new (std::nothrow) uint8_t[static_cast<size_t>(kMaxArgumentSnapshotBytes)]);
+    if (encoded == nullptr) {
+        control->termination_reason = TerminationReason::kControlFailure;
+        return StoragePutBridgeResult::kControlFailure;
+    }
+    size_t encoded_length = 0U;
+    if (!encode_storage_value(
+            state,
+            2,
+            encoded.get(),
+            static_cast<size_t>(kMaxArgumentSnapshotBytes),
+            &encoded_length)) {
+        return StoragePutBridgeResult::kInvalidValue;
+    }
+    if (!charge_storage_call(control, true)) {
+        return StoragePutBridgeResult::kQuotaExceeded;
+    }
+    jbyteArray key_bytes = copy_to_java_bytes(control, key, key_length);
+    if (key_bytes == nullptr) {
+        return StoragePutBridgeResult::kControlFailure;
+    }
+    jbyteArray value_bytes = copy_to_java_bytes(
+        control,
+        reinterpret_cast<const char*>(encoded.get()),
+        encoded_length);
+    if (value_bytes == nullptr) {
+        control->environment->DeleteLocalRef(key_bytes);
+        return StoragePutBridgeResult::kControlFailure;
+    }
+    const jboolean accepted = control->environment->CallBooleanMethod(
+        control->host_capability_bridge,
+        control->storage_put_method,
+        key_bytes,
+        value_bytes);
+    control->environment->DeleteLocalRef(value_bytes);
+    control->environment->DeleteLocalRef(key_bytes);
+    if (control->environment->ExceptionCheck()) {
+        control->environment->ExceptionClear();
+        record_host_call_failure(control);
+        return StoragePutBridgeResult::kHostFailure;
+    }
+    if (!poll_execution_control(control)) {
+        return StoragePutBridgeResult::kInterrupted;
+    }
+    *stored = accepted == JNI_TRUE;
+    if (!*stored) {
+        control->termination_reason = TerminationReason::kControlFailure;
+        return StoragePutBridgeResult::kControlFailure;
+    }
+    return StoragePutBridgeResult::kOk;
+}
+
+int autojs_storage_put(lua_State* state) {
+    ExecutionControl* control = execution_control(state);
+    if (control == nullptr || lua_gettop(state) != 2 || lua_type(state, 1) != LUA_TSTRING ||
+        lua_isnil(state, 2)) {
+        return luaL_error(state, "autojs.storage.put expects one string key and one non-nil value");
+    }
+    size_t key_length = 0U;
+    const char* key = lua_tolstring(state, 1, &key_length);
+    if (!is_storage_key(key, key_length)) {
+        return luaL_error(state, "autojs.storage.put key is outside the ASCII allowlist");
+    }
+    if (!poll_execution_control(control)) {
+        return luaL_error(state, "AutoJs Lua execution interrupted");
+    }
+    if (lua_checkstack(state, static_cast<int>(kMaxArgumentDepth * 3U + 16U)) == 0) {
+        return luaL_error(state, "AutoJs storage value mapping exceeded the memory limit");
+    }
+    bool stored = false;
+    switch (dispatch_storage_put(state, control, key, key_length, &stored)) {
+        case StoragePutBridgeResult::kOk:
+            lua_pushboolean(state, stored ? 1 : 0);
+            return 1;
+        case StoragePutBridgeResult::kInvalidValue:
+            return luaL_error(state, "autojs.storage.put value is outside the admitted value model");
+        case StoragePutBridgeResult::kQuotaExceeded:
+            return luaL_error(state, "autojs.storage mutation or operation quota exceeded");
+        case StoragePutBridgeResult::kControlFailure:
+            return luaL_error(state, "AutoJs storage put bridge failed");
+        case StoragePutBridgeResult::kHostFailure:
+            return luaL_error(state, "AutoJs storage put host call failed");
+        case StoragePutBridgeResult::kInterrupted:
+            return luaL_error(state, "AutoJs Lua execution interrupted");
+    }
+    control->termination_reason = TerminationReason::kControlFailure;
+    return luaL_error(state, "AutoJs storage put bridge entered an invalid state");
+}
+
+int autojs_storage_remove(lua_State* state) {
+    ExecutionControl* control = execution_control(state);
+    if (control == nullptr || lua_gettop(state) != 1 || lua_type(state, 1) != LUA_TSTRING) {
+        return luaL_error(state, "autojs.storage.remove expects exactly one string key");
+    }
+    size_t key_length = 0U;
+    const char* key = lua_tolstring(state, 1, &key_length);
+    if (!is_storage_key(key, key_length)) {
+        return luaL_error(state, "autojs.storage.remove key is outside the ASCII allowlist");
+    }
+    if (!poll_execution_control(control)) {
+        return luaL_error(state, "AutoJs Lua execution interrupted");
+    }
+    if (!charge_storage_call(control, true)) {
+        return luaL_error(state, "autojs.storage mutation or operation quota exceeded");
+    }
+    jbyteArray key_bytes = copy_to_java_bytes(control, key, key_length);
+    if (key_bytes == nullptr) {
+        return luaL_error(state, "AutoJs storage key bridge allocation failed");
+    }
+    const jboolean removed = control->environment->CallBooleanMethod(
+        control->host_capability_bridge,
+        control->storage_remove_method,
+        key_bytes);
+    control->environment->DeleteLocalRef(key_bytes);
+    if (control->environment->ExceptionCheck()) {
+        control->environment->ExceptionClear();
+        record_host_call_failure(control);
+        return luaL_error(state, "AutoJs storage remove host call failed");
+    }
+    if (!poll_execution_control(control)) {
+        return luaL_error(state, "AutoJs Lua execution interrupted");
+    }
+    lua_pushboolean(state, removed == JNI_TRUE ? 1 : 0);
+    return 1;
+}
+
+int autojs_storage_clear(lua_State* state) {
+    ExecutionControl* control = execution_control(state);
+    if (control == nullptr || lua_gettop(state) != 0) {
+        return luaL_error(state, "autojs.storage.clear expects no arguments");
+    }
+    if (!poll_execution_control(control)) {
+        return luaL_error(state, "AutoJs Lua execution interrupted");
+    }
+    if (!charge_storage_call(control, true)) {
+        return luaL_error(state, "autojs.storage mutation or operation quota exceeded");
+    }
+    const jlong removed_count = control->environment->CallLongMethod(
+        control->host_capability_bridge,
+        control->storage_clear_method);
+    if (control->environment->ExceptionCheck()) {
+        control->environment->ExceptionClear();
+        record_host_call_failure(control);
+        return luaL_error(state, "AutoJs storage clear host call failed");
+    }
+    if (removed_count < 0 || removed_count > kMaxStorageKeysPerPrincipal) {
+        control->termination_reason = TerminationReason::kControlFailure;
+        return luaL_error(state, "AutoJs storage clear response is invalid");
+    }
+    if (!poll_execution_control(control)) {
+        return luaL_error(state, "AutoJs Lua execution interrupted");
+    }
+    lua_pushinteger(state, static_cast<lua_Integer>(removed_count));
+    return 1;
+}
+
 bool is_flat_ascii_module_name(const char* name, size_t length) {
     if (name == nullptr || length == 0U || length > kMaxModuleNameBytes) {
         return false;
@@ -1124,6 +1661,17 @@ int install_autojs_module(lua_State* state) {
     lua_pushcfunction(state, autojs_device_info);
     lua_setfield(state, -2, "info");
     lua_setfield(state, -2, "device");
+
+    lua_newtable(state);
+    lua_pushcfunction(state, autojs_storage_get);
+    lua_setfield(state, -2, "get");
+    lua_pushcfunction(state, autojs_storage_put);
+    lua_setfield(state, -2, "put");
+    lua_pushcfunction(state, autojs_storage_remove);
+    lua_setfield(state, -2, "remove");
+    lua_pushcfunction(state, autojs_storage_clear);
+    lua_setfield(state, -2, "clear");
+    lua_setfield(state, -2, "storage");
 
     lua_newtable(state);
     lua_pushcfunction(state, autojs_ui_toast);
@@ -1478,6 +2026,50 @@ Java_io_github_supermonster003_autojs6_plugin_lua_runtime_NativeLuaRuntime_nativ
         environment->DeleteLocalRef(host_capability_class);
         return fail(environment, "INTERNAL", "Lua module snapshot bridge contract is unavailable");
     }
+    jmethodID storage_get_method = environment->GetMethodID(
+        host_capability_class,
+        "storageGet",
+        "([B)[B");
+    if (storage_get_method == nullptr) {
+        if (environment->ExceptionCheck()) {
+            environment->ExceptionClear();
+        }
+        environment->DeleteLocalRef(host_capability_class);
+        return fail(environment, "INTERNAL", "Lua storage get bridge contract is unavailable");
+    }
+    jmethodID storage_put_method = environment->GetMethodID(
+        host_capability_class,
+        "storagePut",
+        "([B[B)Z");
+    if (storage_put_method == nullptr) {
+        if (environment->ExceptionCheck()) {
+            environment->ExceptionClear();
+        }
+        environment->DeleteLocalRef(host_capability_class);
+        return fail(environment, "INTERNAL", "Lua storage put bridge contract is unavailable");
+    }
+    jmethodID storage_remove_method = environment->GetMethodID(
+        host_capability_class,
+        "storageRemove",
+        "([B)Z");
+    if (storage_remove_method == nullptr) {
+        if (environment->ExceptionCheck()) {
+            environment->ExceptionClear();
+        }
+        environment->DeleteLocalRef(host_capability_class);
+        return fail(environment, "INTERNAL", "Lua storage remove bridge contract is unavailable");
+    }
+    jmethodID storage_clear_method = environment->GetMethodID(
+        host_capability_class,
+        "storageClear",
+        "()J");
+    if (storage_clear_method == nullptr) {
+        if (environment->ExceptionCheck()) {
+            environment->ExceptionClear();
+        }
+        environment->DeleteLocalRef(host_capability_class);
+        return fail(environment, "INTERNAL", "Lua storage clear bridge contract is unavailable");
+    }
     jmethodID show_toast_method = environment->GetMethodID(
         host_capability_class,
         "showToast",
@@ -1510,8 +2102,14 @@ Java_io_github_supermonster003_autojs6_plugin_lua_runtime_NativeLuaRuntime_nativ
         host_capability_bridge,
         device_info_method,
         load_module_method,
+        storage_get_method,
+        storage_put_method,
+        storage_remove_method,
+        storage_clear_method,
         show_toast_method,
         host_failure_method,
+        0U,
+        0U,
         0U,
         std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_millis),
         TerminationReason::kNone,

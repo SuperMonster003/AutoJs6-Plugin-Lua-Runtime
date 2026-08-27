@@ -327,6 +327,192 @@ class NativeLuaRuntimeInstrumentationTest {
     }
 
     @Test
+    fun nativeRunnerRoundTripsTheFixedStorageCapabilityWithoutRetry() {
+        val stored = linkedMapOf<String, LuaValue>()
+        val operations = mutableListOf<String>()
+        val invoker = LuaHostCapabilityInvoker { capability, arguments, _, _ ->
+            assertEquals("storage.kv.v1", capability)
+            val fields = (arguments as LuaValue.MapValue).values
+            val operation = (fields["op"] as LuaValue.StringValue).value
+            operations += operation
+            when (operation) {
+                "get" -> {
+                    assertEquals(setOf("op", "key"), fields.keys)
+                    val value = stored[(fields["key"] as LuaValue.StringValue).value]
+                    if (value == null) {
+                        LuaValue.MapValue(mapOf("found" to LuaValue.BooleanValue(false)))
+                    } else {
+                        LuaValue.MapValue(
+                            linkedMapOf(
+                                "found" to LuaValue.BooleanValue(true),
+                                "value" to value,
+                            ),
+                        )
+                    }
+                }
+                "put" -> {
+                    assertEquals(setOf("op", "key", "value"), fields.keys)
+                    stored[(fields["key"] as LuaValue.StringValue).value] = checkNotNull(fields["value"])
+                    LuaValue.MapValue(mapOf("stored" to LuaValue.BooleanValue(true)))
+                }
+                "remove" -> LuaValue.MapValue(
+                    mapOf(
+                        "removed" to LuaValue.BooleanValue(
+                            stored.remove((fields["key"] as LuaValue.StringValue).value) != null,
+                        ),
+                    ),
+                )
+                "clear" -> {
+                    val count = stored.size.toLong()
+                    stored.clear()
+                    LuaValue.MapValue(mapOf("removedCount" to LuaValue.Int64Value(count)))
+                }
+                else -> error("unexpected storage operation")
+            }
+        }
+
+        val value = NativeLuaExecutionRunner.execute(
+            runnerRequest(
+                source = """
+                    local storage = require('autojs').storage
+                    assert(type(storage) == 'table')
+                    assert(storage.get('state') == nil)
+                    local original = {
+                        enabled = true,
+                        count = 7,
+                        ratio = 1.5,
+                        text = '保存',
+                        items = {4, 'ready'},
+                        nested = {flag = false}
+                    }
+                    assert(storage.put('state', original) == true)
+                    local loaded = storage.get('state')
+                    assert(loaded.enabled == true and loaded.count == 7 and loaded.ratio == 1.5)
+                    assert(loaded.text == '保存' and loaded.items[1] == 4 and loaded.items[2] == 'ready')
+                    assert(loaded.nested.flag == false)
+                    assert(storage.remove('state') == true)
+                    assert(storage.remove('state') == false)
+                    assert(storage.put('one', 1) == true)
+                    assert(storage.put('two', 'second') == true)
+                    assert(storage.clear() == 2)
+                    return loaded.count
+                """.trimIndent(),
+                hostCapabilityInvoker = invoker,
+            ),
+        )
+
+        assertEquals(LuaValue.Int64Value(7L), value)
+        assertEquals(
+            listOf("get", "put", "get", "remove", "remove", "put", "put", "clear"),
+            operations,
+        )
+        assertTrue(stored.isEmpty())
+    }
+
+    @Test
+    fun nativeRunnerRejectsInvalidStorageValuesAndKeysBeforeHostDispatch() {
+        var calls = 0
+        val invoker = LuaHostCapabilityInvoker { _, _, _, _ ->
+            calls += 1
+            error("invalid storage input reached the Host")
+        }
+        listOf(
+            "require('autojs').storage.get('')",
+            "require('autojs').storage.get('1bad')",
+            "require('autojs').storage.get('bad/key')",
+            "require('autojs').storage.get('é')",
+            "require('autojs').storage.get(string.rep('a', 65))",
+            "require('autojs').storage.put('key', nil)",
+            "require('autojs').storage.put('key', function() end)",
+            "require('autojs').storage.put('key', coroutine.create(function() end))",
+            "local value = {}; value.self = value; require('autojs').storage.put('key', value)",
+            "require('autojs').storage.put('key', {[1]='a', [3]='c'})",
+            "require('autojs').storage.put('key', {[1]='a', named='b'})",
+            "require('autojs').storage.put('key', setmetatable({}, {}))",
+            "require('autojs').storage.put('key', string.char(0xc3, 0x28))",
+            "require('autojs').storage.put('key', math.huge)",
+        ).forEach { source ->
+            val failure = assertThrows(LuaRunnerException::class.java) {
+                NativeLuaExecutionRunner.execute(
+                    runnerRequest(source = source, hostCapabilityInvoker = invoker),
+                )
+            }
+            assertEquals(LuaRunnerFailureKind.RUNTIME, failure.kind)
+            assertEquals(0, calls)
+        }
+
+        val denial = assertThrows(LuaRunnerException::class.java) {
+            NativeLuaExecutionRunner.execute(
+                runnerRequest("return require('autojs').storage.get('key')"),
+            )
+        }
+        assertEquals(LuaRunnerFailureKind.HOST_CAPABILITY, denial.kind)
+    }
+
+    @Test
+    fun nativeRunnerEnforcesStorageOperationAndMutationQuotasBeforeDispatch() {
+        var getCalls = 0
+        val getInvoker = LuaHostCapabilityInvoker { capability, _, _, _ ->
+            assertEquals("storage.kv.v1", capability)
+            getCalls += 1
+            LuaValue.MapValue(mapOf("found" to LuaValue.BooleanValue(false)))
+        }
+        val operationFailure = assertThrows(LuaRunnerException::class.java) {
+            NativeLuaExecutionRunner.execute(
+                runnerRequest(
+                    source = """
+                        local storage = require('autojs').storage
+                        for index = 1, 65 do storage.get('key') end
+                    """.trimIndent(),
+                    hostCapabilityInvoker = getInvoker,
+                ),
+            )
+        }
+        assertEquals(LuaRunnerFailureKind.RUNTIME, operationFailure.kind)
+        assertEquals(NativeLuaStorageContract.MAX_OPERATIONS_PER_EXECUTION, getCalls)
+
+        var removeCalls = 0
+        val removeInvoker = LuaHostCapabilityInvoker { capability, _, _, _ ->
+            assertEquals("storage.kv.v1", capability)
+            removeCalls += 1
+            LuaValue.MapValue(mapOf("removed" to LuaValue.BooleanValue(false)))
+        }
+        val mutationFailure = assertThrows(LuaRunnerException::class.java) {
+            NativeLuaExecutionRunner.execute(
+                runnerRequest(
+                    source = """
+                        local storage = require('autojs').storage
+                        for index = 1, 33 do storage.remove('key') end
+                    """.trimIndent(),
+                    hostCapabilityInvoker = removeInvoker,
+                ),
+            )
+        }
+        assertEquals(LuaRunnerFailureKind.RUNTIME, mutationFailure.kind)
+        assertEquals(NativeLuaStorageContract.MAX_MUTATIONS_PER_EXECUTION, removeCalls)
+
+        var malformedCalls = 0
+        val malformed = assertThrows(LuaRunnerException::class.java) {
+            NativeLuaExecutionRunner.execute(
+                runnerRequest(
+                    source = "return require('autojs').storage.get('key')",
+                    hostCapabilityInvoker = LuaHostCapabilityInvoker { _, _, _, _ ->
+                        malformedCalls += 1
+                        LuaValue.MapValue(
+                            mapOf(
+                                "found" to LuaValue.BooleanValue(false),
+                                "value" to LuaValue.Int64Value(1L),
+                            ),
+                        )
+                    },
+                ),
+            )
+        }
+        assertEquals(LuaRunnerFailureKind.HOST_CAPABILITY, malformed.kind)
+        assertEquals(1, malformedCalls)
+    }
+
+    @Test
     fun nativeRunnerLoadsFrozenModulesOnceAndRejectsDependencyCycles() {
         val calls = linkedMapOf<String, Int>()
         val invoker = LuaHostCapabilityInvoker { capability, arguments, _, _ ->

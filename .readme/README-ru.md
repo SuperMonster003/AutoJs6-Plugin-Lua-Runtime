@@ -182,7 +182,7 @@ return total
 
 ******
 
-Текущая версия `0.1.0-rc.2` является локально проверенным кандидатом подписанной упаковки, а не публичным release. Revision кандидата `a0ae189ac8cba042848412a671c91b0b8a7c44e1`, SHA-256 universal APK `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`; immutable receipt сохраняет `deviceVerified=false/runtimeVerified=false`. Затем split x86_64 прошел smoke с реальным Host на API 37 и матрицу API 24, 31, 36. Физическая проверка arm64 и семидневный soak были сняты 2026-08-26; далее действует fix-on-report. См. [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md), [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md), [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md), [`docs/public-release-policy.md`](docs/public-release-policy.md). R3 находится в [ROADMAP.md](ROADMAP.md), R4 в [ROADMAP-R4.md](ROADMAP-R4.md), R5 в [ROADMAP-R5.md](ROADMAP-R5.md).
+Текущая версия `0.1.1-rc.2` является локально проверенным кандидатом подписанной упаковки, а не публичным release. Revision кандидата `a0ae189ac8cba042848412a671c91b0b8a7c44e1`, SHA-256 universal APK `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`; immutable receipt сохраняет `deviceVerified=false/runtimeVerified=false`. Затем split x86_64 прошел smoke с реальным Host на API 37 и матрицу API 24, 31, 36. Физическая проверка arm64 и семидневный soak были сняты 2026-08-26; далее действует fix-on-report. См. [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md), [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md), [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md), [`docs/public-release-policy.md`](docs/public-release-policy.md). R3 находится в [ROADMAP.md](ROADMAP.md), R4 в [ROADMAP-R4.md](ROADMAP-R4.md), R5 в [ROADMAP-R5.md](ROADMAP-R5.md).
 
 ******
 
@@ -283,6 +283,12 @@ $faultArgs = @(
 
 ******
 
+# v0.1.1
+
+###### 2026/09/11
+
+* `Улучшено` Проверка выравнивания страниц 16 KB для 64-битных нативных библиотек при сборке, включая контракт manifest и отчеты JSON
+
 # v0.1.0-rc.2
 
 ###### 2026/08/27
@@ -349,3 +355,6 @@ app/src/main/res/values-*/strings.xml
 - Проект Lua: https://www.lua.org
 - Уведомления третьих сторон: https://github.com/SuperMonster003/AutoJs6-Plugin-Lua-Runtime/blob/master/THIRD_PARTY_NOTICES.md
 - Лицензия проекта: https://github.com/SuperMonster003/AutoJs6-Plugin-Lua-Runtime/blob/master/LICENSE
+
+
+[16 KB page alignment and build verification](https://github.com/SuperMonster003/AutoJs6-Plugin-Lua-Runtime/blob/main/docs/16kb.md)

@@ -182,7 +182,7 @@ Le script exige une revision propre avec commit count égal au versionCode, reco
 
 ******
 
-La version actuelle `0.1.0-rc.2` est un candidat d'empaquetage signé validé localement, pas une publication publique. La revision candidate est `a0ae189ac8cba042848412a671c91b0b8a7c44e1` et le SHA-256 de l'APK universal est `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`; le reçu immuable conserve `deviceVerified=false/runtimeVerified=false`. Le split x86_64 a ensuite réussi le smoke Host réel API 37 et la matrice API 24, 31, 36. Le test physique arm64 et le soak de sept jours ont été retirés le 2026-08-26; la stabilité suit désormais fix-on-report. Voir [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md), [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md), [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md) et [`docs/public-release-policy.md`](docs/public-release-policy.md). R3 se trouve dans [ROADMAP.md](ROADMAP.md), R4 dans [ROADMAP-R4.md](ROADMAP-R4.md) et R5 dans [ROADMAP-R5.md](ROADMAP-R5.md).
+La version actuelle `0.1.1-rc.2` est un candidat d'empaquetage signé validé localement, pas une publication publique. La revision candidate est `a0ae189ac8cba042848412a671c91b0b8a7c44e1` et le SHA-256 de l'APK universal est `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`; le reçu immuable conserve `deviceVerified=false/runtimeVerified=false`. Le split x86_64 a ensuite réussi le smoke Host réel API 37 et la matrice API 24, 31, 36. Le test physique arm64 et le soak de sept jours ont été retirés le 2026-08-26; la stabilité suit désormais fix-on-report. Voir [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md), [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md), [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md) et [`docs/public-release-policy.md`](docs/public-release-policy.md). R3 se trouve dans [ROADMAP.md](ROADMAP.md), R4 dans [ROADMAP-R4.md](ROADMAP-R4.md) et R5 dans [ROADMAP-R5.md](ROADMAP-R5.md).
 
 ******
 
@@ -283,6 +283,12 @@ Limites d'exécution: [`docs/native-execution-core.md`](docs/native-execution-co
 
 ******
 
+# v0.1.1
+
+###### 2026/09/11
+
+* `Amélioration` Vérification à la compilation de l'alignement des pages de 16 KB des bibliothèques natives 64 bits, avec contrôle du contrat manifest et rapports JSON
+
 # v0.1.0-rc.2
 
 ###### 2026/08/27
@@ -349,3 +355,6 @@ app/src/main/res/values-*/strings.xml
 - Projet Lua: https://www.lua.org
 - Mentions tierces: https://github.com/SuperMonster003/AutoJs6-Plugin-Lua-Runtime/blob/master/THIRD_PARTY_NOTICES.md
 - Licence du projet: https://github.com/SuperMonster003/AutoJs6-Plugin-Lua-Runtime/blob/master/LICENSE
+
+
+[16 KB page alignment and build verification](https://github.com/SuperMonster003/AutoJs6-Plugin-Lua-Runtime/blob/main/docs/16kb.md)

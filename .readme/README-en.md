@@ -182,7 +182,7 @@ The script requires a clean revision whose commit count matches versionCode, per
 
 ******
 
-Current version `0.1.0-rc.2` is a locally validated signed-packaging candidate, not a public release. The current signed-packaging candidate belongs to clean plugin revision `a0ae189ac8cba042848412a671c91b0b8a7c44e1` (versionCode 43); its universal APK SHA-256 is `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`. device/runtime verification deliberately remains `false` in that immutable receipt. The x86_64 split later passed the API 37 real-Host smoke and install, real-Host execution, and Provider uninstall on API 24, 31, and 36. The arm64 physical-device half was descoped on 2026-08-26 together with the seven-day soak; stability now follows fix-on-report. See [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md), [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md), [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md), and [`docs/public-release-policy.md`](docs/public-release-policy.md). R3 history is in [ROADMAP.md](ROADMAP.md), the R4 evidence ledger in [ROADMAP-R4.md](ROADMAP-R4.md), and the active R5 plan in [ROADMAP-R5.md](ROADMAP-R5.md).
+Current version `0.1.1-rc.2` is a locally validated signed-packaging candidate, not a public release. The current signed-packaging candidate belongs to clean plugin revision `a0ae189ac8cba042848412a671c91b0b8a7c44e1` (versionCode 43); its universal APK SHA-256 is `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`. device/runtime verification deliberately remains `false` in that immutable receipt. The x86_64 split later passed the API 37 real-Host smoke and install, real-Host execution, and Provider uninstall on API 24, 31, and 36. The arm64 physical-device half was descoped on 2026-08-26 together with the seven-day soak; stability now follows fix-on-report. See [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md), [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md), [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md), and [`docs/public-release-policy.md`](docs/public-release-policy.md). R3 history is in [ROADMAP.md](ROADMAP.md), the R4 evidence ledger in [ROADMAP-R4.md](ROADMAP-R4.md), and the active R5 plan in [ROADMAP-R5.md](ROADMAP-R5.md).
 
 ******
 
@@ -283,6 +283,12 @@ Runtime boundaries: [`docs/native-execution-core.md`](docs/native-execution-core
 
 ******
 
+# v0.1.1
+
+###### 2026/09/11
+
+* `Improvement` Build verification of 16 KB page alignment for 64-bit native libraries, including manifest contract checks and JSON reports
+
 # v0.1.0-rc.2
 
 ###### 2026/08/27
@@ -349,3 +355,6 @@ app/src/main/res/values-*/strings.xml
 - Lua project: https://www.lua.org
 - Third-party notices: https://github.com/SuperMonster003/AutoJs6-Plugin-Lua-Runtime/blob/master/THIRD_PARTY_NOTICES.md
 - Project license: https://github.com/SuperMonster003/AutoJs6-Plugin-Lua-Runtime/blob/master/LICENSE
+
+
+[16 KB page alignment and build verification](https://github.com/SuperMonster003/AutoJs6-Plugin-Lua-Runtime/blob/main/docs/16kb.md)

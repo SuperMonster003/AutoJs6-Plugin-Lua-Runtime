@@ -227,7 +227,7 @@ def load_languages(
     base_data = raw_changelogs[LANGUAGE_CODE_DEFAULT]["$data"]
     assert isinstance(base_data, dict)
     require(
-        list(base_data)[:1] == [current_version],
+        list(base_data)[:1] in ([current_version], [re.match(r"v\d+\.\d+\.\d+", current_version).group(0)]),
         f"Latest changelog version must be {current_version!r}",
     )
 

@@ -2,6 +2,7 @@ import java.io.File
 import java.util.Properties
 
 plugins {
+    id("io.github.supermonster003.autojs6-native-alignment")
     id("com.android.application")
 }
 

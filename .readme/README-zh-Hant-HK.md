@@ -182,7 +182,7 @@ return total
 
 ******
 
-目前版本 `0.1.0-rc.2` 是本機驗證的簽章封裝候選, 尚未公開發佈. 候選 revision 為 `a0ae189ac8cba042848412a671c91b0b8a7c44e1`, universal APK SHA-256 為 `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`; 不可變回執仍保留 `deviceVerified=false/runtimeVerified=false`. x86_64 隨後通過 API 37 真實 Host 冒煙及 API 24, 31, 36 矩陣. arm64 實體裝置驗證與七日 soak 已於 2026-08-26 裁撤, 後續採用 fix-on-report. 詳見 [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md), [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md), [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md) 及 [`docs/public-release-policy.md`](docs/public-release-policy.md). R3 見 [ROADMAP.md](ROADMAP.md), R4 見 [ROADMAP-R4.md](ROADMAP-R4.md), R5 見 [ROADMAP-R5.md](ROADMAP-R5.md).
+目前版本 `0.1.1-rc.2` 是本機驗證的簽章封裝候選, 尚未公開發佈. 候選 revision 為 `a0ae189ac8cba042848412a671c91b0b8a7c44e1`, universal APK SHA-256 為 `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`; 不可變回執仍保留 `deviceVerified=false/runtimeVerified=false`. x86_64 隨後通過 API 37 真實 Host 冒煙及 API 24, 31, 36 矩陣. arm64 實體裝置驗證與七日 soak 已於 2026-08-26 裁撤, 後續採用 fix-on-report. 詳見 [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md), [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md), [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md) 及 [`docs/public-release-policy.md`](docs/public-release-policy.md). R3 見 [ROADMAP.md](ROADMAP.md), R4 見 [ROADMAP-R4.md](ROADMAP-R4.md), R5 見 [ROADMAP-R5.md](ROADMAP-R5.md).
 
 ******
 
@@ -283,6 +283,12 @@ $faultArgs = @(
 
 ******
 
+# v0.1.1
+
+###### 2026/09/11
+
+* `改進` 建置階段校驗 64 位原生程式庫的 16 KB 頁面大小對齊, 檢查 manifest 契約並輸出 JSON 報告
+
 # v0.1.0-rc.2
 
 ###### 2026/08/27
@@ -349,3 +355,6 @@ app/src/main/res/values-*/strings.xml
 - Lua 專案: https://www.lua.org
 - 第三方聲明: https://github.com/SuperMonster003/AutoJs6-Plugin-Lua-Runtime/blob/master/THIRD_PARTY_NOTICES.md
 - 專案授權條款: https://github.com/SuperMonster003/AutoJs6-Plugin-Lua-Runtime/blob/master/LICENSE
+
+
+[16 KB page alignment and build verification](https://github.com/SuperMonster003/AutoJs6-Plugin-Lua-Runtime/blob/main/docs/16kb.md)

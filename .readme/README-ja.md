@@ -182,7 +182,7 @@ JDK 17+, Android SDK, NDK `28.2.13676358`, CMake `3.22.1` を使用します. �
 
 ******
 
-現在の `0.1.0-rc.2` はローカル検証済みの署名 package 候補で, 公開 release ではありません. 候補 revision は `a0ae189ac8cba042848412a671c91b0b8a7c44e1`, universal APK SHA-256 は `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd` で, immutable receipt は `deviceVerified=false/runtimeVerified=false` のままです. x86_64 split はその後 API 37 実 Host smoke と API 24, 31, 36 matrix を通過しました. arm64 実機と 7 日 soak は 2026-08-26 に対象外となり, 今後は fix-on-report です. [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md), [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md), [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md), [`docs/public-release-policy.md`](docs/public-release-policy.md) を参照してください. R3 は [ROADMAP.md](ROADMAP.md), R4 は [ROADMAP-R4.md](ROADMAP-R4.md), R5 は [ROADMAP-R5.md](ROADMAP-R5.md) です.
+現在の `0.1.1-rc.2` はローカル検証済みの署名 package 候補で, 公開 release ではありません. 候補 revision は `a0ae189ac8cba042848412a671c91b0b8a7c44e1`, universal APK SHA-256 は `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd` で, immutable receipt は `deviceVerified=false/runtimeVerified=false` のままです. x86_64 split はその後 API 37 実 Host smoke と API 24, 31, 36 matrix を通過しました. arm64 実機と 7 日 soak は 2026-08-26 に対象外となり, 今後は fix-on-report です. [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md), [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md), [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md), [`docs/public-release-policy.md`](docs/public-release-policy.md) を参照してください. R3 は [ROADMAP.md](ROADMAP.md), R4 は [ROADMAP-R4.md](ROADMAP-R4.md), R5 は [ROADMAP-R5.md](ROADMAP-R5.md) です.
 
 ******
 
@@ -283,6 +283,12 @@ $faultArgs = @(
 
 ******
 
+# v0.1.1
+
+###### 2026/09/11
+
+* `改善` 64 ビットのネイティブライブラリの 16 KB ページアラインメントをビルド時に検証, manifest 契約の検査と JSON レポートに対応
+
 # v0.1.0-rc.2
 
 ###### 2026/08/27
@@ -349,3 +355,6 @@ app/src/main/res/values-*/strings.xml
 - Lua プロジェクト: https://www.lua.org
 - 第三者通知: https://github.com/SuperMonster003/AutoJs6-Plugin-Lua-Runtime/blob/master/THIRD_PARTY_NOTICES.md
 - プロジェクトライセンス: https://github.com/SuperMonster003/AutoJs6-Plugin-Lua-Runtime/blob/master/LICENSE
+
+
+[16 KB page alignment and build verification](https://github.com/SuperMonster003/AutoJs6-Plugin-Lua-Runtime/blob/main/docs/16kb.md)

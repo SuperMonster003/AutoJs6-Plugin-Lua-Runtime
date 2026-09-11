@@ -182,7 +182,7 @@ return total
 
 ******
 
-当前版本 `0.1.0-rc.2` 是本地验证的签名打包候选, 尚未公开发布. 当前候选属于 clean revision `a0ae189ac8cba042848412a671c91b0b8a7c44e1` (versionCode 43), universal APK SHA-256 为 `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`; 不可变回执中的 `deviceVerified=false/runtimeVerified=false` 保持不变. x86_64 split 随后通过 API 37 真实 Host 冒烟及 API 24, 31, 36 安装/执行/卸载矩阵. arm64 物理设备验证与七日 soak 已于 2026-08-26 按 owner 决定裁撤, 以后采用 fix-on-report. 详见 [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md), [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md), [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md) 与 [`docs/public-release-policy.md`](docs/public-release-policy.md). R3 历史见 [ROADMAP.md](ROADMAP.md), R4 证据见 [ROADMAP-R4.md](ROADMAP-R4.md), 当前 R5 计划见 [ROADMAP-R5.md](ROADMAP-R5.md).
+当前版本 `0.1.1-rc.2` 是本地验证的签名打包候选, 尚未公开发布. 当前候选属于 clean revision `a0ae189ac8cba042848412a671c91b0b8a7c44e1` (versionCode 43), universal APK SHA-256 为 `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`; 不可变回执中的 `deviceVerified=false/runtimeVerified=false` 保持不变. x86_64 split 随后通过 API 37 真实 Host 冒烟及 API 24, 31, 36 安装/执行/卸载矩阵. arm64 物理设备验证与七日 soak 已于 2026-08-26 按 owner 决定裁撤, 以后采用 fix-on-report. 详见 [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md), [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md), [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md) 与 [`docs/public-release-policy.md`](docs/public-release-policy.md). R3 历史见 [ROADMAP.md](ROADMAP.md), R4 证据见 [ROADMAP-R4.md](ROADMAP-R4.md), 当前 R5 计划见 [ROADMAP-R5.md](ROADMAP-R5.md).
 
 ******
 
@@ -283,6 +283,12 @@ $faultArgs = @(
 
 ******
 
+# v0.1.1
+
+###### 2026/09/11
+
+* `优化` 构建阶段校验 64 位原生库的 16 KB 页大小对齐, 检查 manifest 契约并输出 JSON 报告
+
 # v0.1.0-rc.2
 
 ###### 2026/08/27
@@ -349,3 +355,6 @@ app/src/main/res/values-*/strings.xml
 - Lua 项目: https://www.lua.org
 - 第三方声明: https://github.com/SuperMonster003/AutoJs6-Plugin-Lua-Runtime/blob/master/THIRD_PARTY_NOTICES.md
 - 项目许可证: https://github.com/SuperMonster003/AutoJs6-Plugin-Lua-Runtime/blob/master/LICENSE
+
+
+[16 KB page alignment and build verification](https://github.com/SuperMonster003/AutoJs6-Plugin-Lua-Runtime/blob/main/docs/16kb.md)

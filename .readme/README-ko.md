@@ -182,7 +182,7 @@ JDK 17+, Android SDK, NDK `28.2.13676358`, CMake `3.22.1`를 사용합니다. �
 
 ******
 
-현재 `0.1.0-rc.2`는 로컬에서 검증된 서명 package 후보이며 공개 release가 아닙니다. 후보 revision은 `a0ae189ac8cba042848412a671c91b0b8a7c44e1`, universal APK SHA-256은 `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`이고 immutable receipt는 `deviceVerified=false/runtimeVerified=false`를 유지합니다. x86_64 split은 이후 API 37 실제 Host smoke와 API 24, 31, 36 matrix를 통과했습니다. arm64 실제 기기 검증과 7일 soak는 2026-08-26 제외되었고 이후에는 fix-on-report를 따릅니다. [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md), [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md), [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md), [`docs/public-release-policy.md`](docs/public-release-policy.md)를 참고하세요. R3은 [ROADMAP.md](ROADMAP.md), R4는 [ROADMAP-R4.md](ROADMAP-R4.md), R5는 [ROADMAP-R5.md](ROADMAP-R5.md)에 있습니다.
+현재 `0.1.1-rc.2`는 로컬에서 검증된 서명 package 후보이며 공개 release가 아닙니다. 후보 revision은 `a0ae189ac8cba042848412a671c91b0b8a7c44e1`, universal APK SHA-256은 `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`이고 immutable receipt는 `deviceVerified=false/runtimeVerified=false`를 유지합니다. x86_64 split은 이후 API 37 실제 Host smoke와 API 24, 31, 36 matrix를 통과했습니다. arm64 실제 기기 검증과 7일 soak는 2026-08-26 제외되었고 이후에는 fix-on-report를 따릅니다. [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md), [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md), [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md), [`docs/public-release-policy.md`](docs/public-release-policy.md)를 참고하세요. R3은 [ROADMAP.md](ROADMAP.md), R4는 [ROADMAP-R4.md](ROADMAP-R4.md), R5는 [ROADMAP-R5.md](ROADMAP-R5.md)에 있습니다.
 
 ******
 
@@ -283,6 +283,12 @@ $faultArgs = @(
 
 ******
 
+# v0.1.1
+
+###### 2026/09/11
+
+* `개선` 64비트 네이티브 라이브러리의 16 KB 페이지 정렬을 빌드 시 검증, manifest 계약 검사 및 JSON 보고서 지원
+
 # v0.1.0-rc.2
 
 ###### 2026/08/27
@@ -349,3 +355,6 @@ app/src/main/res/values-*/strings.xml
 - Lua 프로젝트: https://www.lua.org
 - 타사 고지: https://github.com/SuperMonster003/AutoJs6-Plugin-Lua-Runtime/blob/master/THIRD_PARTY_NOTICES.md
 - 프로젝트 라이선스: https://github.com/SuperMonster003/AutoJs6-Plugin-Lua-Runtime/blob/master/LICENSE
+
+
+[16 KB page alignment and build verification](https://github.com/SuperMonster003/AutoJs6-Plugin-Lua-Runtime/blob/main/docs/16kb.md)

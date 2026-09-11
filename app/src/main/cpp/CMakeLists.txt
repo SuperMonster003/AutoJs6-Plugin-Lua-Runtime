@@ -58,3 +58,9 @@ target_compile_options(autojs_lua_runtime PRIVATE
 )
 
 target_link_libraries(autojs_lua_runtime PRIVATE log)
+
+# Keep 16 KB alignment explicit when changing toolchains.
+target_link_options(autojs_lua_runtime PRIVATE
+    "-Wl,-z,max-page-size=16384"
+    "-Wl,-z,common-page-size=16384"
+)

@@ -293,3 +293,6 @@ app/src/main/res/values-*/strings.xml
 - {{ text_link_lua }}: {{ lua_url }}
 - {{ text_link_notices }}: {{ third_party_notices_url }}
 - {{ text_link_license }}: {{ license_url }}
+
+
+[16 KB page alignment and build verification](https://github.com/SuperMonster003/AutoJs6-Plugin-Lua-Runtime/blob/main/docs/16kb.md)

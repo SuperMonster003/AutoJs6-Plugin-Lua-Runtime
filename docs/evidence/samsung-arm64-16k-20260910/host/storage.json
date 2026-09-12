@@ -1,0 +1,52 @@
+{
+  "phase": "storage",
+  "serial": "localhost:31277",
+  "startedUtc": "2026-09-10T03:02:25.760281+00:00",
+  "commands": [
+    {
+      "args": [
+        "shell",
+        "getconf",
+        "PAGE_SIZE"
+      ],
+      "exitCode": 0,
+      "output": "16384\n"
+    },
+    {
+      "args": [
+        "shell",
+        "getprop",
+        "ro.product.cpu.abilist"
+      ],
+      "exitCode": 0,
+      "output": "arm64-v8a\n"
+    },
+    {
+      "args": [
+        "shell",
+        "getprop",
+        "ro.product.model"
+      ],
+      "exitCode": 0,
+      "output": "SM-A566B\n"
+    },
+    {
+      "args": [
+        "shell",
+        "am",
+        "instrument",
+        "-w",
+        "-r",
+        "-e",
+        "class",
+        "org.autojs.autojs.engine.LuaHostStorageInstrumentationTest",
+        "org.autojs.autojs6.test/androidx.test.runner.AndroidJUnitRunner"
+      ],
+      "exitCode": 0,
+      "output": "INSTRUMENTATION_STATUS: class=org.autojs.autojs.engine.LuaHostStorageInstrumentationTest\nINSTRUMENTATION_STATUS: current=1\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\nINSTRUMENTATION_STATUS: numtests=3\nINSTRUMENTATION_STATUS: stream=\norg.autojs.autojs.engine.LuaHostStorageInstrumentationTest:\nINSTRUMENTATION_STATUS: test=projectedPrincipalQuotaRejectsWithoutReplacingCommittedValues\nINSTRUMENTATION_STATUS_CODE: 1\nINSTRUMENTATION_STATUS: class=org.autojs.autojs.engine.LuaHostStorageInstrumentationTest\nINSTRUMENTATION_STATUS: current=1\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\nINSTRUMENTATION_STATUS: numtests=3\nINSTRUMENTATION_STATUS: stream=.\nINSTRUMENTATION_STATUS: test=projectedPrincipalQuotaRejectsWithoutReplacingCommittedValues\nINSTRUMENTATION_STATUS_CODE: 0\nINSTRUMENTATION_STATUS: class=org.autojs.autojs.engine.LuaHostStorageInstrumentationTest\nINSTRUMENTATION_STATUS: current=2\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\nINSTRUMENTATION_STATUS: numtests=3\nINSTRUMENTATION_STATUS: stream=\nINSTRUMENTATION_STATUS: test=concurrentWritersAreLinearizedWithoutLostEntries\nINSTRUMENTATION_STATUS_CODE: 1\nINSTRUMENTATION_STATUS: class=org.autojs.autojs.engine.LuaHostStorageInstrumentationTest\nINSTRUMENTATION_STATUS: current=2\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\nINSTRUMENTATION_STATUS: numtests=3\nINSTRUMENTATION_STATUS: stream=.\nINSTRUMENTATION_STATUS: test=concurrentWritersAreLinearizedWithoutLostEntries\nINSTRUMENTATION_STATUS_CODE: 0\nINSTRUMENTATION_STATUS: class=org.autojs.autojs.engine.LuaHostStorageInstrumentationTest\nINSTRUMENTATION_STATUS: current=3\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\nINSTRUMENTATION_STATUS: numtests=3\nINSTRUMENTATION_STATUS: stream=\nINSTRUMENTATION_STATUS: test=valuesPersistAcrossBackendInstancesAndRemainPrincipalIsolated\nINSTRUMENTATION_STATUS_CODE: 1\nINSTRUMENTATION_STATUS: class=org.autojs.autojs.engine.LuaHostStorageInstrumentationTest\nINSTRUMENTATION_STATUS: current=3\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\nINSTRUMENTATION_STATUS: numtests=3\nINSTRUMENTATION_STATUS: stream=.\nINSTRUMENTATION_STATUS: test=valuesPersistAcrossBackendInstancesAndRemainPrincipalIsolated\nINSTRUMENTATION_STATUS_CODE: 0\nINSTRUMENTATION_RESULT: stream=\n\nTime: 0.884\n\nOK (3 tests)\n\n\nINSTRUMENTATION_CODE: -1\n"
+    }
+  ],
+  "testsPassed": 3,
+  "status": "PASS",
+  "finishedUtc": "2026-09-10T03:02:30.659818+00:00"
+}

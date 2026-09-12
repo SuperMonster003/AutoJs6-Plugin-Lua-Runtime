@@ -1,0 +1,6 @@
+09-10 11:29:06.653  8491  8505 I TestRunner: run started: 27 tests
+09-10 11:29:07.520  8491  8505 I TestRunner: run finished: 27 tests, 0 failed, 0 ignored
+09-10 11:29:59.804  8734  8756 I TestRunner: run started: 4 tests
+09-10 11:30:03.114  8791  8828 E AutoJs6LuaWatchdog: event=lua_runtime_fail_stop reason=deadline_cleanup_expired
+09-10 11:30:05.681  8837  8851 E AutoJs6LuaWatchdog: event=lua_runtime_fail_stop reason=deadline_cleanup_expired
+09-10 11:30:06.907  8734  8756 I TestRunner: run finished: 4 tests, 0 failed, 0 ignored

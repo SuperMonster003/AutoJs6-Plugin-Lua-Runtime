@@ -1,0 +1,268 @@
+{
+  "phase": "cleanup",
+  "serial": "localhost:31277",
+  "startedUtc": "2026-09-10T02:34:22.618761+00:00",
+  "commands": [
+    {
+      "args": [
+        "shell",
+        "getconf",
+        "PAGE_SIZE"
+      ],
+      "exitCode": 0,
+      "output": "16384\n"
+    },
+    {
+      "args": [
+        "shell",
+        "getprop",
+        "ro.product.cpu.abilist"
+      ],
+      "exitCode": 0,
+      "output": "arm64-v8a\n"
+    },
+    {
+      "args": [
+        "shell",
+        "getprop",
+        "ro.product.model"
+      ],
+      "exitCode": 0,
+      "output": "SM-A566B\n"
+    },
+    {
+      "args": [
+        "shell",
+        "pm",
+        "path",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.native_test.test"
+      ],
+      "exitCode": 0,
+      "output": "package:/data/app/~~iyr2dlqIpYBg9JvzaMBPzQ==/io.github.supermonster003.autojs6.plugin.lua.runtime.native_test.test-Vu8bvmxwa_x1ur_2p59dDA==/base.apk\n"
+    },
+    {
+      "args": [
+        "uninstall",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.native_test.test"
+      ],
+      "exitCode": 0,
+      "output": "Success\n"
+    },
+    {
+      "args": [
+        "shell",
+        "pm",
+        "path",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.native_test.test"
+      ],
+      "exitCode": 1,
+      "output": ""
+    },
+    {
+      "args": [
+        "shell",
+        "pidof",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.native_test.test"
+      ],
+      "exitCode": 1,
+      "output": ""
+    },
+    {
+      "args": [
+        "shell",
+        "pidof",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.native_test.test:lua_runtime"
+      ],
+      "exitCode": 1,
+      "output": ""
+    },
+    {
+      "args": [
+        "shell",
+        "pidof",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.native_test.test:lua_fault_peer"
+      ],
+      "exitCode": 1,
+      "output": ""
+    },
+    {
+      "args": [
+        "shell",
+        "pm",
+        "path",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.native_test"
+      ],
+      "exitCode": 0,
+      "output": "package:/data/app/~~2gCSLnYO72LBurK-rTa3zg==/io.github.supermonster003.autojs6.plugin.lua.runtime.native_test-ArMiIh3doOxhxj5CQf0m7g==/base.apk\n"
+    },
+    {
+      "args": [
+        "uninstall",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.native_test"
+      ],
+      "exitCode": 0,
+      "output": "Success\n"
+    },
+    {
+      "args": [
+        "shell",
+        "pm",
+        "path",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.native_test"
+      ],
+      "exitCode": 1,
+      "output": ""
+    },
+    {
+      "args": [
+        "shell",
+        "pidof",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.native_test"
+      ],
+      "exitCode": 1,
+      "output": ""
+    },
+    {
+      "args": [
+        "shell",
+        "pidof",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.native_test:lua_runtime"
+      ],
+      "exitCode": 1,
+      "output": ""
+    },
+    {
+      "args": [
+        "shell",
+        "pidof",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.native_test:lua_fault_peer"
+      ],
+      "exitCode": 1,
+      "output": ""
+    },
+    {
+      "args": [
+        "shell",
+        "pm",
+        "path",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.fault_test.test"
+      ],
+      "exitCode": 0,
+      "output": "package:/data/app/~~9v_rpJEF6uAxx3_zekgbxw==/io.github.supermonster003.autojs6.plugin.lua.runtime.fault_test.test-ATcF4mjSrc1t75OBl6rbKQ==/base.apk\n"
+    },
+    {
+      "args": [
+        "uninstall",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.fault_test.test"
+      ],
+      "exitCode": 0,
+      "output": "Success\n"
+    },
+    {
+      "args": [
+        "shell",
+        "pm",
+        "path",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.fault_test.test"
+      ],
+      "exitCode": 1,
+      "output": ""
+    },
+    {
+      "args": [
+        "shell",
+        "pidof",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.fault_test.test"
+      ],
+      "exitCode": 1,
+      "output": ""
+    },
+    {
+      "args": [
+        "shell",
+        "pidof",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.fault_test.test:lua_runtime"
+      ],
+      "exitCode": 1,
+      "output": ""
+    },
+    {
+      "args": [
+        "shell",
+        "pidof",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.fault_test.test:lua_fault_peer"
+      ],
+      "exitCode": 1,
+      "output": ""
+    },
+    {
+      "args": [
+        "shell",
+        "pm",
+        "path",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.fault_test"
+      ],
+      "exitCode": 0,
+      "output": "package:/data/app/~~VMpuKdoVf1xgcOu1DkAeqw==/io.github.supermonster003.autojs6.plugin.lua.runtime.fault_test-k758jqxghiQQlSrsrFw21g==/base.apk\n"
+    },
+    {
+      "args": [
+        "uninstall",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.fault_test"
+      ],
+      "exitCode": 0,
+      "output": "Success\n"
+    },
+    {
+      "args": [
+        "shell",
+        "pm",
+        "path",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.fault_test"
+      ],
+      "exitCode": 1,
+      "output": ""
+    },
+    {
+      "args": [
+        "shell",
+        "pidof",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.fault_test"
+      ],
+      "exitCode": 1,
+      "output": ""
+    },
+    {
+      "args": [
+        "shell",
+        "pidof",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.fault_test:lua_runtime"
+      ],
+      "exitCode": 1,
+      "output": ""
+    },
+    {
+      "args": [
+        "shell",
+        "pidof",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.fault_test:lua_fault_peer"
+      ],
+      "exitCode": 1,
+      "output": ""
+    },
+    {
+      "args": [
+        "shell",
+        "pm",
+        "list",
+        "packages",
+        "autojs"
+      ],
+      "exitCode": 0,
+      "output": "package:io.github.supermonster003.autojs6.plugin.python.runtime\npackage:org.autojs.autojs6\npackage:org.autojs.autojs6.test\n"
+    }
+  ],
+  "artifacts": [],
+  "status": "PASS",
+  "finishedUtc": "2026-09-10T02:34:36.838278+00:00"
+}

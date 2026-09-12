@@ -1,0 +1,108 @@
+{
+  "phase": "capabilities",
+  "serial": "localhost:31277",
+  "startedUtc": "2026-09-10T03:02:42.796799+00:00",
+  "commands": [
+    {
+      "args": [
+        "shell",
+        "getconf",
+        "PAGE_SIZE"
+      ],
+      "exitCode": 0,
+      "output": "16384\n"
+    },
+    {
+      "args": [
+        "shell",
+        "getprop",
+        "ro.product.cpu.abilist"
+      ],
+      "exitCode": 0,
+      "output": "arm64-v8a\n"
+    },
+    {
+      "args": [
+        "shell",
+        "getprop",
+        "ro.product.model"
+      ],
+      "exitCode": 0,
+      "output": "SM-A566B\n"
+    },
+    {
+      "args": [
+        "shell",
+        "ls",
+        "/data/local/tmp/lua-host-toast-20260910.mp4"
+      ],
+      "exitCode": 1,
+      "output": "ls: /data/local/tmp/lua-host-toast-20260910.mp4: No such file or directory\n"
+    },
+    {
+      "args": [
+        "shell",
+        "am",
+        "instrument",
+        "-w",
+        "-r",
+        "-e",
+        "class",
+        "org.autojs.autojs.core.plugin.lua.LuaOfficialRuntimeSmokeTest",
+        "-e",
+        "autojs.luaRuntime.officialProvider.enabled",
+        "true",
+        "-e",
+        "autojs.luaRuntime.officialProvider.toastHoldMillis",
+        "8000",
+        "org.autojs.autojs6.test/androidx.test.runner.AndroidJUnitRunner"
+      ],
+      "exitCode": 0,
+      "output": "INSTRUMENTATION_STATUS: class=org.autojs.autojs.core.plugin.lua.LuaOfficialRuntimeSmokeTest\nINSTRUMENTATION_STATUS: current=1\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\nINSTRUMENTATION_STATUS: numtests=1\nINSTRUMENTATION_STATUS: stream=\norg.autojs.autojs.core.plugin.lua.LuaOfficialRuntimeSmokeTest:\nINSTRUMENTATION_STATUS: test=officialProviderExecutesAndReleasesSequentialSessions\nINSTRUMENTATION_STATUS_CODE: 1\nINSTRUMENTATION_STATUS: class=org.autojs.autojs.core.plugin.lua.LuaOfficialRuntimeSmokeTest\nINSTRUMENTATION_STATUS: current=1\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\nINSTRUMENTATION_STATUS: numtests=1\nINSTRUMENTATION_STATUS: stream=.\nINSTRUMENTATION_STATUS: test=officialProviderExecutesAndReleasesSequentialSessions\nINSTRUMENTATION_STATUS_CODE: 0\nINSTRUMENTATION_RESULT: stream=\n\nTime: 10.335\n\nOK (1 test)\n\n\nINSTRUMENTATION_CODE: -1\n"
+    },
+    {
+      "args": [
+        "pull",
+        "/data/local/tmp/lua-host-toast-20260910.mp4",
+        "D:\\idea-projects\\AutoJs6-Plugin-Lua-Runtime\\build\\device-evidence\\samsung-arm64-16k-20260910\\host-followup\\toast-recording.mp4"
+      ],
+      "exitCode": 0,
+      "output": "/data/local/tmp/lua-host-toast-20260910.mp4: 1 file pulled, 0 skipped. 0.1 MB/s (30242 bytes in 0.511s)\n"
+    },
+    {
+      "args": [
+        "shell",
+        "sha256sum",
+        "/data/local/tmp/lua-host-toast-20260910.mp4"
+      ],
+      "exitCode": 0,
+      "output": "1dbc1274f8131141483b5441ab7e4e6aa71f7b17c9ce4530007d40e5d897cff9  /data/local/tmp/lua-host-toast-20260910.mp4\n"
+    },
+    {
+      "args": [
+        "shell",
+        "rm",
+        "/data/local/tmp/lua-host-toast-20260910.mp4"
+      ],
+      "exitCode": 0,
+      "output": ""
+    }
+  ],
+  "recordingArguments": [
+    "-s",
+    "localhost:31277",
+    "shell",
+    "screenrecord",
+    "--time-limit",
+    "15",
+    "--bit-rate",
+    "2000000",
+    "/data/local/tmp/lua-host-toast-20260910.mp4"
+  ],
+  "testsPassed": 1,
+  "recordingExitCode": 0,
+  "recordingOutput": "",
+  "recordingSha256": "1dbc1274f8131141483b5441ab7e4e6aa71f7b17c9ce4530007d40e5d897cff9",
+  "status": "PASS",
+  "finishedUtc": "2026-09-10T03:03:02.984954+00:00"
+}

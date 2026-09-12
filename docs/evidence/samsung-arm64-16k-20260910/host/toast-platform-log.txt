@@ -1,0 +1,2 @@
+09-10 12:02:48.194  1156  3643 E NotificationService: Suppressing toast from package org.autojs.autojs6 by user request.
+09-10 12:05:05.798  1156  2412 W NotificationService: Toast already killed. pkg=org.autojs.autojs6 token=android.os.BinderProxy@81e34d8

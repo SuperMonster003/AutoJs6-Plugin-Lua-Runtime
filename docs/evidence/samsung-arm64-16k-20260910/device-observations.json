@@ -1,0 +1,106 @@
+{
+  "observedUtc": "2026-09-10T02:32:37.799305+00:00",
+  "commands": [
+    {
+      "args": [
+        "shell",
+        "getconf",
+        "PAGE_SIZE"
+      ],
+      "exitCode": 0,
+      "output": "16384\n"
+    },
+    {
+      "args": [
+        "shell",
+        "getprop",
+        "ro.product.model"
+      ],
+      "exitCode": 0,
+      "output": "SM-A566B\n"
+    },
+    {
+      "args": [
+        "shell",
+        "getprop",
+        "ro.product.cpu.abilist"
+      ],
+      "exitCode": 0,
+      "output": "arm64-v8a\n"
+    },
+    {
+      "args": [
+        "shell",
+        "getprop",
+        "ro.build.version.release"
+      ],
+      "exitCode": 0,
+      "output": "16\n"
+    },
+    {
+      "args": [
+        "shell",
+        "getprop",
+        "ro.build.version.sdk"
+      ],
+      "exitCode": 0,
+      "output": "36\n"
+    },
+    {
+      "args": [
+        "shell",
+        "getprop",
+        "ro.build.fingerprint"
+      ],
+      "exitCode": 0,
+      "output": "samsung/a56xnaeea_16kb/a56x:16/BP2A.250605.031.A3/A566BXXU6BYIF_OXM6BYIF:user/release-keys\n"
+    },
+    {
+      "args": [
+        "shell",
+        "getprop",
+        "ro.kernel.qemu"
+      ],
+      "exitCode": 0,
+      "output": "0\n"
+    },
+    {
+      "args": [
+        "shell",
+        "uname",
+        "-m"
+      ],
+      "exitCode": 0,
+      "output": "aarch64\n"
+    },
+    {
+      "args": [
+        "shell",
+        "dumpsys",
+        "package",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.native_test"
+      ],
+      "exitCode": 0,
+      "output": "primaryCpuAbi=arm64-v8a\nversionCode=62 minSdk=24 targetSdk=36\nversionName=0.1.0-rc.2\npageSizeCompat=0"
+    },
+    {
+      "args": [
+        "shell",
+        "dumpsys",
+        "package",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.fault_test"
+      ],
+      "exitCode": 0,
+      "output": "primaryCpuAbi=arm64-v8a\nversionCode=62 minSdk=24 targetSdk=36\nversionName=0.1.0-rc.2\npageSizeCompat=0"
+    },
+    {
+      "args": [
+        "shell",
+        "pidof",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.fault_test:lua_runtime"
+      ],
+      "exitCode": 1,
+      "output": ""
+    }
+  ]
+}

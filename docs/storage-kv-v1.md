@@ -6,6 +6,13 @@ Design date: 2026-08-25
 
 Coordinated implementation date: 2026-08-27
 
+Additional device evidence (2026-09-10): Samsung SM-A566B, Android 16 / API 36,
+native ARM64 with 16 KiB pages. AutoJs6 5279 and the versionCode 62 development
+Provider passed 3/3 Host storage-backend tests and the real-Host capability smoke,
+including same-file persistence/increment, different-file isolation, and clear.
+Exact artifacts, raw results, and device scope are recorded in
+[`samsung-arm64-16k-validation.md`](samsung-arm64-16k-validation.md).
+
 Implementation inputs:
 
 - Provider revision `ba3a450aa57a88423db386d83090f7d69cde6fc3`;

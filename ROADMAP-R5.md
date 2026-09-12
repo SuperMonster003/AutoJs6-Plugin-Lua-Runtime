@@ -134,6 +134,41 @@ Provider 冒烟为 1/1. 冒烟覆盖同一文件跨执行持久化、不同文�
   完成判据: Release 页面内容与草稿一致; 移除 `DRAFT — DO NOT PUBLISH`
   阻止标记的动作由人工显式确认执行, 不由自动化代做.
 
+## R5-F — ARM64 16 KiB 真机补充验证 (自愿项, 非发布门禁)
+
+- [x] **三星 ARM64 16 KiB 原生执行与故障恢复验证**. 在 owner 提供并授权的
+  RDB 设备 `localhost:31277` 上完成隔离 `nativeTestDebug` 与 `faultTestDebug`
+  测试; 实测为 Samsung SM-A566B, Android 16 / API 36, `arm64-v8a`,
+  `PAGE_SIZE=16384`, `ro.kernel.qemu=0`, 两个测试应用 `pageSizeCompat=0`.
+  完成判据: 23 项 native + 4 项 Binder 边界 + 4 项 fault recovery 全部通过且无
+  跳过; 精确 APK/原生库 SHA-256, 安装后摘要, 16 KiB ZIP/ELF 对齐, instrumentation
+  原始回执及测试包清理证据归档.
+- [x] **同设备真实 Host 端到端冒烟**. owner 确认其他项目测试结束并允许必要的
+  宿主重装后, 使用同调试签名的 AutoJs6 5279, `providerDebug` versionCode 62,
+  宿主测试包和独立 Host harness 完成验证.
+  完成判据: Host storage 后端 3/3, 完整 capability 冒烟 1/1, 独立 Host 冒烟的
+  两次执行及发现/结果/console 通过; 可见 Toast 截图, Provider 实际进程 16 KiB
+  映射, 精确制品摘要与测试后恢复原宿主 APK 的证据归档.
+
+R5-F 真机证据 (2026-09-10): 基于 `f2cba38f12e19a6d17bed8bce0d5bb5a6b90b402`
+及三处已有构建配置改动, 离线构建 versionCode 62 的开发制品. native/Binder 为
+27/27 (0.866 秒), fault recovery 为 4/4 (7.102 秒), 覆盖 ARM64 真机上的
+deadline/cancel, coroutine/OOM, native crash, watchdog, 阻塞 pipe, 重绑恢复及
+OS FD 回落到基线. 本次安装的四个测试包随后移除. 完整边界和原始证据见
+[`docs/samsung-arm64-16k-validation.md`](docs/samsung-arm64-16k-validation.md).
+
+R5-F 真实 Host 补测证据 (2026-09-10): 第一轮因设备共用暂停的 Host 冒烟已在
+owner 确认可用后完成. Host storage 为 3/3 (0.884 秒), capability 冒烟为
+1/1 (10.335 秒), 独立 Host 冒烟为两次执行通过. 覆盖真实文件跨执行持久化,
+文件隔离, 清除, console, device info, Toast 与 V1 module cache. 首轮 Toast
+被 Android 的通知禁用设置抑制; 为临时宿主启用通知后, 同一 capability 测试
+再次 1/1 通过 (10.261 秒), 录屏确认 Toast 实际显示. Provider PID 19422 的原生
+APK 映射同时报告 `KernelPageSize=16 kB` 与 `MMUPageSize=16 kB`.
+合计 35 个不同 JUnit 用例通过, Toast 复验另计一次重复执行. 测试后移除 Lua
+Provider/harness 并恢复原 Host/Host-test APK 的精确摘要; 宿主数据为授权重装后的
+新状态. 本项补充既有 x86_64 矩阵, 不重启已裁撤的发布门禁或七日 soak, 不改写
+versionCode 43 的不可变 rc.2 候选回执.
+
 ## 执行顺序建议
 
 1. R5-A 与 R5-0 已完成, 后续文档和门禁均以显式 variant 与十语言生成机制为准.

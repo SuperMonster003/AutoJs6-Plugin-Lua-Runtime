@@ -1,0 +1,312 @@
+{
+  "phase": "restore",
+  "serial": "localhost:31277",
+  "startedUtc": "2026-09-10T03:06:25.621174+00:00",
+  "commands": [
+    {
+      "args": [
+        "shell",
+        "getconf",
+        "PAGE_SIZE"
+      ],
+      "exitCode": 0,
+      "output": "16384\n"
+    },
+    {
+      "args": [
+        "shell",
+        "getprop",
+        "ro.product.cpu.abilist"
+      ],
+      "exitCode": 0,
+      "output": "arm64-v8a\n"
+    },
+    {
+      "args": [
+        "shell",
+        "getprop",
+        "ro.product.model"
+      ],
+      "exitCode": 0,
+      "output": "SM-A566B\n"
+    },
+    {
+      "args": [
+        "shell",
+        "pm",
+        "path",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.host.lifecycle.test"
+      ],
+      "exitCode": 0,
+      "output": "package:/data/app/~~GbnWLQyVoCHoYKbsNqZESg==/io.github.supermonster003.autojs6.plugin.lua.runtime.host.lifecycle.test-wzOzGasilFXmNmOtU9OMtw==/base.apk\n"
+    },
+    {
+      "args": [
+        "uninstall",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.host.lifecycle.test"
+      ],
+      "exitCode": 0,
+      "output": "Success\n"
+    },
+    {
+      "args": [
+        "shell",
+        "pm",
+        "path",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.host.lifecycle.test"
+      ],
+      "exitCode": 1,
+      "output": ""
+    },
+    {
+      "args": [
+        "shell",
+        "pidof",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.host.lifecycle.test"
+      ],
+      "exitCode": 1,
+      "output": ""
+    },
+    {
+      "args": [
+        "shell",
+        "pidof",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.host.lifecycle.test:lua_runtime"
+      ],
+      "exitCode": 1,
+      "output": ""
+    },
+    {
+      "args": [
+        "shell",
+        "pm",
+        "path",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime"
+      ],
+      "exitCode": 0,
+      "output": "package:/data/app/~~rXTGQqHuNV9JYBZa9g1nOg==/io.github.supermonster003.autojs6.plugin.lua.runtime-Hyw7ZBAAJVPAMonVix3DQg==/base.apk\n"
+    },
+    {
+      "args": [
+        "uninstall",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime"
+      ],
+      "exitCode": 0,
+      "output": "Success\n"
+    },
+    {
+      "args": [
+        "shell",
+        "pm",
+        "path",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime"
+      ],
+      "exitCode": 1,
+      "output": ""
+    },
+    {
+      "args": [
+        "shell",
+        "pidof",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime"
+      ],
+      "exitCode": 1,
+      "output": ""
+    },
+    {
+      "args": [
+        "shell",
+        "pidof",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime:lua_runtime"
+      ],
+      "exitCode": 1,
+      "output": ""
+    },
+    {
+      "args": [
+        "shell",
+        "pm",
+        "path",
+        "org.autojs.autojs6.test"
+      ],
+      "exitCode": 0,
+      "output": "package:/data/app/~~5NzsbxMj-eF6QOcDPCUm1g==/org.autojs.autojs6.test-avbm76UWEUhRaiviQ7N6zA==/base.apk\n"
+    },
+    {
+      "args": [
+        "uninstall",
+        "org.autojs.autojs6.test"
+      ],
+      "exitCode": 0,
+      "output": "Success\n"
+    },
+    {
+      "args": [
+        "shell",
+        "pm",
+        "path",
+        "org.autojs.autojs6.test"
+      ],
+      "exitCode": 1,
+      "output": ""
+    },
+    {
+      "args": [
+        "shell",
+        "pidof",
+        "org.autojs.autojs6.test"
+      ],
+      "exitCode": 1,
+      "output": ""
+    },
+    {
+      "args": [
+        "shell",
+        "pidof",
+        "org.autojs.autojs6.test:lua_runtime"
+      ],
+      "exitCode": 1,
+      "output": ""
+    },
+    {
+      "args": [
+        "shell",
+        "pm",
+        "path",
+        "org.autojs.autojs6"
+      ],
+      "exitCode": 0,
+      "output": "package:/data/app/~~OBcnccLlkIezrEFvGXmY6w==/org.autojs.autojs6-6uTQuXxPDrcFyIxGT3xRqA==/base.apk\n"
+    },
+    {
+      "args": [
+        "uninstall",
+        "org.autojs.autojs6"
+      ],
+      "exitCode": 0,
+      "output": "Success\n"
+    },
+    {
+      "args": [
+        "shell",
+        "pm",
+        "path",
+        "org.autojs.autojs6"
+      ],
+      "exitCode": 1,
+      "output": ""
+    },
+    {
+      "args": [
+        "shell",
+        "pidof",
+        "org.autojs.autojs6"
+      ],
+      "exitCode": 1,
+      "output": ""
+    },
+    {
+      "args": [
+        "shell",
+        "pidof",
+        "org.autojs.autojs6:lua_runtime"
+      ],
+      "exitCode": 1,
+      "output": ""
+    },
+    {
+      "args": [
+        "shell",
+        "pm",
+        "path",
+        "org.autojs.autojs6"
+      ],
+      "exitCode": 1,
+      "output": ""
+    },
+    {
+      "args": [
+        "install",
+        "-t",
+        "D:\\idea-projects\\AutoJs6-Plugin-Lua-Runtime\\build\\device-evidence\\samsung-arm64-16k-20260910\\host-followup\\original-host.apk"
+      ],
+      "exitCode": 0,
+      "output": "Performing Streamed Install\nSuccess\n"
+    },
+    {
+      "args": [
+        "shell",
+        "pm",
+        "path",
+        "org.autojs.autojs6"
+      ],
+      "exitCode": 0,
+      "output": "package:/data/app/~~dnS0pPAm2tlopQ7Cp7ZP0Q==/org.autojs.autojs6-cpKbXH37CDShX71GJ7c-tw==/base.apk\n"
+    },
+    {
+      "args": [
+        "shell",
+        "sha256sum",
+        "/data/app/~~dnS0pPAm2tlopQ7Cp7ZP0Q==/org.autojs.autojs6-cpKbXH37CDShX71GJ7c-tw==/base.apk"
+      ],
+      "exitCode": 0,
+      "output": "ef5c38f62b8cb98f2e5ed81dadeb413ebf0ac373089ab70a6006199090f198d8  /data/app/~~dnS0pPAm2tlopQ7Cp7ZP0Q==/org.autojs.autojs6-cpKbXH37CDShX71GJ7c-tw==/base.apk\n"
+    },
+    {
+      "args": [
+        "shell",
+        "pm",
+        "path",
+        "org.autojs.autojs6.test"
+      ],
+      "exitCode": 1,
+      "output": ""
+    },
+    {
+      "args": [
+        "install",
+        "-t",
+        "D:\\idea-projects\\AutoJs6-Plugin-Lua-Runtime\\build\\device-evidence\\samsung-arm64-16k-20260910\\host-followup\\original-host-test.apk"
+      ],
+      "exitCode": 0,
+      "output": "Performing Streamed Install\nSuccess\n"
+    },
+    {
+      "args": [
+        "shell",
+        "pm",
+        "path",
+        "org.autojs.autojs6.test"
+      ],
+      "exitCode": 0,
+      "output": "package:/data/app/~~NKy3IhOcnvOuQdllbKTiow==/org.autojs.autojs6.test-TwyBTHmua0bd-V9ikoJr0g==/base.apk\n"
+    },
+    {
+      "args": [
+        "shell",
+        "sha256sum",
+        "/data/app/~~NKy3IhOcnvOuQdllbKTiow==/org.autojs.autojs6.test-TwyBTHmua0bd-V9ikoJr0g==/base.apk"
+      ],
+      "exitCode": 0,
+      "output": "71f96fade33b527aff0b0dfeed157c7395cb5b5a231b2e4d651d3bd9785d09c9  /data/app/~~NKy3IhOcnvOuQdllbKTiow==/org.autojs.autojs6.test-TwyBTHmua0bd-V9ikoJr0g==/base.apk\n"
+    },
+    {
+      "args": [
+        "shell",
+        "pm",
+        "list",
+        "packages",
+        "autojs"
+      ],
+      "exitCode": 0,
+      "output": "package:io.github.supermonster003.autojs6.plugin.python.runtime\npackage:io.github.supermonster003.autojs6.plugin.nodejs.test\npackage:io.github.supermonster003.autojs6.plugin.mediainfo\npackage:io.github.supermonster003.autojs6.plugin.opencv\npackage:io.github.supermonster003.autojs6.plugin.nodejs\npackage:org.autojs.autojs6\npackage:org.autojs.autojs6.test\n"
+    }
+  ],
+  "restoredOriginalApkHashes": {
+    "org.autojs.autojs6": "ef5c38f62b8cb98f2e5ed81dadeb413ebf0ac373089ab70a6006199090f198d8",
+    "org.autojs.autojs6.test": "71f96fade33b527aff0b0dfeed157c7395cb5b5a231b2e4d651d3bd9785d09c9"
+  },
+  "applicationDataRestored": false,
+  "status": "PASS",
+  "finishedUtc": "2026-09-10T03:07:12.869266+00:00"
+}

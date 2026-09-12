@@ -1,0 +1,144 @@
+{
+  "phase": "capabilities_visible",
+  "serial": "localhost:31277",
+  "startedUtc": "2026-09-10T03:04:56.659916+00:00",
+  "commands": [
+    {
+      "args": [
+        "shell",
+        "getconf",
+        "PAGE_SIZE"
+      ],
+      "exitCode": 0,
+      "output": "16384\n"
+    },
+    {
+      "args": [
+        "shell",
+        "getprop",
+        "ro.product.cpu.abilist"
+      ],
+      "exitCode": 0,
+      "output": "arm64-v8a\n"
+    },
+    {
+      "args": [
+        "shell",
+        "getprop",
+        "ro.product.model"
+      ],
+      "exitCode": 0,
+      "output": "SM-A566B\n"
+    },
+    {
+      "args": [
+        "shell",
+        "cmd",
+        "appops",
+        "get",
+        "org.autojs.autojs6",
+        "POST_NOTIFICATION"
+      ],
+      "exitCode": 0,
+      "output": "Uid mode: POST_NOTIFICATION: ignore\n"
+    },
+    {
+      "args": [
+        "shell",
+        "pm",
+        "grant",
+        "org.autojs.autojs6",
+        "android.permission.POST_NOTIFICATIONS"
+      ],
+      "exitCode": 0,
+      "output": ""
+    },
+    {
+      "args": [
+        "shell",
+        "cmd",
+        "appops",
+        "get",
+        "org.autojs.autojs6",
+        "POST_NOTIFICATION"
+      ],
+      "exitCode": 0,
+      "output": "No operations.\nDefault mode: allow\n"
+    },
+    {
+      "args": [
+        "shell",
+        "ls",
+        "/data/local/tmp/lua-host-toast-capabilities_visible-20260910.mp4"
+      ],
+      "exitCode": 1,
+      "output": "ls: /data/local/tmp/lua-host-toast-capabilities_visible-20260910.mp4: No such file or directory\n"
+    },
+    {
+      "args": [
+        "shell",
+        "am",
+        "instrument",
+        "-w",
+        "-r",
+        "-e",
+        "class",
+        "org.autojs.autojs.core.plugin.lua.LuaOfficialRuntimeSmokeTest",
+        "-e",
+        "autojs.luaRuntime.officialProvider.enabled",
+        "true",
+        "-e",
+        "autojs.luaRuntime.officialProvider.toastHoldMillis",
+        "8000",
+        "org.autojs.autojs6.test/androidx.test.runner.AndroidJUnitRunner"
+      ],
+      "exitCode": 0,
+      "output": "INSTRUMENTATION_STATUS: class=org.autojs.autojs.core.plugin.lua.LuaOfficialRuntimeSmokeTest\nINSTRUMENTATION_STATUS: current=1\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\nINSTRUMENTATION_STATUS: numtests=1\nINSTRUMENTATION_STATUS: stream=\norg.autojs.autojs.core.plugin.lua.LuaOfficialRuntimeSmokeTest:\nINSTRUMENTATION_STATUS: test=officialProviderExecutesAndReleasesSequentialSessions\nINSTRUMENTATION_STATUS_CODE: 1\nINSTRUMENTATION_STATUS: class=org.autojs.autojs.core.plugin.lua.LuaOfficialRuntimeSmokeTest\nINSTRUMENTATION_STATUS: current=1\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\nINSTRUMENTATION_STATUS: numtests=1\nINSTRUMENTATION_STATUS: stream=.\nINSTRUMENTATION_STATUS: test=officialProviderExecutesAndReleasesSequentialSessions\nINSTRUMENTATION_STATUS_CODE: 0\nINSTRUMENTATION_RESULT: stream=\n\nTime: 10.261\n\nOK (1 test)\n\n\nINSTRUMENTATION_CODE: -1\n"
+    },
+    {
+      "args": [
+        "pull",
+        "/data/local/tmp/lua-host-toast-capabilities_visible-20260910.mp4",
+        "D:\\idea-projects\\AutoJs6-Plugin-Lua-Runtime\\build\\device-evidence\\samsung-arm64-16k-20260910\\host-followup\\capabilities_visible-toast-recording.mp4"
+      ],
+      "exitCode": 0,
+      "output": "/data/local/tmp/lua-host-toast-capabilities_visible-20260910.mp4: 1 file pulled, 0 skipped. 0.4 MB/s (664547 bytes in 1.551s)\n"
+    },
+    {
+      "args": [
+        "shell",
+        "sha256sum",
+        "/data/local/tmp/lua-host-toast-capabilities_visible-20260910.mp4"
+      ],
+      "exitCode": 0,
+      "output": "7c07d6a07995ed259a604f1554a87b654cb83cd58bf0fb5ee3edbc651c3f2088  /data/local/tmp/lua-host-toast-capabilities_visible-20260910.mp4\n"
+    },
+    {
+      "args": [
+        "shell",
+        "rm",
+        "/data/local/tmp/lua-host-toast-capabilities_visible-20260910.mp4"
+      ],
+      "exitCode": 0,
+      "output": ""
+    }
+  ],
+  "recordingArguments": [
+    "-s",
+    "localhost:31277",
+    "shell",
+    "screenrecord",
+    "--time-limit",
+    "15",
+    "--bit-rate",
+    "2000000",
+    "/data/local/tmp/lua-host-toast-capabilities_visible-20260910.mp4"
+  ],
+  "testsPassed": 1,
+  "recordingExitCode": 0,
+  "recordingOutput": "",
+  "recordingSha256": "7c07d6a07995ed259a604f1554a87b654cb83cd58bf0fb5ee3edbc651c3f2088",
+  "recordingFile": "capabilities_visible-toast-recording.mp4",
+  "status": "PASS",
+  "finishedUtc": "2026-09-10T03:05:19.038444+00:00"
+}

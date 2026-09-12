@@ -1,0 +1,59 @@
+{
+  "observedUtc": "2026-09-10T03:03:40.165823+00:00",
+  "commands": [
+    {
+      "args": [
+        "shell",
+        "dumpsys",
+        "package",
+        "org.autojs.autojs6"
+      ],
+      "exitCode": 0,
+      "output": "primaryCpuAbi=arm64-v8a\nversionCode=5279 minSdk=24 targetSdk=36\nversionName=6.8.0\npageSizeCompat=4"
+    },
+    {
+      "args": [
+        "shell",
+        "dumpsys",
+        "package",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime"
+      ],
+      "exitCode": 0,
+      "output": "primaryCpuAbi=arm64-v8a\nversionCode=62 minSdk=24 targetSdk=36\nversionName=0.1.0-rc.2\npageSizeCompat=0"
+    },
+    {
+      "args": [
+        "shell",
+        "pidof",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime:lua_runtime"
+      ],
+      "exitCode": 0,
+      "output": "19422\n"
+    },
+    {
+      "args": [
+        "shell",
+        "run-as",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime",
+        "cat",
+        "/proc/19422/smaps"
+      ],
+      "exitCode": 0,
+      "output": "71fdf1b40000-71fdf1bec000 r-xp 00108000 fe:41 851995                     /data/app/~~rXTGQqHuNV9JYBZa9g1nOg==/io.github.supermonster003.autojs6.plugin.lua.runtime-Hyw7ZBAAJVPAMonVix3DQg==/base.apk\nSize:                688 kB\nKernelPageSize:       16 kB\nMMUPageSize:          16 kB\nVmFlags: rd ex mr mw me \n71fdf1bec000-71fdf1bf4000 r--p 001b0000 fe:41 851995                     /data/app/~~rXTGQqHuNV9JYBZa9g1nOg==/io.github.supermonster003.autojs6.plugin.lua.runtime-Hyw7ZBAAJVPAMonVix3DQg==/base.apk\nSize:                 32 kB\nKernelPageSize:       16 kB\nMMUPageSize:          16 kB\nVmFlags: rd mr mw me ac \n71fdf1bf4000-71fdf1bf8000 rw-p 001b4000 fe:41 851995                     /data/app/~~rXTGQqHuNV9JYBZa9g1nOg==/io.github.supermonster003.autojs6.plugin.lua.runtime-Hyw7ZBAAJVPAMonVix3DQg==/base.apk\nSize:                 16 kB\nKernelPageSize:       16 kB\nMMUPageSize:          16 kB\nVmFlags: rd wr mr mw me ac \n7201203e0000-7201203e8000 r--s 001c0000 fe:41 851995                     /data/app/~~rXTGQqHuNV9JYBZa9g1nOg==/io.github.supermonster003.autojs6.plugin.lua.runtime-Hyw7ZBAAJVPAMonVix3DQg==/base.apk\nSize:                 32 kB\nKernelPageSize:       16 kB\nMMUPageSize:          16 kB\nVmFlags: rd mr me ms \n720136ad4000-720136ad8000 r--s 001c8000 fe:41 851995                     /data/app/~~rXTGQqHuNV9JYBZa9g1nOg==/io.github.supermonster003.autojs6.plugin.lua.runtime-Hyw7ZBAAJVPAMonVix3DQg==/base.apk\nSize:                 16 kB\nKernelPageSize:       16 kB\nMMUPageSize:          16 kB\nVmFlags: rd mr me ms "
+    },
+    {
+      "args": [
+        "logcat",
+        "-d",
+        "-v",
+        "threadtime",
+        "-s",
+        "AutoJs6LuaHostLifecycle:I",
+        "TestRunner:I",
+        "*:S"
+      ],
+      "exitCode": 0,
+      "output": "09-10 12:02:30.044 19331 19348 I TestRunner: started: projectedPrincipalQuotaRejectsWithoutReplacingCommittedValues(org.autojs.autojs.engine.LuaHostStorageInstrumentationTest)\n09-10 12:02:30.689 19331 19348 I TestRunner: finished: projectedPrincipalQuotaRejectsWithoutReplacingCommittedValues(org.autojs.autojs.engine.LuaHostStorageInstrumentationTest)\n09-10 12:02:30.696 19331 19348 I TestRunner: started: concurrentWritersAreLinearizedWithoutLostEntries(org.autojs.autojs.engine.LuaHostStorageInstrumentationTest)\n09-10 12:02:30.889 19331 19348 I TestRunner: finished: concurrentWritersAreLinearizedWithoutLostEntries(org.autojs.autojs.engine.LuaHostStorageInstrumentationTest)\n09-10 12:02:30.894 19331 19348 I TestRunner: started: valuesPersistAcrossBackendInstancesAndRemainPrincipalIsolated(org.autojs.autojs.engine.LuaHostStorageInstrumentationTest)\n09-10 12:02:30.913 19331 19348 I TestRunner: finished: valuesPersistAcrossBackendInstancesAndRemainPrincipalIsolated(org.autojs.autojs.engine.LuaHostStorageInstrumentationTest)\n09-10 12:02:35.565 19402 19418 I AutoJs6LuaHostLifecycle: LUA_HOST_OFFICIAL_SMOKE_PASS runId=samsung-arm64-16k-host-20260910 hostPid=19402 hostUid=10341 hostVersionCode=5279 providerVersionCode=62 executions=2 discovery=pass result=pass console=pass\n09-10 12:02:47.515 19552 19567 I TestRunner: started: officialProviderExecutesAndReleasesSequentialSessions(org.autojs.autojs.core.plugin.lua.LuaOfficialRuntimeSmokeTest)\n09-10 12:02:57.841 19552 19567 I TestRunner: finished: officialProviderExecutesAndReleasesSequentialSessions(org.autojs.autojs.core.plugin.lua.LuaOfficialRuntimeSmokeTest)"
+    }
+  ]
+}

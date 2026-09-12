@@ -1,0 +1,61 @@
+{
+  "phase": "smoke",
+  "serial": "localhost:31277",
+  "startedUtc": "2026-09-10T03:02:30.782337+00:00",
+  "commands": [
+    {
+      "args": [
+        "shell",
+        "getconf",
+        "PAGE_SIZE"
+      ],
+      "exitCode": 0,
+      "output": "16384\n"
+    },
+    {
+      "args": [
+        "shell",
+        "getprop",
+        "ro.product.cpu.abilist"
+      ],
+      "exitCode": 0,
+      "output": "arm64-v8a\n"
+    },
+    {
+      "args": [
+        "shell",
+        "getprop",
+        "ro.product.model"
+      ],
+      "exitCode": 0,
+      "output": "SM-A566B\n"
+    },
+    {
+      "args": [
+        "shell",
+        "am",
+        "instrument",
+        "-w",
+        "-r",
+        "-e",
+        "mode",
+        "smoke",
+        "-e",
+        "runId",
+        "samsung-arm64-16k-host-20260910",
+        "-e",
+        "expectedHostVersionCode",
+        "5279",
+        "-e",
+        "expectedProviderVersionCode",
+        "62",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.host.lifecycle.test/.LuaHostLifecycleInstrumentation"
+      ],
+      "exitCode": 0,
+      "output": "INSTRUMENTATION_RESULT: console=pass\nINSTRUMENTATION_RESULT: discovery=pass\nINSTRUMENTATION_RESULT: executions=2\nINSTRUMENTATION_RESULT: hostVersionCode=5279\nINSTRUMENTATION_RESULT: providerVersionCode=62\nINSTRUMENTATION_RESULT: result=pass\nINSTRUMENTATION_RESULT: runId=samsung-arm64-16k-host-20260910\nINSTRUMENTATION_RESULT: stream=LUA_HOST_OFFICIAL_SMOKE_PASS runId=samsung-arm64-16k-host-20260910\n\nINSTRUMENTATION_CODE: -1\n"
+    }
+  ],
+  "executionsPassed": 2,
+  "status": "PASS",
+  "finishedUtc": "2026-09-10T03:02:35.289771+00:00"
+}

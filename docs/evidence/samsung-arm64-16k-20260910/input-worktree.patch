@@ -1,0 +1,45 @@
+diff --git a/build.gradle.kts b/build.gradle.kts
+index 0e82394..ced06da 100644
+--- a/build.gradle.kts
++++ b/build.gradle.kts
+@@ -1,5 +1,5 @@
+ plugins {
+-    id("com.android.application") version "9.1.0" apply false
++    id("com.android.application") version System.getProperty("gradle.agp.version") apply false
+ }
+ 
+ tasks.register<Delete>("clean") {
+diff --git a/settings.gradle.kts b/settings.gradle.kts
+index 3731641..15beca4 100644
+--- a/settings.gradle.kts
++++ b/settings.gradle.kts
+@@ -4,6 +4,13 @@ pluginManagement {
+         mavenCentral()
+         gradlePluginPortal()
+     }
++    plugins {
++        id("io.github.supermonster003.autojs6-platform-versions") version "1.7.0"
++    }
++}
++
++plugins {
++    id("io.github.supermonster003.autojs6-platform-versions")
+ }
+ 
+ dependencyResolutionManagement {
+diff --git a/version.properties b/version.properties
+index 0333439..b8119be 100644
+--- a/version.properties
++++ b/version.properties
+@@ -1,6 +1,11 @@
+ VERSION_NAME=0.1.0-rc.2
+ VERSION_BUILD=62
+ COMPILE_SDK_VERSION=36
++JAVA_VERSION_MIN_SUPPORTED=21
+ MIN_SDK_VERSION=24
++OVERRIDDEN_ANDROID_GRADLE_PLUGIN_VERSION=NONE
++OVERRIDDEN_JAVA_VERSION=NONE
++OVERRIDDEN_KOTLIN_GRADLE_PLUGIN_VERSION=NONE
++OVERRIDDEN_KSP_GRADLE_PLUGIN_VERSION=NONE
+ TARGET_SDK_VERSION=36
+ REQUIRED_HOST_VERSION_CODE=5276

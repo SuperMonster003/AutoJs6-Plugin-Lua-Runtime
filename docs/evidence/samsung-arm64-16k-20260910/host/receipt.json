@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS",
+  "scope": "Real Host development smoke and storage tests on the same Samsung ARM64 16 KiB device; original Host APKs restored",
+  "evidenceDate": "2026-09-10",
+  "serial": "localhost:31277",
+  "pluginBaseRevision": "f2cba38f12e19a6d17bed8bce0d5bb5a6b90b402",
+  "hostVersionCode": 5279,
+  "providerVersionCode": 62,
+  "firstPhaseReceipt": "../receipt.json",
+  "firstPhaseReceiptSha256": "b98ea958ff944f35424cc433fa78f5fa17c1cad2cf1948850e5d89bb5b649f31",
+  "counts": {
+    "firstPhaseDistinctJUnitTests": 31,
+    "followupDistinctJUnitTests": 4,
+    "totalDistinctJUnitTests": 35,
+    "additionalCapabilityRepeat": 1,
+    "independentHostSmokeExecutions": 2,
+    "failures": 0,
+    "ignored": 0
+  },
+  "artifacts": [
+    {
+      "file": "autojs6-arm64-debug-signed.apk",
+      "bytes": 48105776,
+      "sha256": "e38cc4a51a538860f68a1541ad0c936a968e8d615760c682a74be427329c57c2"
+    },
+    {
+      "file": "autojs6-test-debug-signed.apk",
+      "bytes": 2274686,
+      "sha256": "c331dd2c54ca2c3b7b81a32c325be6c4d5d734972598dc7d4d27f1bfb2ee62e0"
+    },
+    {
+      "file": "app-provider-arm64-v8a-debug.apk",
+      "bytes": 1874178,
+      "sha256": "60e59d9251dbb4f59b5e36f8969801a592eb763295e24ae6acf673ba7c167af8"
+    },
+    {
+      "file": "host-lifecycle-test-debug.apk",
+      "bytes": 1008487,
+      "sha256": "85e78172f286a7a74fa155799a0e5764dc97856620a2fbd81eb1f505abf9cb4a"
+    }
+  ],
+  "signerSha256": "2e64822e13a6c80c12e1c4b47e8fb32d1e9334526289da75777b7a79145de4b8",
+  "hostTestCopiesNonMetaInfEntriesByteIdenticalToOriginals": true,
+  "runs": {
+    "storage": {
+      "status": "PASS",
+      "startedUtc": "2026-09-10T03:02:25.760281+00:00",
+      "finishedUtc": "2026-09-10T03:02:30.659818+00:00",
+      "testsPassed": 3
+    },
+    "smoke": {
+      "status": "PASS",
+      "startedUtc": "2026-09-10T03:02:30.782337+00:00",
+      "finishedUtc": "2026-09-10T03:02:35.289771+00:00",
+      "executionsPassed": 2
+    },
+    "capabilities": {
+      "status": "PASS",
+      "startedUtc": "2026-09-10T03:02:42.796799+00:00",
+      "finishedUtc": "2026-09-10T03:03:02.984954+00:00",
+      "testsPassed": 1
+    },
+    "capabilitiesVisible": {
+      "status": "PASS",
+      "startedUtc": "2026-09-10T03:04:56.659916+00:00",
+      "finishedUtc": "2026-09-10T03:05:19.038444+00:00",
+      "testsPassed": 1
+    },
+    "installation": {
+      "status": "PASS",
+      "startedUtc": "2026-09-10T03:01:04.420189+00:00",
+      "finishedUtc": "2026-09-10T03:01:59.587331+00:00"
+    },
+    "restore": {
+      "status": "PASS",
+      "startedUtc": "2026-09-10T03:06:25.621174+00:00",
+      "finishedUtc": "2026-09-10T03:07:12.869266+00:00"
+    }
+  },
+  "providerRuntime": {
+    "pid": 19422,
+    "apkExecutableMappingOffset": "0x108000",
+    "kernelPageSizeKiB": 16,
+    "mmuPageSizeKiB": 16,
+    "pageSizeCompat": 0
+  },
+  "toast": {
+    "firstRunAccepted": true,
+    "firstRunVisiblyShown": false,
+    "firstRunPostNotificationAppOp": "ignore",
+    "visibleRunPostNotificationAppOp": "allow",
+    "visibleRunShown": true,
+    "marker": "lua-r5-toast-96de4ff7-c28f-4e4e-9608-d9d7a3e4c302",
+    "frame": "toast-visible.png",
+    "frameTimestampSeconds": 3.5,
+    "videoSha256": "7c07d6a07995ed259a604f1554a87b654cb83cd58bf0fb5ee3edbc651c3f2088",
+    "firstVideoSha256": "1dbc1274f8131141483b5441ab7e4e6aa71f7b17c9ce4530007d40e5d897cff9"
+  },
+  "cleanup": {
+    "status": "PASS",
+    "autojsPackageInventoryRestored": true,
+    "originalApkHashesRestored": {
+      "org.autojs.autojs6": "ef5c38f62b8cb98f2e5ed81dadeb413ebf0ac373089ab70a6006199090f198d8",
+      "org.autojs.autojs6.test": "71f96fade33b527aff0b0dfeed157c7395cb5b5a231b2e4d651d3bd9785d09c9"
+    },
+    "originalApplicationDataRestored": false,
+    "temporaryDeviceRecordingsRemoved": true
+  },
+  "releaseCandidateReceiptModified": false,
+  "evidenceFiles": {
+    "capabilities-visible.json": "bc60aa1f84806a5af9158a12f96e2de74db8f3d028ad6640a66551ca2e886771",
+    "capabilities.json": "c240d0ff0be083639c4535eb3ff4095ceff41d3289aaccd46be5cfb5b01287bb",
+    "device-runtime-observations.json": "aba45b8bd51c65e661b5224e7a16ae612810682078a0d5b9cadf62d0d03d68e5",
+    "installation.json": "48266ff48d8db5971e33729e13df6871d0834feeb116be07df5e44dd7fdfef90",
+    "preflight.json": "81069f82bbecc47cefe01503d35bc2471cf6a98e11cf0bc24f6da56a79659984",
+    "restore.json": "c4aaf63991d6436b4cd6e63e02677fb74d2d395a294dc61122321cda3c3982f7",
+    "smoke.json": "df5e56f69ecb233a438c59475c599ce7d50249600dbeda3fa1f2fd6fea4b324b",
+    "storage.json": "e2a5c115a9098f4d6658dd3a51ccf7b06ac3048edd24a1887d4b4d292b9642a4",
+    "toast-platform-log.txt": "0b632df182034769265a210e446204e24f9534253e473cb682d5c3e29b2cdb82",
+    "toast-visible.png": "5829bbd8b686057c7290a93b3b93386974c9c70e9b06d7024ece8cc07fc2a820"
+  }
+}

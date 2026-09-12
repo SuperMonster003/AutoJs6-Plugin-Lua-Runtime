@@ -6,6 +6,14 @@ Decision date: 2026-08-25
 
 Host delivery date: 2026-08-27
 
+Additional visible-delivery evidence (2026-09-10): the real-Host capability smoke
+passed on Samsung SM-A566B, Android 16 / API 36, native ARM64 with 16 KiB pages.
+With Host notifications disabled, Android suppressed the accepted Toast; after
+enabling notifications for the temporary Host copy, the same test passed again
+and a device-recording frame showed its unique Lua Toast marker. The raw results,
+permission transition, and screenshot are archived in
+[`samsung-arm64-16k-validation.md`](samsung-arm64-16k-validation.md).
+
 ## Outcome
 
 R4-C adds one minimal, negotiated UI feedback entry point:

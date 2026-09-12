@@ -1,0 +1,231 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS",
+  "scope": "Development native and fault instrumentation on one ARM64 16 KiB physical device; real Host smoke not run",
+  "evidenceDate": "2026-09-10",
+  "serial": "localhost:31277",
+  "pluginBaseRevision": "f2cba38f12e19a6d17bed8bce0d5bb5a6b90b402",
+  "versionName": "0.1.0-rc.2",
+  "versionCode": 62,
+  "worktreeInputPatch": "input-worktree.patch",
+  "worktreeInputPatchSha256": "8b25873834775090d15020583a6e2faae702ea29ea9217a2dbd8fbfc96a195ec",
+  "build": {
+    "offline": true,
+    "successful": true,
+    "durationSeconds": 45,
+    "tasksExecuted": 63,
+    "tasksFromCache": 12,
+    "tasksUpToDate": 159,
+    "jvmTestTask": "UP-TO-DATE",
+    "jvmReport": {
+      "tests": 61,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "pythonTests": {
+      "tests": 50,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "artifacts": [
+    {
+      "file": "app-nativeTest-arm64-v8a-debug.apk",
+      "package": "io.github.supermonster003.autojs6.plugin.lua.runtime.native_test",
+      "bytes": 1873830,
+      "sha256": "141f8b12f7dff1b315cf55bc28454a01dc89352bbafa4a95b905193b76880799",
+      "installedByRun": true,
+      "signerSha256": "2e64822e13a6c80c12e1c4b47e8fb32d1e9334526289da75777b7a79145de4b8",
+      "installedBaseApkSha256Verified": true,
+      "zipalign16KiB": "PASS"
+    },
+    {
+      "file": "app-nativeTest-debug-androidTest.apk",
+      "package": "io.github.supermonster003.autojs6.plugin.lua.runtime.native_test.test",
+      "bytes": 957295,
+      "sha256": "fc7a1e5bf8faae38c3b427db71ef659d53af212496632a78361b287c3a299313",
+      "installedByRun": true,
+      "signerSha256": "2e64822e13a6c80c12e1c4b47e8fb32d1e9334526289da75777b7a79145de4b8",
+      "installedBaseApkSha256Verified": true,
+      "zipalign16KiB": "PASS"
+    },
+    {
+      "file": "app-faultTest-arm64-v8a-debug.apk",
+      "package": "io.github.supermonster003.autojs6.plugin.lua.runtime.fault_test",
+      "bytes": 1929080,
+      "sha256": "7df7148934ae8cc688d3f9d31f729b0e7bc5aa63feea479e69cd8594a525a9a0",
+      "installedByRun": true,
+      "signerSha256": "2e64822e13a6c80c12e1c4b47e8fb32d1e9334526289da75777b7a79145de4b8",
+      "installedBaseApkSha256Verified": true,
+      "zipalign16KiB": "PASS"
+    },
+    {
+      "file": "app-faultTest-debug-androidTest.apk",
+      "package": "io.github.supermonster003.autojs6.plugin.lua.runtime.fault_test.test",
+      "bytes": 962427,
+      "sha256": "f79c5817c098bdb6af637c891d5bc6482db3bf693ec1aed71c50998273259c87",
+      "installedByRun": true,
+      "signerSha256": "2e64822e13a6c80c12e1c4b47e8fb32d1e9334526289da75777b7a79145de4b8",
+      "installedBaseApkSha256Verified": true,
+      "zipalign16KiB": "PASS"
+    }
+  ],
+  "runs": [
+    {
+      "phase": "native",
+      "status": "PASS",
+      "startedUtc": "2026-09-10T02:28:56.222415+00:00",
+      "finishedUtc": "2026-09-10T02:29:07.307502+00:00",
+      "testsPassed": 27,
+      "adbArguments": [
+        "-s",
+        "localhost:31277",
+        "shell",
+        "am",
+        "instrument",
+        "-w",
+        "-r",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.native_test.test/androidx.test.runner.AndroidJUnitRunner"
+      ],
+      "instrumentationOutput": "native-instrumentation.txt",
+      "instrumentationOutputSha256": "10feeba303a0417da9e3b803c31d66880aa6cd98a1f555119f66caccf45e4afc"
+    },
+    {
+      "phase": "fault",
+      "status": "PASS",
+      "startedUtc": "2026-09-10T02:29:48.208834+00:00",
+      "finishedUtc": "2026-09-10T02:30:06.692767+00:00",
+      "testsPassed": 4,
+      "adbArguments": [
+        "-s",
+        "localhost:31277",
+        "shell",
+        "am",
+        "instrument",
+        "-w",
+        "-r",
+        "-e",
+        "class",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.LuaRuntimeFaultRecoveryInstrumentationTest",
+        "io.github.supermonster003.autojs6.plugin.lua.runtime.fault_test.test/androidx.test.runner.AndroidJUnitRunner"
+      ],
+      "instrumentationOutput": "fault-instrumentation.txt",
+      "instrumentationOutputSha256": "452e2e313ce38edc3859d26a181f3de21c6844edc918fdb7d2f9195b34ef2b96"
+    }
+  ],
+  "alignment": [
+    {
+      "apk": "app-nativeTest-arm64-v8a-debug.apk",
+      "sha256": "141f8b12f7dff1b315cf55bc28454a01dc89352bbafa4a95b905193b76880799",
+      "libraries": [
+        {
+          "path": "lib/arm64-v8a/libautojs_lua_runtime.so",
+          "sha256": "ef12450f21890c4b1a9df105b76cd058eed102907cdf18e71e1e882c9d511de9",
+          "zipDataOffset": 1081344,
+          "storedUncompressed": true,
+          "elfMachine": "AArch64",
+          "loadSegments": [
+            {
+              "offset": 0,
+              "virtualAddress": 0,
+              "alignment": 16384
+            },
+            {
+              "offset": 696272,
+              "virtualAddress": 712656,
+              "alignment": 16384
+            },
+            {
+              "offset": 717264,
+              "virtualAddress": 750032,
+              "alignment": 16384
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "apk": "app-faultTest-arm64-v8a-debug.apk",
+      "sha256": "7df7148934ae8cc688d3f9d31f729b0e7bc5aa63feea479e69cd8594a525a9a0",
+      "libraries": [
+        {
+          "path": "lib/arm64-v8a/libautojs_lua_runtime.so",
+          "sha256": "2553c6368dc20660642d32261428b873331e42761240c5112c71a6b1c4858586",
+          "zipDataOffset": 1097728,
+          "storedUncompressed": true,
+          "elfMachine": "AArch64",
+          "loadSegments": [
+            {
+              "offset": 0,
+              "virtualAddress": 0,
+              "alignment": 16384
+            },
+            {
+              "offset": 733680,
+              "virtualAddress": 750064,
+              "alignment": 16384
+            },
+            {
+              "offset": 755640,
+              "virtualAddress": 788408,
+              "alignment": 16384
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "apk": "app-provider-arm64-v8a-debug.apk",
+      "sha256": "60e59d9251dbb4f59b5e36f8969801a592eb763295e24ae6acf673ba7c167af8",
+      "libraries": [
+        {
+          "path": "lib/arm64-v8a/libautojs_lua_runtime.so",
+          "sha256": "ef12450f21890c4b1a9df105b76cd058eed102907cdf18e71e1e882c9d511de9",
+          "zipDataOffset": 1081344,
+          "storedUncompressed": true,
+          "elfMachine": "AArch64",
+          "loadSegments": [
+            {
+              "offset": 0,
+              "virtualAddress": 0,
+              "alignment": 16384
+            },
+            {
+              "offset": 696272,
+              "virtualAddress": 712656,
+              "alignment": 16384
+            },
+            {
+              "offset": 717264,
+              "virtualAddress": 750032,
+              "alignment": 16384
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "releaseCandidateReceiptModified": false,
+  "cleanup": {
+    "status": "PASS",
+    "packagesRemoved": [
+      "io.github.supermonster003.autojs6.plugin.lua.runtime.native_test.test",
+      "io.github.supermonster003.autojs6.plugin.lua.runtime.native_test",
+      "io.github.supermonster003.autojs6.plugin.lua.runtime.fault_test.test",
+      "io.github.supermonster003.autojs6.plugin.lua.runtime.fault_test"
+    ],
+    "receipt": "cleanup.json",
+    "receiptSha256": "4e38bf98500b6421c652c90051b4d7149f10f28d3d380bb2fa6b10f35a13a678"
+  },
+  "evidenceFiles": {
+    "cleanup.json": "4e38bf98500b6421c652c90051b4d7149f10f28d3d380bb2fa6b10f35a13a678",
+    "device-observations.json": "daa6f883cd14bbfe923878cd359a1fce4298c35be2ffd206bc1db8e9429831cb",
+    "fault-instrumentation.txt": "452e2e313ce38edc3859d26a181f3de21c6844edc918fdb7d2f9195b34ef2b96",
+    "input-worktree.patch": "8b25873834775090d15020583a6e2faae702ea29ea9217a2dbd8fbfc96a195ec",
+    "installation.json": "ec7c05fbf23d5e9737250195ea3d2804d7280d464cb88b3dc43e7bed5d2cae02",
+    "native-instrumentation.txt": "10feeba303a0417da9e3b803c31d66880aa6cd98a1f555119f66caccf45e4afc",
+    "targeted-logcat.txt": "60bbd51ea319da067472b0554025f440d6d637f33345c9f44a2d38cbe0abcfdc"
+  }
+}

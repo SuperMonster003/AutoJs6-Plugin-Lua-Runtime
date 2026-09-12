@@ -1,0 +1,151 @@
+{
+  "startedUtc": "2026-09-10T02:58:11.246861+00:00",
+  "serial": "localhost:31277",
+  "commands": [
+    {
+      "args": [
+        "shell",
+        "getconf",
+        "PAGE_SIZE"
+      ],
+      "exitCode": 0,
+      "output": "16384\n"
+    },
+    {
+      "args": [
+        "shell",
+        "getprop",
+        "ro.build.fingerprint"
+      ],
+      "exitCode": 0,
+      "output": "samsung/a56xnaeea_16kb/a56x:16/BP2A.250605.031.A3/A566BXXU6BYIF_OXM6BYIF:user/release-keys\n"
+    },
+    {
+      "args": [
+        "shell",
+        "getprop",
+        "ro.product.cpu.abilist"
+      ],
+      "exitCode": 0,
+      "output": "arm64-v8a\n"
+    },
+    {
+      "args": [
+        "shell",
+        "getprop",
+        "ro.product.model"
+      ],
+      "exitCode": 0,
+      "output": "SM-A566B\n"
+    },
+    {
+      "args": [
+        "shell",
+        "pm",
+        "list",
+        "packages",
+        "autojs"
+      ],
+      "exitCode": 0,
+      "output": "package:io.github.supermonster003.autojs6.plugin.python.runtime\npackage:io.github.supermonster003.autojs6.plugin.nodejs.test\npackage:io.github.supermonster003.autojs6.plugin.mediainfo\npackage:io.github.supermonster003.autojs6.plugin.opencv\npackage:io.github.supermonster003.autojs6.plugin.nodejs\npackage:org.autojs.autojs6\npackage:org.autojs.autojs6.test\n"
+    },
+    {
+      "args": [
+        "shell",
+        "pm",
+        "path",
+        "org.autojs.autojs6"
+      ],
+      "exitCode": 0,
+      "output": "package:/data/app/~~cZZDFOd57NllSReoGVXlLQ==/org.autojs.autojs6-nVjUzqw7eMLmjK-TDGYx8Q==/base.apk\n"
+    },
+    {
+      "args": [
+        "shell",
+        "sha256sum",
+        "/data/app/~~cZZDFOd57NllSReoGVXlLQ==/org.autojs.autojs6-nVjUzqw7eMLmjK-TDGYx8Q==/base.apk"
+      ],
+      "exitCode": 0,
+      "output": "ef5c38f62b8cb98f2e5ed81dadeb413ebf0ac373089ab70a6006199090f198d8  /data/app/~~cZZDFOd57NllSReoGVXlLQ==/org.autojs.autojs6-nVjUzqw7eMLmjK-TDGYx8Q==/base.apk\n"
+    },
+    {
+      "args": [
+        "pull",
+        "/data/app/~~cZZDFOd57NllSReoGVXlLQ==/org.autojs.autojs6-nVjUzqw7eMLmjK-TDGYx8Q==/base.apk",
+        "D:\\idea-projects\\AutoJs6-Plugin-Lua-Runtime\\build\\device-evidence\\samsung-arm64-16k-20260910\\host-followup\\original-host.apk"
+      ],
+      "exitCode": 0,
+      "output": "/data/app/~~cZZDFOd57NllSReoGVXlLQ==/org.autojs.autojs6-nVjUzqw7eMLmjK-TDGYx8Q==/base.apk: 1 file pulled, 0 skipped. 1.5 MB/s (47741430 bytes in 29.971s)\n"
+    },
+    {
+      "args": [
+        "shell",
+        "pm",
+        "path",
+        "org.autojs.autojs6.test"
+      ],
+      "exitCode": 0,
+      "output": "package:/data/app/~~73EoeGYXj1eXnpr_oXAOCw==/org.autojs.autojs6.test-O3GX10s_HeNf6UoJAwij5w==/base.apk\n"
+    },
+    {
+      "args": [
+        "shell",
+        "sha256sum",
+        "/data/app/~~73EoeGYXj1eXnpr_oXAOCw==/org.autojs.autojs6.test-O3GX10s_HeNf6UoJAwij5w==/base.apk"
+      ],
+      "exitCode": 0,
+      "output": "71f96fade33b527aff0b0dfeed157c7395cb5b5a231b2e4d651d3bd9785d09c9  /data/app/~~73EoeGYXj1eXnpr_oXAOCw==/org.autojs.autojs6.test-O3GX10s_HeNf6UoJAwij5w==/base.apk\n"
+    },
+    {
+      "args": [
+        "pull",
+        "/data/app/~~73EoeGYXj1eXnpr_oXAOCw==/org.autojs.autojs6.test-O3GX10s_HeNf6UoJAwij5w==/base.apk",
+        "D:\\idea-projects\\AutoJs6-Plugin-Lua-Runtime\\build\\device-evidence\\samsung-arm64-16k-20260910\\host-followup\\original-host-test.apk"
+      ],
+      "exitCode": 0,
+      "output": "/data/app/~~73EoeGYXj1eXnpr_oXAOCw==/org.autojs.autojs6.test-O3GX10s_HeNf6UoJAwij5w==/base.apk: 1 file pulled, 0 skipped. 0.9 MB/s (2267715 bytes in 2.420s)\n"
+    }
+  ],
+  "existingPackages": [
+    {
+      "package": "org.autojs.autojs6",
+      "backup": "original-host.apk",
+      "sha256": "ef5c38f62b8cb98f2e5ed81dadeb413ebf0ac373089ab70a6006199090f198d8",
+      "bytes": 47741430
+    },
+    {
+      "package": "org.autojs.autojs6.test",
+      "backup": "original-host-test.apk",
+      "sha256": "71f96fade33b527aff0b0dfeed157c7395cb5b5a231b2e4d651d3bd9785d09c9",
+      "bytes": 2267715
+    }
+  ],
+  "preparedArtifacts": [
+    {
+      "file": "autojs6-arm64-debug-signed.apk",
+      "bytes": 48105776,
+      "sha256": "e38cc4a51a538860f68a1541ad0c936a968e8d615760c682a74be427329c57c2",
+      "signatureVerification": "V3.0 Signer: certificate DN: C=US, O=Android, CN=Android Debug\nV3.0 Signer: certificate SHA-256 digest: 2e64822e13a6c80c12e1c4b47e8fb32d1e9334526289da75777b7a79145de4b8\nV3.0 Signer: certificate SHA-1 digest: 54f69be3e68e21de2932c2298d2700972c5ad5c1\nV3.0 Signer: certificate MD5 digest: 86dd3fdc25528c5479f99b83dc5768d0\n"
+    },
+    {
+      "file": "autojs6-test-debug-signed.apk",
+      "bytes": 2274686,
+      "sha256": "c331dd2c54ca2c3b7b81a32c325be6c4d5d734972598dc7d4d27f1bfb2ee62e0",
+      "signatureVerification": "V3.0 Signer: certificate DN: C=US, O=Android, CN=Android Debug\nV3.0 Signer: certificate SHA-256 digest: 2e64822e13a6c80c12e1c4b47e8fb32d1e9334526289da75777b7a79145de4b8\nV3.0 Signer: certificate SHA-1 digest: 54f69be3e68e21de2932c2298d2700972c5ad5c1\nV3.0 Signer: certificate MD5 digest: 86dd3fdc25528c5479f99b83dc5768d0\n"
+    },
+    {
+      "file": "app-provider-arm64-v8a-debug.apk",
+      "bytes": 1874178,
+      "sha256": "60e59d9251dbb4f59b5e36f8969801a592eb763295e24ae6acf673ba7c167af8",
+      "signatureVerification": "V2 Signer: certificate DN: C=US, O=Android, CN=Android Debug\nV2 Signer: certificate SHA-256 digest: 2e64822e13a6c80c12e1c4b47e8fb32d1e9334526289da75777b7a79145de4b8\nV2 Signer: certificate SHA-1 digest: 54f69be3e68e21de2932c2298d2700972c5ad5c1\nV2 Signer: certificate MD5 digest: 86dd3fdc25528c5479f99b83dc5768d0\n"
+    },
+    {
+      "file": "host-lifecycle-test-debug.apk",
+      "bytes": 1008487,
+      "sha256": "85e78172f286a7a74fa155799a0e5764dc97856620a2fbd81eb1f505abf9cb4a",
+      "signatureVerification": "V2 Signer: certificate DN: C=US, O=Android, CN=Android Debug\nV2 Signer: certificate SHA-256 digest: 2e64822e13a6c80c12e1c4b47e8fb32d1e9334526289da75777b7a79145de4b8\nV2 Signer: certificate SHA-1 digest: 54f69be3e68e21de2932c2298d2700972c5ad5c1\nV2 Signer: certificate MD5 digest: 86dd3fdc25528c5479f99b83dc5768d0\n"
+    }
+  ],
+  "status": "PASS",
+  "finishedUtc": "2026-09-10T02:58:54.816943+00:00"
+}

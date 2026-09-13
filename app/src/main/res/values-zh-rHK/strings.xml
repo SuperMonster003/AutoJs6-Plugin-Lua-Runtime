@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Lua 執行環境</string>
     <string name="plugin_description">獨立的 PUC Lua 5.4 執行環境外掛程式</string>
     <string name="plugin_instruction">為同簽章 AutoJs6 Host 提供隔離的 Lua 執行環境</string>
 </resources>

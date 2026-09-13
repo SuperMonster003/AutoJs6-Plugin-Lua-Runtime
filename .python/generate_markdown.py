@@ -41,8 +41,8 @@ ANDROID_STRING_DIRECTORIES = {
     "ar": "values-ar",
 }
 CHANGELOG_CATEGORIES = ["hint", "feature", "fix", "improvement", "dependency"]
-LOCALIZED_ANDROID_KEYS = {"app_name", "plugin_description", "plugin_instruction"}
-DEFAULT_ANDROID_KEYS = LOCALIZED_ANDROID_KEYS | {"plugin_author"}
+LOCALIZED_ANDROID_KEYS = {"plugin_description", "plugin_instruction"}
+DEFAULT_ANDROID_KEYS = LOCALIZED_ANDROID_KEYS
 PLACEHOLDER_MARKERS = (
     "TODO_TRANSLATION",
     "TRANSLATION_PENDING",
@@ -325,6 +325,12 @@ def validate_localized_resources(root: Path) -> None:
         resource_root / ANDROID_STRING_DIRECTORIES[code] / "strings.xml"
         for code in LANGUAGE_CODES
     ]
+    branding = ElementTree.parse(resource_root / "values/strings_donottranslate.xml").getroot()
+    branding_values = {item.attrib.get("name"): item for item in branding.findall("string")}
+    require(set(branding_values) == {"app_name", "plugin_author"}, "Invalid non-translatable branding inventory")
+    require(all(item.attrib.get("translatable") == "false" for item in branding_values.values()), "Branding must not be translated")
+    require(branding_values["app_name"].text == "Lua Runtime", "The application title must remain English")
+    require(resource_paths[0].read_text(encoding="utf-8") == (resource_root / "values-en/strings.xml").read_text(encoding="utf-8"), "Default and explicit English strings differ")
     for index, path in enumerate(resource_paths):
         require(path.is_file() and not path.is_symlink(), f"Missing regular Android strings: {path}")
         text = path.read_text(encoding="utf-8")

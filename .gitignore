@@ -13,3 +13,11 @@ releases/
 .bak/
 !protocol/*.aar
 !gradle/wrapper/gradle-wrapper.jar
+*.apk
+*.aab
+/gradle/data/
+/.vscode/
+/.codex/
+*.hprof
+*.log
+/gradle.properties.local

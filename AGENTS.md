@@ -1,8 +1,8 @@
-# AutoJs6-Plugin-Java-Runtime
+# AutoJs6-Plugin-Lua-Runtime
 
 This repository owns its existing plugin implementation and contracts. Keep identity values in version.properties, Manifest and the current shared API aligned.
 
-Pure JVM compiler assets have no ABI-specific native payload; ABI splits do not reduce these APKs.
+The provider packages the Lua native runtime. Derive release ABI splits and PluginInfo from the actual provider build and installed native payload; keep the owner-approved ABI scope explicit.
 
 
 ## Shared engineering baseline (2026-09-13)
@@ -19,3 +19,7 @@ Pure JVM compiler assets have no ABI-specific native payload; ABI splits do not 
 - Preserve native source/license locks, ABI inventory and 16 KB alignment checks. Existing device evidence is historical; never claim a new install, Binder or OEM test that was not executed.
 
 - The current Lua RC and the owner-approved ABI/provider design remain unchanged. Respect the active work in app/build.gradle.kts, LuaProviderMetadata and release tools; do not reintroduce retired soak gates.
+
+## Provider validation
+
+Use `:app:assembleProviderDebug`, `:app:testProviderDebugUnitTest`, `:app:assembleProviderDebugAndroidTest`, and `:app:lintProviderDebug` for the real application variant. `:app:appendDigestToReleasedFiles` collects the signed provider release and preserves the existing RC release preconditions. Supply the ignored signing property file and keystore through the existing `autojs.lua.release.signingPropertiesFile` and `autojs.lua.release.signingStoreFile` Gradle properties (or their documented environment equivalents). Do not infer a new ABI or stable promotion from another runtime repository.

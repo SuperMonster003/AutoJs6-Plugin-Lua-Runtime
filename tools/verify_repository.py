@@ -464,7 +464,7 @@ def verify_ci_resilience() -> None:
         (
             "android-actions/setup-android@v4",
             'packages: ""',
-            "actions/cache@v4",
+            "actions/cache@v6",
             "/usr/local/lib/android/sdk/platforms/android-36",
             "/usr/local/lib/android/sdk/build-tools/36.0.0",
             "/usr/local/lib/android/sdk/ndk/28.2.13676358",
@@ -474,7 +474,7 @@ def verify_ci_resilience() -> None:
             'if [ "$attempt" -eq 3 ]; then',
             'echo "sdkmanager failed after two retries" >&2',
             "sleep $((attempt * 15))",
-            "gradle/actions/setup-gradle@v4",
+            "gradle/actions/setup-gradle@v6",
             "for build_attempt in 1 2 3; do",
             "if ./gradlew \\",
             'if [ "$build_attempt" -eq 3 ]; then',

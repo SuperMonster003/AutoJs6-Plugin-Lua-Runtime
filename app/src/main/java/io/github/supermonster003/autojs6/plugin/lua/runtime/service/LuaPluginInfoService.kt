@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
+import java.util.zip.ZipFile
 import io.github.supermonster003.autojs6.plugin.lua.runtime.BuildConfig
 import io.github.supermonster003.autojs6.plugin.lua.runtime.LuaProviderMetadata
 import io.github.supermonster003.autojs6.plugin.lua.runtime.NativeLuaRuntime
@@ -26,6 +27,20 @@ class LuaPluginInfoService : Service() {
     // Explicit component-only binding intentionally accepts a null action.
     override fun onBind(intent: Intent?): IBinder = binder
 
+    private fun installedRuntimeAbis(): Array<String> {
+        val packaged = mutableSetOf<String>()
+        val paths = listOf(applicationInfo.sourceDir) + applicationInfo.splitSourceDirs.orEmpty()
+        paths.forEach { path ->
+            ZipFile(path).use { apk ->
+                LuaProviderMetadata.supportedAbis.forEach { abi ->
+                    if (apk.getEntry("lib/$abi/libautojs_lua_runtime.so") != null) packaged += abi
+                }
+            }
+        }
+        check(packaged.isNotEmpty()) { "Installed Lua runtime libraries are missing" }
+        return LuaProviderMetadata.supportedAbis.filter { it in packaged }.toTypedArray()
+    }
+
     private val binder = object : IPluginInfoProvider.Stub() {
         override fun getInfo(): PluginInfo {
             callerVerifier.enforceAllowedCaller()
@@ -43,13 +58,13 @@ class LuaPluginInfoService : Service() {
                 instruction = getString(R.string.plugin_instruction),
                 author = getString(R.string.plugin_author),
                 collaborators = null,
-                versionName = packageInfo.versionName.orEmpty(),
+                versionName = requireNotNull(packageInfo.versionName) { "Installed plugin version is missing" },
                 versionCode = versionCode,
-                versionDate = null,
+                versionDate = getString(R.string.plugin_version_date),
                 id = LuaPluginIds.ID,
                 engine = LuaPluginIds.ENGINE,
                 variant = LuaPluginIds.VARIANT_PUC_LUA_5_4,
-                supportedAbis = LuaProviderMetadata.supportedAbis.toTypedArray(),
+                supportedAbis = installedRuntimeAbis(),
                 capabilities = Bundle().apply {
                     putLong(
                         PluginCapabilityKeys.REQUIRES_HOST_VERSION,

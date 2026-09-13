@@ -9,6 +9,7 @@
 ###### 2026/09/11
 
 * `Improvement` Build verification of 16 KB page alignment for 64-bit native libraries, including manifest contract checks and JSON reports
+* `Improvement` Add protected host activation, accurate installed-package metadata and signed release collection; standardize localized resources and read-only documentation checks
 
 # v0.1.0-rc.2
 

@@ -288,6 +288,7 @@ Límites de ejecución: [`docs/native-execution-core.md`](docs/native-execution-
 ###### 2026/09/11
 
 * `Mejora` Verificación de compilación de la alineación de páginas de 16 KB en bibliotecas nativas de 64 bits, con controles del contrato manifest e informes JSON
+* `Mejora` Añadir activación protegida, metadatos precisos y recopilación de versiones firmadas; unificar recursos y comprobaciones documentales de solo lectura
 
 # v0.1.0-rc.2
 

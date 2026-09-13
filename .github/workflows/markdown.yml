@@ -1,0 +1,16 @@
+name: Generated documentation
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  markdown:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - run: .python/check_markdown.bat
+        shell: cmd
+      - run: python -B -m unittest discover -s .python -p 'test_*.py'

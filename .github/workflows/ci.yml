@@ -14,8 +14,8 @@ jobs:
     outputs:
       build_ready: ${{ steps.verify.outputs.build_ready }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
       - id: verify
@@ -26,8 +26,8 @@ jobs:
     if: needs.static-boundary.outputs.build_ready == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "21"

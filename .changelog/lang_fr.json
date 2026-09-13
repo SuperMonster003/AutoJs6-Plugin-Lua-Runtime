@@ -8,7 +8,8 @@
     "v0.1.1": {
       "released_date": "2026/09/11",
       "improvement": [
-        "Vérification à la compilation de l'alignement des pages de 16 KB des bibliothèques natives 64 bits, avec contrôle du contrat manifest et rapports JSON"
+        "Vérification à la compilation de l'alignement des pages de 16 KB des bibliothèques natives 64 bits, avec contrôle du contrat manifest et rapports JSON",
+        "Ajouter une activation protégée, des métadonnées exactes et la collecte des versions signées; harmoniser les ressources et les contrôles documentaires en lecture seule"
       ]
     },
     "v0.1.0-rc.2": {

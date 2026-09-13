@@ -11,8 +11,6 @@ sign.properties
 releases/
 .cxx/
 .bak/
-!protocol/*.aar
-!gradle/wrapper/gradle-wrapper.jar
 *.apk
 *.aab
 /gradle/data/
@@ -21,3 +19,5 @@ releases/
 *.hprof
 *.log
 /gradle.properties.local
+!protocol/*.aar
+!gradle/wrapper/gradle-wrapper.jar

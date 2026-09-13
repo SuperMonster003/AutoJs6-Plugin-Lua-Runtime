@@ -150,6 +150,7 @@ class LocalizationWorkflowTest(unittest.TestCase):
         "ROADMAP-R4.md",
         "ROADMAP-R5.md",
         "app/src/main/res/values/strings.xml",
+        "app/src/main/res/values/strings_donottranslate.xml",
         "app/src/main/res/values-zh/strings.xml",
         "app/src/main/res/values-zh-rHK/strings.xml",
         "app/src/main/res/values-zh-rTW/strings.xml",

@@ -720,9 +720,9 @@ class CiResilienceTest(unittest.TestCase):
 
     def test_cache_or_bounded_retry_removal_is_rejected(self) -> None:
         mutations = (
-            lambda text: text.replace("actions/cache@v4", "actions/cache@removed", 1),
+            lambda text: text.replace("actions/cache@v6", "actions/cache@removed", 1),
             lambda text: text.replace("for attempt in 1 2 3; do", "for attempt in 1; do", 1),
-            lambda text: text.replace("gradle/actions/setup-gradle@v4", "gradle/actions/setup-gradle@removed", 1),
+            lambda text: text.replace("gradle/actions/setup-gradle@v6", "gradle/actions/setup-gradle@removed", 1),
             lambda text: text.replace("for build_attempt in 1 2 3; do", "for build_attempt in 1; do", 1),
         )
         for mutate in mutations:

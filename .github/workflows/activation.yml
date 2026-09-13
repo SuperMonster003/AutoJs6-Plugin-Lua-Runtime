@@ -1,0 +1,69 @@
+name: Plugin activation contract
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  activation:
+    name: Wake and INFO contract (${{ matrix.label }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: API 35 x86_64
+            target: google_apis
+            page_size: 4096
+          - label: API 35 x86_64 16KB
+            target: google_apis_ps16k
+            page_size: 16384
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: ''
+      - name: Install pinned SDK packages
+        run: sdkmanager 'platforms;android-24' 'platforms;android-26' 'platforms;android-30' 'platforms;android-34' 'platforms;android-36' 'build-tools;36.0.0' 'ndk;28.2.13676358' 'cmake;3.22.1'
+      - name: Build application and contract test APKs
+        run: bash ./gradlew --no-daemon --max-workers=2 -Pautojs.gradle.build.number.auto.increment.enabled=false -Pautojs.gradle.build.time.update.enabled=false :app:assembleProviderDebug :app:assembleProviderDebugAndroidTest :app:testProviderDebugUnitTest :app:lintProviderDebug
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run plugin-local discovery, binding and caller contract
+        uses: reactivecircus/android-emulator-runner@v2.38.0
+        env:
+          EXPECTED_PAGE_SIZE: ${{ matrix.page_size }}
+        with:
+          api-level: 35
+          arch: x86_64
+          target: ${{ matrix.target }}
+          profile: pixel_7
+          disable-animations: true
+          script: bash .github/scripts/run-activation-contract.sh
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: activation-${{ matrix.target }}
+          path: |
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
+          if-no-files-found: warn

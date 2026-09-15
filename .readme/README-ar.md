@@ -142,7 +142,7 @@ return total
 
 ******
 
-يلزم Android 24+ (minSdk 24, targetSdk 36), وABI من `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`, وAutoJs6 versionCode 5276 أو أحدث بالشهادة نفسها. تم أرشفة مصفوفة x86_64 للتثبيت والتنفيذ عبر Host الحقيقية والإزالة على API 24 و31 و36, إضافة إلى smoke شامل على API 37. يبنى arm64-v8a ويجتاز artifact gate لكنه لم يختبر على جهاز فعلي; تصلح العيوب عند الإبلاغ عنها.
+يلزم Android 24+ (minSdk 24, targetSdk 37), وABI من `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`, وAutoJs6 versionCode 5276 أو أحدث بالشهادة نفسها. تم أرشفة مصفوفة x86_64 للتثبيت والتنفيذ عبر Host الحقيقية والإزالة على API 24 و31 و36, إضافة إلى smoke شامل على API 37. يبنى arm64-v8a ويجتاز artifact gate لكنه لم يختبر على جهاز فعلي; تصلح العيوب عند الإبلاغ عنها.
 
 ******
 
@@ -182,7 +182,7 @@ return total
 
 ******
 
-الإصدار الحالي `0.1.1-rc.2` مرشح تغليف موقع تم التحقق منه محليا, وليس release عاما. revision المرشح هو `a0ae189ac8cba042848412a671c91b0b8a7c44e1`, وSHA-256 لملف APK universal هو `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`; يحافظ receipt الثابت على `deviceVerified=false/runtimeVerified=false`. اجتاز split x86_64 لاحقا smoke عبر Host حقيقية على API 37 ومصفوفة API 24 و31 و36. ألغيت تجربة arm64 الفعلية وsoak سبعة أيام في 2026-08-26, وتتبع الاستقرار الآن fix-on-report. راجع [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md) و[`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md) و[`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md) و[`docs/public-release-policy.md`](docs/public-release-policy.md). يوجد R3 في [ROADMAP.md](ROADMAP.md), وR4 في [ROADMAP-R4.md](ROADMAP-R4.md), وR5 في [ROADMAP-R5.md](ROADMAP-R5.md).
+الإصدار الحالي `0.1.2-rc.2` مرشح تغليف موقع تم التحقق منه محليا, وليس release عاما. revision المرشح هو `a0ae189ac8cba042848412a671c91b0b8a7c44e1`, وSHA-256 لملف APK universal هو `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`; يحافظ receipt الثابت على `deviceVerified=false/runtimeVerified=false`. اجتاز split x86_64 لاحقا smoke عبر Host حقيقية على API 37 ومصفوفة API 24 و31 و36. ألغيت تجربة arm64 الفعلية وsoak سبعة أيام في 2026-08-26, وتتبع الاستقرار الآن fix-on-report. راجع [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md) و[`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md) و[`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md) و[`docs/public-release-policy.md`](docs/public-release-policy.md). يوجد R3 في [ROADMAP.md](ROADMAP.md), وR4 في [ROADMAP-R4.md](ROADMAP-R4.md), وR5 في [ROADMAP-R5.md](ROADMAP-R5.md).
 
 ******
 
@@ -283,6 +283,12 @@ $faultArgs = @(
 
 ******
 
+# v0.1.2
+
+###### 2026/09/15
+
+* `تحسين` رفع compileSdk و targetSdk إلى 37 (Android 17)؛ لا يعتمد سلوك المكون الإضافي على الهدف الجديد
+
 # v0.1.1
 
 ###### 2026/09/11
@@ -308,16 +314,6 @@ $faultArgs = @(
 * `تحسين` فصل R5 من `ROADMAP-R4.md` إلى `ROADMAP-R5.md` وإزالة مهمة خانات الصينية التقليدية التي لم تعد لازمة
 * `تحسين` إضافة حساب PFD المنطقي وعلى مستوى OS وبوابة offline بأمر واحد وCI مرنة والتحقق من release artifact وتدقيق استبعاد fault-harness
 * `تبعية` تثبيت PUC Lua 5.4.8 وAndroid NDK 28.2.13676358 وCMake 3.22.1
-
-# v0.1.0-rc.1
-
-###### 2026/08/13
-
-* `تلميح` تم توقيع أول مرشح محلي Provider-enabled واختباره على جهاز, من دون إنشاء tag أو release عام
-* `ميزة` تقديم عملية `:lua_runtime` المستقلة وتنفيذ Lua النصي وconsole والنتائج scalar واكتشاف Binder Provider في AutoJs6
-* `إصلاح` رفض الطلبات المشوهة أو الزائدة عبر تحقق fail-closed للبروتوكول وdigest وUTF-8 وdeadline والذاكرة والإخراج
-* `تحسين` إنشاء دليل قابل للمراجعة لملفات AAR ومصادر Lua وABI ومحاذاة 16 KiB والتوقيع ومصفوفة rollback
-* `تبعية` مبني على PUC Lua 5.4.8 القياسي وبروتوكول AutoJs6 Lua 1.0 المجمد
 
 ##### مزيد من الإصدارات
 

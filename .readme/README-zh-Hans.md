@@ -142,7 +142,7 @@ return total
 
 ******
 
-支持 Android 24+ (minSdk 24, targetSdk 36), ABI 为 `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`, 要求 AutoJs6 versionCode 5276 或更高且签名一致. x86_64 已归档 API 24, 31, 36 的安装, 真实宿主执行与卸载矩阵, 以及 API 37 端到端冒烟. arm64-v8a 会构建并通过制品门禁, 但未在物理设备上验证; 实际使用发现的问题按报告修复.
+支持 Android 24+ (minSdk 24, targetSdk 37), ABI 为 `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`, 要求 AutoJs6 versionCode 5276 或更高且签名一致. x86_64 已归档 API 24, 31, 36 的安装, 真实宿主执行与卸载矩阵, 以及 API 37 端到端冒烟. arm64-v8a 会构建并通过制品门禁, 但未在物理设备上验证; 实际使用发现的问题按报告修复.
 
 ******
 
@@ -182,7 +182,7 @@ return total
 
 ******
 
-当前版本 `0.1.1-rc.2` 是本地验证的签名打包候选, 尚未公开发布. 当前候选属于 clean revision `a0ae189ac8cba042848412a671c91b0b8a7c44e1` (versionCode 43), universal APK SHA-256 为 `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`; 不可变回执中的 `deviceVerified=false/runtimeVerified=false` 保持不变. x86_64 split 随后通过 API 37 真实 Host 冒烟及 API 24, 31, 36 安装/执行/卸载矩阵. arm64 物理设备验证与七日 soak 已于 2026-08-26 按 owner 决定裁撤, 以后采用 fix-on-report. 详见 [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md), [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md), [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md) 与 [`docs/public-release-policy.md`](docs/public-release-policy.md). R3 历史见 [ROADMAP.md](ROADMAP.md), R4 证据见 [ROADMAP-R4.md](ROADMAP-R4.md), 当前 R5 计划见 [ROADMAP-R5.md](ROADMAP-R5.md).
+当前版本 `0.1.2-rc.2` 是本地验证的签名打包候选, 尚未公开发布. 当前候选属于 clean revision `a0ae189ac8cba042848412a671c91b0b8a7c44e1` (versionCode 43), universal APK SHA-256 为 `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`; 不可变回执中的 `deviceVerified=false/runtimeVerified=false` 保持不变. x86_64 split 随后通过 API 37 真实 Host 冒烟及 API 24, 31, 36 安装/执行/卸载矩阵. arm64 物理设备验证与七日 soak 已于 2026-08-26 按 owner 决定裁撤, 以后采用 fix-on-report. 详见 [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md), [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md), [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md) 与 [`docs/public-release-policy.md`](docs/public-release-policy.md). R3 历史见 [ROADMAP.md](ROADMAP.md), R4 证据见 [ROADMAP-R4.md](ROADMAP-R4.md), 当前 R5 计划见 [ROADMAP-R5.md](ROADMAP-R5.md).
 
 ******
 
@@ -283,6 +283,12 @@ $faultArgs = @(
 
 ******
 
+# v0.1.2
+
+###### 2026/09/15
+
+* `优化` 将 compileSdk 与 targetSdk 提升到 37 (Android 17), 插件行为不受新目标版本影响
+
 # v0.1.1
 
 ###### 2026/09/11
@@ -308,16 +314,6 @@ $faultArgs = @(
 * `优化` 将 R5 从 `ROADMAP-R4.md` 独立为 `ROADMAP-R5.md`, 删除已经由完整十语言落地取代的繁体槽位待办
 * `优化` 补齐 PFD 逻辑与 OS 级账目, 一键离线门禁, CI 重试/缓存, release 制品验证和 fault-harness 排除审计
 * `依赖` 固定 PUC Lua 5.4.8, Android NDK 28.2.13676358 与 CMake 3.22.1
-
-# v0.1.0-rc.1
-
-###### 2026/08/13
-
-* `提示` 首个 Provider-enabled 本地候选完成签名和设备验证, 但没有创建公开 tag 或 release
-* `新增` 首次实现独立 `:lua_runtime` 进程, 文本 Lua 执行, console, 标量结果和 AutoJs6 Binder Provider 发现
-* `修复` 以 fail-closed 协议, 源码摘要, UTF-8, deadline, 内存和输出验证拒绝畸形或超限请求
-* `优化` 建立协议 AAR, Lua 源码, ABI, 16 KiB 对齐, 签名和回滚矩阵的可复核证据
-* `依赖` 基于标准 PUC Lua 5.4.8 与冻结的 AutoJs6 Lua protocol 1.0
 
 ##### 更多版本记录
 

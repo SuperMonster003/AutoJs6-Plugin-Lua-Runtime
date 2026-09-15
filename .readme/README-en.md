@@ -142,7 +142,7 @@ The available libraries are base, string, math, table, utf8 and coroutine. `io`,
 
 ******
 
-Android 24+ (minSdk 24, targetSdk 36), ABIs `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`, and AutoJs6 versionCode 5276 or newer with the same certificate are required. The x86_64 install, real-Host execution and uninstall matrix is archived for API 24, 31 and 36, plus an API 37 end-to-end smoke. arm64-v8a is built and artifact-gated but has not run on a physical device; defects found in real use are fixed on report.
+Android 24+ (minSdk 24, targetSdk 37), ABIs `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`, and AutoJs6 versionCode 5276 or newer with the same certificate are required. The x86_64 install, real-Host execution and uninstall matrix is archived for API 24, 31 and 36, plus an API 37 end-to-end smoke. arm64-v8a is built and artifact-gated but has not run on a physical device; defects found in real use are fixed on report.
 
 ******
 
@@ -182,7 +182,7 @@ The script requires a clean revision whose commit count matches versionCode, per
 
 ******
 
-Current version `0.1.1-rc.2` is a locally validated signed-packaging candidate, not a public release. The current signed-packaging candidate belongs to clean plugin revision `a0ae189ac8cba042848412a671c91b0b8a7c44e1` (versionCode 43); its universal APK SHA-256 is `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`. device/runtime verification deliberately remains `false` in that immutable receipt. The x86_64 split later passed the API 37 real-Host smoke and install, real-Host execution, and Provider uninstall on API 24, 31, and 36. The arm64 physical-device half was descoped on 2026-08-26 together with the seven-day soak; stability now follows fix-on-report. See [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md), [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md), [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md), and [`docs/public-release-policy.md`](docs/public-release-policy.md). R3 history is in [ROADMAP.md](ROADMAP.md), the R4 evidence ledger in [ROADMAP-R4.md](ROADMAP-R4.md), and the active R5 plan in [ROADMAP-R5.md](ROADMAP-R5.md).
+Current version `0.1.2-rc.2` is a locally validated signed-packaging candidate, not a public release. The current signed-packaging candidate belongs to clean plugin revision `a0ae189ac8cba042848412a671c91b0b8a7c44e1` (versionCode 43); its universal APK SHA-256 is `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`. device/runtime verification deliberately remains `false` in that immutable receipt. The x86_64 split later passed the API 37 real-Host smoke and install, real-Host execution, and Provider uninstall on API 24, 31, and 36. The arm64 physical-device half was descoped on 2026-08-26 together with the seven-day soak; stability now follows fix-on-report. See [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md), [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md), [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md), and [`docs/public-release-policy.md`](docs/public-release-policy.md). R3 history is in [ROADMAP.md](ROADMAP.md), the R4 evidence ledger in [ROADMAP-R4.md](ROADMAP-R4.md), and the active R5 plan in [ROADMAP-R5.md](ROADMAP-R5.md).
 
 ******
 
@@ -283,6 +283,12 @@ Runtime boundaries: [`docs/native-execution-core.md`](docs/native-execution-core
 
 ******
 
+# v0.1.2
+
+###### 2026/09/15
+
+* `Improvement` Raise compileSdk and targetSdk to 37 (Android 17); the plugin's behavior does not depend on the new target
+
 # v0.1.1
 
 ###### 2026/09/11
@@ -308,16 +314,6 @@ Runtime boundaries: [`docs/native-execution-core.md`](docs/native-execution-core
 * `Improvement` Split R5 out of `ROADMAP-R4.md` into `ROADMAP-R5.md` and removed the obsolete Traditional-Chinese-slot task now superseded by the complete 10-language set
 * `Improvement` Added exact logical and OS-level PFD accounting, a one-command offline gate, resilient CI, release artifact validation and fault-harness exclusion audits
 * `Dependency` Pins PUC Lua 5.4.8, Android NDK 28.2.13676358 and CMake 3.22.1
-
-# v0.1.0-rc.1
-
-###### 2026/08/13
-
-* `Hint` The first Provider-enabled local candidate was signed and device-tested, but no public tag or release was created
-* `Feature` Introduced the independent `:lua_runtime` process, text Lua execution, console output, scalar results and AutoJs6 Binder Provider discovery
-* `Fix` Rejected malformed or excessive requests through fail-closed protocol, source digest, UTF-8, deadline, memory and output validation
-* `Improvement` Established reviewable evidence for protocol AARs, Lua source, ABIs, 16 KiB alignment, signing and rollback matrices
-* `Dependency` Built on standard PUC Lua 5.4.8 and the frozen AutoJs6 Lua protocol 1.0
 
 ##### For more releases
 

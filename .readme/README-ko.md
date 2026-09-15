@@ -142,7 +142,7 @@ return total
 
 ******
 
-Android 24+ (minSdk 24, targetSdk 36), ABI `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`, 그리고 같은 인증서의 AutoJs6 versionCode 5276 이상이 필요합니다. x86_64 설치, 실제 Host 실행, 제거 matrix는 API 24, 31, 36에서 보관되었고 API 37 end-to-end smoke도 있습니다. arm64-v8a는 빌드와 artifact gate를 통과했지만 실제 기기에서는 검증하지 않았습니다. 실제 사용에서 보고된 결함은 수정합니다.
+Android 24+ (minSdk 24, targetSdk 37), ABI `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`, 그리고 같은 인증서의 AutoJs6 versionCode 5276 이상이 필요합니다. x86_64 설치, 실제 Host 실행, 제거 matrix는 API 24, 31, 36에서 보관되었고 API 37 end-to-end smoke도 있습니다. arm64-v8a는 빌드와 artifact gate를 통과했지만 실제 기기에서는 검증하지 않았습니다. 실제 사용에서 보고된 결함은 수정합니다.
 
 ******
 
@@ -182,7 +182,7 @@ JDK 17+, Android SDK, NDK `28.2.13676358`, CMake `3.22.1`를 사용합니다. �
 
 ******
 
-현재 `0.1.1-rc.2`는 로컬에서 검증된 서명 package 후보이며 공개 release가 아닙니다. 후보 revision은 `a0ae189ac8cba042848412a671c91b0b8a7c44e1`, universal APK SHA-256은 `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`이고 immutable receipt는 `deviceVerified=false/runtimeVerified=false`를 유지합니다. x86_64 split은 이후 API 37 실제 Host smoke와 API 24, 31, 36 matrix를 통과했습니다. arm64 실제 기기 검증과 7일 soak는 2026-08-26 제외되었고 이후에는 fix-on-report를 따릅니다. [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md), [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md), [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md), [`docs/public-release-policy.md`](docs/public-release-policy.md)를 참고하세요. R3은 [ROADMAP.md](ROADMAP.md), R4는 [ROADMAP-R4.md](ROADMAP-R4.md), R5는 [ROADMAP-R5.md](ROADMAP-R5.md)에 있습니다.
+현재 `0.1.2-rc.2`는 로컬에서 검증된 서명 package 후보이며 공개 release가 아닙니다. 후보 revision은 `a0ae189ac8cba042848412a671c91b0b8a7c44e1`, universal APK SHA-256은 `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`이고 immutable receipt는 `deviceVerified=false/runtimeVerified=false`를 유지합니다. x86_64 split은 이후 API 37 실제 Host smoke와 API 24, 31, 36 matrix를 통과했습니다. arm64 실제 기기 검증과 7일 soak는 2026-08-26 제외되었고 이후에는 fix-on-report를 따릅니다. [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md), [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md), [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md), [`docs/public-release-policy.md`](docs/public-release-policy.md)를 참고하세요. R3은 [ROADMAP.md](ROADMAP.md), R4는 [ROADMAP-R4.md](ROADMAP-R4.md), R5는 [ROADMAP-R5.md](ROADMAP-R5.md)에 있습니다.
 
 ******
 
@@ -283,6 +283,12 @@ $faultArgs = @(
 
 ******
 
+# v0.1.2
+
+###### 2026/09/15
+
+* `개선` compileSdk 와 targetSdk 를 37 (Android 17) 로 올리며, 플러그인 동작은 새 대상 버전의 영향을 받지 않음
+
 # v0.1.1
 
 ###### 2026/09/11
@@ -308,16 +314,6 @@ $faultArgs = @(
 * `개선` R5를 `ROADMAP-R4.md`에서 `ROADMAP-R5.md`로 분리하고 완전한 10개 언어 세트로 불필요해진 번체 slot 작업을 삭제했습니다
 * `개선` PFD 논리/OS 계산, 한 명령 offline gate, resilient CI, release artifact 검증, fault-harness 제외 감사를 추가했습니다
 * `의존성` PUC Lua 5.4.8, Android NDK 28.2.13676358, CMake 3.22.1을 고정합니다
-
-# v0.1.0-rc.1
-
-###### 2026/08/13
-
-* `안내` 첫 Provider-enabled 로컬 후보를 서명하고 device test했지만 공개 tag나 release는 만들지 않았습니다
-* `추가` 독립 `:lua_runtime` process, 텍스트 Lua 실행, console, scalar result, AutoJs6 Binder Provider discovery를 도입했습니다
-* `수정` protocol, digest, UTF-8, deadline, memory, output의 fail-closed 검증으로 잘못되거나 과도한 request를 거부했습니다
-* `개선` AAR, Lua source, ABI, 16 KiB alignment, 서명, rollback matrix의 검토 가능한 증거를 확립했습니다
-* `의존성` 표준 PUC Lua 5.4.8과 고정된 AutoJs6 Lua protocol 1.0을 기반으로 합니다
 
 ##### 더 많은 릴리스
 

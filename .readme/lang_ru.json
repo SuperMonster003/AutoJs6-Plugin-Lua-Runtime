@@ -16,7 +16,7 @@
     "Поддерживает соседние snapshot модулей: `job.lua` может загрузить текстовый модуль UTF-8 до 64 KiB из `job.modules/name.lua`.",
     "Выполняет одну задачу на процесс с заданными Host deadline, бюджетом памяти, кредитами вывода и fail-stop watchdog.",
     "Перед выполнением повторно проверяет точную длину, SHA-256 и строгий UTF-8; предварительно скомпилированные и бинарные Lua chunk всегда отклоняются.",
-    "Поставляет нативные библиотеки arm64-v8a и x86_64 с выравниванием 16 KiB, а также README, CHANGELOG и тексты Android на 10 языках."
+    "Поставляет нативные библиотеки `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86` с выравниванием 16 KiB, а также README, CHANGELOG и тексты Android на 10 языках."
   ],
   "h3_quick_start": "Быстрый старт",
   "p_quick_start": "**Как установить?** Публичного APK пока нет; соберите его по инструкции ниже. `providerDebug` должен использоваться с AutoJs6 debug, подписанным тем же сертификатом; release Provider требует release Host с той же подписью.\n\n**Как включить?** Переключателя нет. AutoJs6 автоматически обнаруживает Provider с той же подписью, а для Lua нет экспериментального свойства Boolean.\n\n**Как запустить сценарий?** Создайте в редакторе AutoJs6 файл с окончанием `.lua`, напишите исходный код Lua и нажмите запуск. console передается в реальном времени, а по завершении Host получает скалярное значение.\n\n**Что проверить при ошибке?** Host с versionCode ниже {{ required_host_build }} отклоняет dispatch как `LUA_RUNTIME_UNAVAILABLE/HOST_VERSION_UNSUPPORTED`. Истечение deadline дает `TIMEOUT`, превышение памяти `MEMORY_LIMIT`, а неразрешенный мост Host `HOST_CAPABILITY`; это детерминированные безопасные завершения.",
@@ -34,7 +34,7 @@
     "Перед native crash или остановкой watchdog хранится только фиксированная диагностика 20-byte: failure kind, phase и 8-byte префикс source-hash, без текста сценария."
   ],
   "h3_compatibility": "Совместимость",
-  "p_compatibility": "Требуются Android {{ android_min_sdk }}+ (minSdk {{ android_min_sdk }}, targetSdk {{ android_target_sdk }}), ABI `arm64-v8a` или `x86_64`, а также AutoJs6 versionCode {{ required_host_build }} или новее с тем же сертификатом. Матрица x86_64 для установки, выполнения с реальным Host и удаления сохранена для API 24, 31 и 36, плюс end-to-end smoke API 37. arm64-v8a собирается и проходит artifact gate, но не проверялся на физическом устройстве; найденные в работе дефекты исправляются по отчетам.",
+  "p_compatibility": "Требуются Android {{ android_min_sdk }}+ (minSdk {{ android_min_sdk }}, targetSdk {{ android_target_sdk }}), ABI `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`, а также AutoJs6 versionCode {{ required_host_build }} или новее с тем же сертификатом. Матрица x86_64 для установки, выполнения с реальным Host и удаления сохранена для API 24, 31 и 36, плюс end-to-end smoke API 37. arm64-v8a собирается и проходит artifact gate, но не проверялся на физическом устройстве; найденные в работе дефекты исправляются по отчетам.",
   "h3_build": "Сборка",
   "p_build": "Используйте JDK 17+, Android SDK, NDK `{{ ndk_version }}` и CMake `{{ cmake_version }}`. Обычный Provider для разработки собирается Gradle Wrapper из репозитория",
   "h4_build_variants": "Варианты сборки",

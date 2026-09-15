@@ -65,7 +65,7 @@ Les deux services de découverte sont protégés par la permission de signature 
 - Charge des instantanés de modules adjacents: `job.lua` peut lire des modules texte UTF-8 de 64 KiB maximum dans `job.modules/name.lua`.
 - Exécute une seule tâche par processus avec délai, budget mémoire, crédits de sortie et watchdog fail-stop définis par l'hôte.
 - Revérifie la longueur exacte, SHA-256 et l'UTF-8 strict avant exécution; les chunks Lua précompilés ou binaires sont refusés.
-- Fournit les bibliothèques natives arm64-v8a et x86_64 alignées sur 16 KiB, ainsi que README, CHANGELOG et textes Android en 10 langues.
+- Fournit les bibliothèques natives `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86` alignées sur 16 KiB, ainsi que README, CHANGELOG et textes Android en 10 langues.
 
 ******
 
@@ -142,7 +142,7 @@ Les bibliothèques disponibles sont base, string, math, table, utf8 et coroutine
 
 ******
 
-Android 24+ (minSdk 24, targetSdk 36), les ABI `arm64-v8a` et `x86_64`, ainsi qu'AutoJs6 versionCode 5276 ou plus récent avec le même certificat sont requis. La matrice x86_64 d'installation, d'exécution avec l'hôte réel et de désinstallation est archivée pour API 24, 31 et 36, avec un smoke end-to-end API 37. arm64-v8a est construit et contrôlé comme artefact mais n'a pas été exécuté sur un appareil physique; les défauts réels sont corrigés sur signalement.
+Android 24+ (minSdk 24, targetSdk 36), les ABI `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`, ainsi qu'AutoJs6 versionCode 5276 ou plus récent avec le même certificat sont requis. La matrice x86_64 d'installation, d'exécution avec l'hôte réel et de désinstallation est archivée pour API 24, 31 et 36, avec un smoke end-to-end API 37. arm64-v8a est construit et contrôlé comme artefact mais n'a pas été exécuté sur un appareil physique; les défauts réels sont corrigés sur signalement.
 
 ******
 
@@ -289,6 +289,7 @@ Limites d'exécution: [`docs/native-execution-core.md`](docs/native-execution-co
 
 * `Amélioration` Vérification à la compilation de l'alignement des pages de 16 KB des bibliothèques natives 64 bits, avec contrôle du contrat manifest et rapports JSON
 * `Amélioration` Ajouter une activation protégée, des métadonnées exactes et la collecte des versions signées; harmoniser les ressources et les contrôles documentaires en lecture seule
+* `Amélioration` Étendre les ABI natives et les métadonnées du plugin à arm64-v8a, armeabi-v7a, x86 et x86_64, avec des APK universels et par ABI cohérents
 
 # v0.1.0-rc.2
 

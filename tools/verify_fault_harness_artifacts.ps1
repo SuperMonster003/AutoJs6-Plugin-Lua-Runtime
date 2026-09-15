@@ -234,7 +234,7 @@ $faultSymbols = @(
     'Java_io_github_supermonster003_autojs6_plugin_lua_runtime_debug_NativeLuaFaults_nativeCrash',
     'Java_io_github_supermonster003_autojs6_plugin_lua_runtime_debug_NativeLuaFaults_nativeWedge'
 )
-$expectedAbis = @('arm64-v8a', 'x86_64')
+$expectedAbis = @('arm64-v8a', 'armeabi-v7a', 'x86_64', 'x86')
 $nativeIntermediates = Join-Path $repositoryRoot 'app/build/intermediates/cxx'
 $nativeVariants = @(
     @{ Label = 'providerRelease'; CmakeDirectory = 'RelWithDebInfo'; ExpectedFaultSymbolCount = 0 }
@@ -352,5 +352,6 @@ try {
 
 Write-Host (
     "RELEASE_VARIANT_FAULT_HARNESS_EXCLUSION_PASS revision=$revision versionCode=$versionCode " +
-    'faultVariant=present releaseManifest=absent releaseClasses=absent arm64-v8a=absent x86_64=absent'
+    'faultVariant=present releaseManifest=absent releaseClasses=absent ' +
+    'arm64-v8a=absent armeabi-v7a=absent x86_64=absent x86=absent'
 )

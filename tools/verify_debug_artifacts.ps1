@@ -100,8 +100,10 @@ if (
 }
 $expectedApks = [ordered]@{
     'app-provider-arm64-v8a-debug.apk' = @('arm64-v8a')
+    'app-provider-armeabi-v7a-debug.apk' = @('armeabi-v7a')
     'app-provider-x86_64-debug.apk' = @('x86_64')
-    'app-provider-universal-debug.apk' = @('arm64-v8a', 'x86_64')
+    'app-provider-x86-debug.apk' = @('x86')
+    'app-provider-universal-debug.apk' = @('arm64-v8a', 'armeabi-v7a', 'x86_64', 'x86')
 }
 $elements = @($metadata.elements)
 if ($elements.Count -ne $expectedApks.Count) {
@@ -200,7 +202,13 @@ try {
                 $header = @(& $readelf -h $destination)
                 $programHeaders = @(& $readelf -lW $destination)
                 if ($LASTEXITCODE -ne 0) { throw "ELF inspection failed: $($entry.FullName)" }
-                $expectedMachine = if ($abi -eq 'arm64-v8a') { 'AArch64' } else { 'X86-64' }
+                $expectedMachine = switch ($abi) {
+                    'arm64-v8a' { 'AArch64' }
+                    'armeabi-v7a' { 'ARM' }
+                    'x86_64' { 'X86-64' }
+                    'x86' { 'Intel 80386' }
+                    default { throw "Unsupported ELF ABI: $abi" }
+                }
                 if (@($header | Select-String "Machine:.*$expectedMachine").Count -ne 1) {
                     throw "ELF machine drift: $($entry.FullName)"
                 }

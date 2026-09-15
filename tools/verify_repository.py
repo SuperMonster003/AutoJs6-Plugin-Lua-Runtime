@@ -988,7 +988,7 @@ def verify_input_workflows() -> None:
             'app/build/outputs/apk/provider/release',
             '"org.autojs.plugin.INFO"',
             '"org.autojs.plugin.lua.RUNTIME"',
-            'foreach ($abi in @("arm64-v8a", "x86_64"))',
+            'foreach ($abi in @("arm64-v8a", "armeabi-v7a", "x86_64", "x86"))',
             '$pluginSigner = Read-CertificateSha256 $universalApk',
             '$hostSigner = Read-CertificateSha256 $resolvedHostApk',
             'if ($pluginSigner -ne $hostSigner)',

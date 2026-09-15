@@ -65,7 +65,7 @@ minimum host build: 5276
 - 支持同目录模块快照: `job.lua` 可从 `job.modules/name.lua` 加载最多 64 KiB 的 UTF-8 文本模块.
 - 每个运行时进程一次只执行一个脚本, 每次执行都有宿主给定的 deadline, 内存预算, 输出额度与 fail-stop watchdog.
 - 源码在执行前按精确长度, SHA-256 和严格 UTF-8 复核; 预编译或二进制 Lua chunk 一律拒绝.
-- 提供 arm64-v8a 与 x86_64 原生库并满足 16 KiB 对齐; README, CHANGELOG 与 Android 文本覆盖 10 种语言.
+- 提供 `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86` 原生库并满足 16 KiB 对齐; README, CHANGELOG 与 Android 文本覆盖 10 种语言.
 
 ******
 
@@ -142,7 +142,7 @@ return total
 
 ******
 
-支持 Android 24+ (minSdk 24, targetSdk 36), ABI 为 `arm64-v8a` 与 `x86_64`, 要求 AutoJs6 versionCode 5276 或更高且签名一致. x86_64 已归档 API 24, 31, 36 的安装, 真实宿主执行与卸载矩阵, 以及 API 37 端到端冒烟. arm64-v8a 会构建并通过制品门禁, 但未在物理设备上验证; 实际使用发现的问题按报告修复.
+支持 Android 24+ (minSdk 24, targetSdk 36), ABI 为 `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`, 要求 AutoJs6 versionCode 5276 或更高且签名一致. x86_64 已归档 API 24, 31, 36 的安装, 真实宿主执行与卸载矩阵, 以及 API 37 端到端冒烟. arm64-v8a 会构建并通过制品门禁, 但未在物理设备上验证; 实际使用发现的问题按报告修复.
 
 ******
 
@@ -289,6 +289,7 @@ $faultArgs = @(
 
 * `优化` 构建阶段校验 64 位原生库的 16 KB 页大小对齐, 检查 manifest 契约并输出 JSON 报告
 * `优化` 补充受保护的宿主唤醒, 准确安装包信息与签名正式包归集, 规范多语言资源和只读文档检查
+* `优化` 扩展原生 ABI 打包与插件元数据至 arm64-v8a, armeabi-v7a, x86 和 x86_64, 同步通用 APK 与各 ABI 独立 APK
 
 # v0.1.0-rc.2
 

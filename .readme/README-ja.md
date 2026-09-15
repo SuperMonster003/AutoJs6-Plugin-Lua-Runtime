@@ -65,7 +65,7 @@ minimum host build: 5276
 - 隣接モジュール snapshot に対応します. `job.lua` は `job.modules/name.lua` から最大 64 KiB の UTF-8 テキストモジュールを読み込めます.
 - 各ランタイムプロセスで 1 実行のみを動かし, Host 指定の deadline, メモリ予算, 出力 credit, fail-stop watchdog を適用します.
 - 実行前に正確な長さ, SHA-256, 厳格な UTF-8 を再検証します. プリコンパイル済みまたはバイナリ Lua chunk は常に拒否します.
-- 16 KiB alignment の arm64-v8a と x86_64 ネイティブライブラリ, および 10 言語の README, CHANGELOG, Android テキストを提供します.
+- 16 KiB alignment の `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86` ネイティブライブラリ, および 10 言語の README, CHANGELOG, Android テキストを提供します.
 
 ******
 
@@ -142,7 +142,7 @@ return total
 
 ******
 
-Android 24+ (minSdk 24, targetSdk 36), ABI `arm64-v8a` または `x86_64`, 同じ証明書の AutoJs6 versionCode 5276 以降が必要です. x86_64 の install, 実 Host 実行, uninstall matrix は API 24, 31, 36 で保存され, API 37 end-to-end smoke もあります. arm64-v8a はビルドと artifact gate を通過していますが実機未検証です. 実利用で報告された不具合は修正します.
+Android 24+ (minSdk 24, targetSdk 36), ABI `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`, 同じ証明書の AutoJs6 versionCode 5276 以降が必要です. x86_64 の install, 実 Host 実行, uninstall matrix は API 24, 31, 36 で保存され, API 37 end-to-end smoke もあります. arm64-v8a はビルドと artifact gate を通過していますが実機未検証です. 実利用で報告された不具合は修正します.
 
 ******
 
@@ -289,6 +289,7 @@ $faultArgs = @(
 
 * `改善` 64 ビットのネイティブライブラリの 16 KB ページアラインメントをビルド時に検証, manifest 契約の検査と JSON レポートに対応
 * `改善` 保護されたホスト起動, 正確なインストール情報, 署名済み配布収集を追加し, 多言語リソースと読み取り専用ドキュメント検証を統一
+* `改善` ネイティブ ABI のパッケージ化とプラグインメタデータを arm64-v8a, armeabi-v7a, x86, x86_64 に拡張し, ユニバーサル APK と ABI 別 APK を同期
 
 # v0.1.0-rc.2
 

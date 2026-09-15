@@ -16,7 +16,7 @@
     "隣接モジュール snapshot に対応します. `job.lua` は `job.modules/name.lua` から最大 64 KiB の UTF-8 テキストモジュールを読み込めます.",
     "各ランタイムプロセスで 1 実行のみを動かし, Host 指定の deadline, メモリ予算, 出力 credit, fail-stop watchdog を適用します.",
     "実行前に正確な長さ, SHA-256, 厳格な UTF-8 を再検証します. プリコンパイル済みまたはバイナリ Lua chunk は常に拒否します.",
-    "16 KiB alignment の arm64-v8a と x86_64 ネイティブライブラリ, および 10 言語の README, CHANGELOG, Android テキストを提供します."
+    "16 KiB alignment の `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86` ネイティブライブラリ, および 10 言語の README, CHANGELOG, Android テキストを提供します."
   ],
   "h3_quick_start": "クイックスタート",
   "p_quick_start": "**インストール方法は?** 公開 APK はまだないため, 下記の手順でビルドしてください. `providerDebug` は同じデバッグ証明書の AutoJs6 と組み合わせ, release Provider は同じ署名の release Host と組み合わせます.\n\n**有効化方法は?** スイッチはありません. AutoJs6 は同じ署名の Provider を自動検出し, Lua に実験的 Boolean プロパティはありません.\n\n**実行方法は?** AutoJs6 エディターで名前が `.lua` で終わるファイルを作成し, Lua ソースを書いて実行します. console はリアルタイム表示され, 完了時に Host がスカラー戻り値を受け取ります.\n\n**失敗時は何を確認する?** versionCode {{ required_host_build }} 未満の Host は `LUA_RUNTIME_UNAVAILABLE/HOST_VERSION_UNSUPPORTED` で dispatch を拒否します. deadline は `TIMEOUT`, メモリ超過は `MEMORY_LIMIT`, 未許可 Host ブリッジは `HOST_CAPABILITY` で終了します. いずれも決定的な安全終端です.",
@@ -34,7 +34,7 @@
     "native crash または watchdog kill の前に保存するのは固定 20-byte 診断だけです. failure kind, phase, 8-byte source-hash prefix を含み, スクリプト本文は含みません."
   ],
   "h3_compatibility": "互換性",
-  "p_compatibility": "Android {{ android_min_sdk }}+ (minSdk {{ android_min_sdk }}, targetSdk {{ android_target_sdk }}), ABI `arm64-v8a` または `x86_64`, 同じ証明書の AutoJs6 versionCode {{ required_host_build }} 以降が必要です. x86_64 の install, 実 Host 実行, uninstall matrix は API 24, 31, 36 で保存され, API 37 end-to-end smoke もあります. arm64-v8a はビルドと artifact gate を通過していますが実機未検証です. 実利用で報告された不具合は修正します.",
+  "p_compatibility": "Android {{ android_min_sdk }}+ (minSdk {{ android_min_sdk }}, targetSdk {{ android_target_sdk }}), ABI `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`, 同じ証明書の AutoJs6 versionCode {{ required_host_build }} 以降が必要です. x86_64 の install, 実 Host 実行, uninstall matrix は API 24, 31, 36 で保存され, API 37 end-to-end smoke もあります. arm64-v8a はビルドと artifact gate を通過していますが実機未検証です. 実利用で報告された不具合は修正します.",
   "h3_build": "ビルド",
   "p_build": "JDK 17+, Android SDK, NDK `{{ ndk_version }}`, CMake `{{ cmake_version }}` を使用します. リポジトリの Gradle Wrapper で通常の開発 Provider をビルドします",
   "h4_build_variants": "ビルド variant",

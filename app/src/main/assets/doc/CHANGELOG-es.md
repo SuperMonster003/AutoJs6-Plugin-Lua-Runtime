@@ -10,6 +10,7 @@
 
 * `Mejora` Verificación de compilación de la alineación de páginas de 16 KB en bibliotecas nativas de 64 bits, con controles del contrato manifest e informes JSON
 * `Mejora` Añadir activación protegida, metadatos precisos y recopilación de versiones firmadas; unificar recursos y comprobaciones documentales de solo lectura
+* `Mejora` Ampliar el empaquetado de ABI nativas y los metadatos del complemento a arm64-v8a, armeabi-v7a, x86 y x86_64, con APK universales e individuales coherentes
 
 # v0.1.0-rc.2
 

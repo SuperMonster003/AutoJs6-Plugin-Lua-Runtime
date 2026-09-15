@@ -65,7 +65,7 @@ Los dos servicios de descubrimiento están protegidos por el permiso de firma `o
 - Carga snapshots de módulos adyacentes: `job.lua` puede leer módulos UTF-8 de hasta 64 KiB desde `job.modules/name.lua`.
 - Ejecuta una tarea por proceso con deadline, presupuesto de memoria, créditos de salida y watchdog fail-stop definidos por el host.
 - Verifica de nuevo longitud exacta, SHA-256 y UTF-8 estricto antes de ejecutar; siempre rechaza chunks Lua precompilados o binarios.
-- Incluye bibliotecas nativas arm64-v8a y x86_64 alineadas a 16 KiB, más README, CHANGELOG y textos Android en 10 idiomas.
+- Incluye bibliotecas nativas `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86` alineadas a 16 KiB, más README, CHANGELOG y textos Android en 10 idiomas.
 
 ******
 
@@ -142,7 +142,7 @@ Las bibliotecas disponibles son base, string, math, table, utf8 y coroutine. `io
 
 ******
 
-Se requieren Android 24+ (minSdk 24, targetSdk 36), ABI `arm64-v8a` o `x86_64`, y AutoJs6 versionCode 5276 o más reciente con el mismo certificado. La matriz x86_64 de instalación, ejecución con host real y desinstalación está archivada para API 24, 31 y 36, más un smoke end-to-end API 37. arm64-v8a se compila y verifica como artefacto, pero no se ha ejecutado en un dispositivo físico; los defectos reales se corrigen cuando se informan.
+Se requieren Android 24+ (minSdk 24, targetSdk 36), ABI `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`, y AutoJs6 versionCode 5276 o más reciente con el mismo certificado. La matriz x86_64 de instalación, ejecución con host real y desinstalación está archivada para API 24, 31 y 36, más un smoke end-to-end API 37. arm64-v8a se compila y verifica como artefacto, pero no se ha ejecutado en un dispositivo físico; los defectos reales se corrigen cuando se informan.
 
 ******
 
@@ -289,6 +289,7 @@ Límites de ejecución: [`docs/native-execution-core.md`](docs/native-execution-
 
 * `Mejora` Verificación de compilación de la alineación de páginas de 16 KB en bibliotecas nativas de 64 bits, con controles del contrato manifest e informes JSON
 * `Mejora` Añadir activación protegida, metadatos precisos y recopilación de versiones firmadas; unificar recursos y comprobaciones documentales de solo lectura
+* `Mejora` Ampliar el empaquetado de ABI nativas y los metadatos del complemento a arm64-v8a, armeabi-v7a, x86 y x86_64, con APK universales e individuales coherentes
 
 # v0.1.0-rc.2
 

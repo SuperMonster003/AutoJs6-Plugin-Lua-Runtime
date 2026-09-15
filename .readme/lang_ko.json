@@ -16,7 +16,7 @@
     "인접 모듈 snapshot을 지원합니다. `job.lua`는 `job.modules/name.lua`에서 최대 64 KiB UTF-8 텍스트 모듈을 불러올 수 있습니다.",
     "런타임 프로세스마다 한 번에 하나만 실행하며 Host가 지정한 deadline, 메모리 예산, 출력 credit, fail-stop watchdog를 적용합니다.",
     "실행 전에 정확한 길이, SHA-256, 엄격한 UTF-8을 다시 검증하며 사전 컴파일 또는 바이너리 Lua chunk는 항상 거부합니다.",
-    "16 KiB alignment를 갖춘 arm64-v8a와 x86_64 네이티브 라이브러리, 그리고 10개 언어 README, CHANGELOG, Android 텍스트를 제공합니다."
+    "16 KiB alignment를 갖춘 `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86` 네이티브 라이브러리, 그리고 10개 언어 README, CHANGELOG, Android 텍스트를 제공합니다."
   ],
   "h3_quick_start": "빠른 시작",
   "p_quick_start": "**어떻게 설치하나요?** 공개 APK는 아직 없으므로 아래 설명대로 빌드하세요. `providerDebug`는 같은 디버그 인증서의 AutoJs6와 함께 사용하고, release Provider는 같은 서명의 release Host와 함께 사용해야 합니다.\n\n**어떻게 활성화하나요?** 스위치는 없습니다. AutoJs6가 같은 서명의 Provider를 자동으로 찾으며 Lua에는 실험적 Boolean 속성이 없습니다.\n\n**어떻게 실행하나요?** AutoJs6 편집기에서 이름이 `.lua`로 끝나는 파일을 만들고 Lua 소스를 작성한 뒤 실행하세요. console이 실시간 표시되고 완료 시 Host가 스칼라 반환값을 받습니다.\n\n**실패하면 무엇을 확인하나요?** versionCode {{ required_host_build }} 미만 Host는 `LUA_RUNTIME_UNAVAILABLE/HOST_VERSION_UNSUPPORTED`로 dispatch를 거부합니다. deadline은 `TIMEOUT`, 메모리 초과는 `MEMORY_LIMIT`, 승인되지 않은 Host 브리지는 `HOST_CAPABILITY`로 끝납니다. 모두 결정적인 안전 종료입니다.",
@@ -34,7 +34,7 @@
     "native crash 또는 watchdog 종료 전에는 고정 20-byte 진단만 저장합니다. failure kind, phase, 8-byte source-hash prefix만 포함하고 스크립트 내용은 저장하지 않습니다."
   ],
   "h3_compatibility": "호환성",
-  "p_compatibility": "Android {{ android_min_sdk }}+ (minSdk {{ android_min_sdk }}, targetSdk {{ android_target_sdk }}), ABI `arm64-v8a` 또는 `x86_64`, 그리고 같은 인증서의 AutoJs6 versionCode {{ required_host_build }} 이상이 필요합니다. x86_64 설치, 실제 Host 실행, 제거 matrix는 API 24, 31, 36에서 보관되었고 API 37 end-to-end smoke도 있습니다. arm64-v8a는 빌드와 artifact gate를 통과했지만 실제 기기에서는 검증하지 않았습니다. 실제 사용에서 보고된 결함은 수정합니다.",
+  "p_compatibility": "Android {{ android_min_sdk }}+ (minSdk {{ android_min_sdk }}, targetSdk {{ android_target_sdk }}), ABI `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`, 그리고 같은 인증서의 AutoJs6 versionCode {{ required_host_build }} 이상이 필요합니다. x86_64 설치, 실제 Host 실행, 제거 matrix는 API 24, 31, 36에서 보관되었고 API 37 end-to-end smoke도 있습니다. arm64-v8a는 빌드와 artifact gate를 통과했지만 실제 기기에서는 검증하지 않았습니다. 실제 사용에서 보고된 결함은 수정합니다.",
   "h3_build": "빌드",
   "p_build": "JDK 17+, Android SDK, NDK `{{ ndk_version }}`, CMake `{{ cmake_version }}`를 사용합니다. 저장소 Gradle Wrapper로 일반 개발 Provider를 빌드하세요",
   "h4_build_variants": "빌드 variant",

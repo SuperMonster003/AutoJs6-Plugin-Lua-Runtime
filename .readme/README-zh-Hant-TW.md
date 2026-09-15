@@ -65,7 +65,7 @@ minimum host build: 5276
 - 支援相鄰模組快照: `job.lua` 可從 `job.modules/name.lua` 載入最多 64 KiB 的 UTF-8 文字模組.
 - 每個執行環境處理程序一次只執行一個指令碼, 每次執行都有 Host 指定的 deadline, 記憶體預算, 輸出額度與 fail-stop watchdog.
 - 執行前重新核對精確長度, SHA-256 與嚴格 UTF-8; 預先編譯或二進位 Lua chunk 一律拒絕.
-- 提供 arm64-v8a 與 x86_64 原生函式庫並符合 16 KiB 對齊; README, CHANGELOG 和 Android 文字涵蓋 10 種語言.
+- 提供 `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86` 原生函式庫並符合 16 KiB 對齊; README, CHANGELOG 和 Android 文字涵蓋 10 種語言.
 
 ******
 
@@ -142,7 +142,7 @@ return total
 
 ******
 
-支援 Android 24+ (minSdk 24, targetSdk 36), ABI 為 `arm64-v8a` 與 `x86_64`, 並要求 AutoJs6 versionCode 5276 或以上及相同簽章. x86_64 已封存 API 24, 31, 36 的安裝, 真實 Host 執行與解除安裝矩陣, 以及 API 37 端對端冒煙. arm64-v8a 會建置並通過成品門禁, 但尚未在實體裝置驗證; 實際使用發現的缺陷按回報修正.
+支援 Android 24+ (minSdk 24, targetSdk 36), ABI 為 `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`, 並要求 AutoJs6 versionCode 5276 或以上及相同簽章. x86_64 已封存 API 24, 31, 36 的安裝, 真實 Host 執行與解除安裝矩陣, 以及 API 37 端對端冒煙. arm64-v8a 會建置並通過成品門禁, 但尚未在實體裝置驗證; 實際使用發現的缺陷按回報修正.
 
 ******
 
@@ -289,6 +289,7 @@ $faultArgs = @(
 
 * `改善` 建置階段校驗 64 位原生函式庫的 16 KB 頁面大小對齊, 檢查 manifest 契約並輸出 JSON 報告
 * `改善` 補充受保護的主程式喚醒, 準確安裝套件資訊與簽署正式套件彙整, 規範多語言資源和唯讀文件檢查
+* `改善` 擴充原生 ABI 封裝與外掛中繼資料至 arm64-v8a, armeabi-v7a, x86 和 x86_64, 同步通用 APK 與各 ABI 獨立 APK
 
 # v0.1.0-rc.2
 

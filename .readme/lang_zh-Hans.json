@@ -16,7 +16,7 @@
     "支持同目录模块快照: `job.lua` 可从 `job.modules/name.lua` 加载最多 64 KiB 的 UTF-8 文本模块.",
     "每个运行时进程一次只执行一个脚本, 每次执行都有宿主给定的 deadline, 内存预算, 输出额度与 fail-stop watchdog.",
     "源码在执行前按精确长度, SHA-256 和严格 UTF-8 复核; 预编译或二进制 Lua chunk 一律拒绝.",
-    "提供 arm64-v8a 与 x86_64 原生库并满足 16 KiB 对齐; README, CHANGELOG 与 Android 文本覆盖 10 种语言."
+    "提供 `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86` 原生库并满足 16 KiB 对齐; README, CHANGELOG 与 Android 文本覆盖 10 种语言."
   ],
   "h3_quick_start": "快速上手",
   "p_quick_start": "**怎么装?** 当前没有公开 APK, 请先按下文自行构建. `providerDebug` 必须配合同一调试证书签名的 AutoJs6; release Provider 必须与 release 宿主同签名.\n\n**怎么启用?** 无需开关. AutoJs6 会自动发现同签名 Provider; Lua 没有实验性 Boolean 属性.\n\n**怎么跑?** 在 AutoJs6 编辑器中新建以 `.lua` 结尾的文件, 写入 Lua 源码并点击运行. console 会实时显示, 执行结束后宿主接收标量返回值.\n\n**出错了看哪里?** 宿主 versionCode 低于 {{ required_host_build }} 时会以 `LUA_RUNTIME_UNAVAILABLE/HOST_VERSION_UNSUPPORTED` 拒绝派发. 超时为 `TIMEOUT`, 超出内存为 `MEMORY_LIMIT`, 调用未授权 Host 能力为 `HOST_CAPABILITY`; 这些都是确定性的安全终态.",
@@ -34,7 +34,7 @@
     "native crash 或 watchdog 终止前只保存固定 20-byte 诊断记录: failure kind, phase 与 8-byte source-hash 前缀, 不保存脚本正文."
   ],
   "h3_compatibility": "兼容性",
-  "p_compatibility": "支持 Android {{ android_min_sdk }}+ (minSdk {{ android_min_sdk }}, targetSdk {{ android_target_sdk }}), ABI 为 `arm64-v8a` 与 `x86_64`, 要求 AutoJs6 versionCode {{ required_host_build }} 或更高且签名一致. x86_64 已归档 API 24, 31, 36 的安装, 真实宿主执行与卸载矩阵, 以及 API 37 端到端冒烟. arm64-v8a 会构建并通过制品门禁, 但未在物理设备上验证; 实际使用发现的问题按报告修复.",
+  "p_compatibility": "支持 Android {{ android_min_sdk }}+ (minSdk {{ android_min_sdk }}, targetSdk {{ android_target_sdk }}), ABI 为 `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`, 要求 AutoJs6 versionCode {{ required_host_build }} 或更高且签名一致. x86_64 已归档 API 24, 31, 36 的安装, 真实宿主执行与卸载矩阵, 以及 API 37 端到端冒烟. arm64-v8a 会构建并通过制品门禁, 但未在物理设备上验证; 实际使用发现的问题按报告修复.",
   "h3_build": "构建",
   "p_build": "需要 JDK 17+, Android SDK, NDK `{{ ndk_version }}` 与 CMake `{{ cmake_version }}`. 使用仓库内 Gradle Wrapper 构建普通开发 Provider",
   "h4_build_variants": "构建变体",

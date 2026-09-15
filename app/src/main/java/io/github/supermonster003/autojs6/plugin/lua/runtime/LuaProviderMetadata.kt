@@ -15,7 +15,7 @@ internal object LuaProviderMetadata {
     const val PROVIDER_ID = "official-puc-lua54"
     const val LANGUAGE_VERSION = "5.4.8"
 
-    val supportedAbis = listOf("arm64-v8a", "x86_64")
+    val supportedAbis = listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
     private val EXECUTION_CAPABILITIES = listOf(
         NativeLuaHostCapabilityBridge.DEVICE_INFO_CAPABILITY,
         NativeLuaHostCapabilityBridge.MODULE_SNAPSHOT_CAPABILITY,

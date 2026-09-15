@@ -16,7 +16,7 @@
     "Carga snapshots de módulos adyacentes: `job.lua` puede leer módulos UTF-8 de hasta 64 KiB desde `job.modules/name.lua`.",
     "Ejecuta una tarea por proceso con deadline, presupuesto de memoria, créditos de salida y watchdog fail-stop definidos por el host.",
     "Verifica de nuevo longitud exacta, SHA-256 y UTF-8 estricto antes de ejecutar; siempre rechaza chunks Lua precompilados o binarios.",
-    "Incluye bibliotecas nativas arm64-v8a y x86_64 alineadas a 16 KiB, más README, CHANGELOG y textos Android en 10 idiomas."
+    "Incluye bibliotecas nativas `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86` alineadas a 16 KiB, más README, CHANGELOG y textos Android en 10 idiomas."
   ],
   "h3_quick_start": "Inicio rápido",
   "p_quick_start": "**Cómo se instala?** Todavía no hay APK público; compílalo como se indica abajo. `providerDebug` debe acompañar a un AutoJs6 de depuración firmado con el mismo certificado; un Provider release debe acompañar al host release con la misma firma.\n\n**Cómo se activa?** No hay interruptor. AutoJs6 descubre automáticamente un Provider con la misma firma y Lua no usa ninguna propiedad Boolean experimental.\n\n**Cómo se ejecuta un script?** Crea en el editor AutoJs6 un archivo que termine en `.lua`, escribe el código Lua y pulsa ejecutar. La consola se transmite en vivo y el host recibe el escalar devuelto al finalizar.\n\n**Qué revisar si falla?** Un host anterior al versionCode {{ required_host_build }} rechaza el envío con `LUA_RUNTIME_UNAVAILABLE/HOST_VERSION_UNSUPPORTED`. El deadline termina como `TIMEOUT`, el exceso de memoria como `MEMORY_LIMIT` y un puente Host no concedido como `HOST_CAPABILITY`; son finales de seguridad deterministas.",
@@ -34,7 +34,7 @@
     "Antes de un crash nativo o una terminación watchdog solo se guarda un diagnóstico fijo de 20-byte: tipo de fallo, fase y prefijo source-hash de 8-byte, nunca el script."
   ],
   "h3_compatibility": "Compatibilidad",
-  "p_compatibility": "Se requieren Android {{ android_min_sdk }}+ (minSdk {{ android_min_sdk }}, targetSdk {{ android_target_sdk }}), ABI `arm64-v8a` o `x86_64`, y AutoJs6 versionCode {{ required_host_build }} o más reciente con el mismo certificado. La matriz x86_64 de instalación, ejecución con host real y desinstalación está archivada para API 24, 31 y 36, más un smoke end-to-end API 37. arm64-v8a se compila y verifica como artefacto, pero no se ha ejecutado en un dispositivo físico; los defectos reales se corrigen cuando se informan.",
+  "p_compatibility": "Se requieren Android {{ android_min_sdk }}+ (minSdk {{ android_min_sdk }}, targetSdk {{ android_target_sdk }}), ABI `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`, y AutoJs6 versionCode {{ required_host_build }} o más reciente con el mismo certificado. La matriz x86_64 de instalación, ejecución con host real y desinstalación está archivada para API 24, 31 y 36, más un smoke end-to-end API 37. arm64-v8a se compila y verifica como artefacto, pero no se ha ejecutado en un dispositivo físico; los defectos reales se corrigen cuando se informan.",
   "h3_build": "Construcción",
   "p_build": "Usa JDK 17+, Android SDK, NDK `{{ ndk_version }}` y CMake `{{ cmake_version }}`. Compila el Provider de desarrollo con el Gradle Wrapper del repositorio",
   "h4_build_variants": "Variantes de construcción",

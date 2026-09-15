@@ -10,6 +10,7 @@ import android.os.Parcel
 import android.os.ParcelFileDescriptor
 import android.os.Process
 import io.github.supermonster003.autojs6.plugin.lua.runtime.BuildConfig
+import io.github.supermonster003.autojs6.plugin.lua.runtime.LuaProviderMetadata
 import io.github.supermonster003.autojs6.plugin.lua.runtime.NativeLuaExecutionRunner
 import io.github.supermonster003.autojs6.plugin.lua.runtime.diagnostic.LuaRuntimeCrashDiagnostics
 import io.github.supermonster003.autojs6.plugin.lua.runtime.execution.LuaExecutionRunner
@@ -163,7 +164,7 @@ class LuaRuntimeFaultService : Service() {
         runtimeSlot = LuaRuntimeContract.RUNTIME_SLOT_LUA54,
         languageVersion = "5.4.8",
         processAbi = currentProcessAbi(),
-        supportedAbis = listOf("arm64-v8a", "x86_64"),
+        supportedAbis = LuaProviderMetadata.supportedAbis,
         capabilities = LuaRuntimeCrashDiagnostics.reportedCapabilities(emptyList()),
         limits = LuaRuntimeLimits(
             maxSourceBytes = LuaRuntimeContract.MAX_SOURCE_BYTES,
@@ -176,7 +177,7 @@ class LuaRuntimeFaultService : Service() {
 
     private fun currentProcessAbi(): String {
         val candidates = if (Process.is64Bit()) Build.SUPPORTED_64_BIT_ABIS else Build.SUPPORTED_32_BIT_ABIS
-        return candidates.firstOrNull { it == "arm64-v8a" || it == "x86_64" }
+        return candidates.firstOrNull(LuaProviderMetadata.supportedAbis::contains)
             ?: error("The debug Lua fault process is running on an unpackaged ABI")
     }
 

@@ -180,7 +180,7 @@ if ($manifest -match 'android:enabled="false"') {
 }
 
 $files = Invoke-Captured $apkAnalyzer @("files", "list", $universalApk)
-foreach ($abi in @("arm64-v8a", "x86_64")) {
+foreach ($abi in @("arm64-v8a", "armeabi-v7a", "x86_64", "x86")) {
     if ($files -notmatch "/lib/$abi/libautojs_lua_runtime\.so") {
         throw "Runnable APK is missing the $abi Lua native runtime"
     }
@@ -225,7 +225,7 @@ Write-Host (
     "RUNNABLE_LUA_PROVIDER_OK " +
     "revision=$sourceRevision apk=$universalApk apkBytes=$($universalItem.Length) " +
     "apkSha256=$universalSha256 versionName=$expectedVersionName versionCode=$expectedVersionCode " +
-    "hostVersionCode=$hostVersionCode abis=arm64-v8a,x86_64 signerSha256=$pluginSigner " +
+    "hostVersionCode=$hostVersionCode abis=arm64-v8a,armeabi-v7a,x86_64,x86 signerSha256=$pluginSigner " +
     "sourceClean=$($sourceClean.ToString().ToLowerInvariant()) " +
     "artifactGateVerified=$($artifactGateVerified.ToString().ToLowerInvariant()) " +
     "deviceVerified=false runtimeVerified=false"

@@ -16,7 +16,7 @@ val versionProperties = Properties().apply {
 }
 
 val runtimeModeDimension = "runtimeMode"
-val supportedAbis = setOf("arm64-v8a", "x86_64")
+val supportedAbis = setOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
 val protocolArtifacts = listOf(
     rootProject.file("protocol/common-plugin-api.aar"),
     rootProject.file("protocol/protocol-wire-api.aar"),

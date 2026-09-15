@@ -65,7 +65,7 @@ minimum host build: 5276
 - 인접 모듈 snapshot을 지원합니다. `job.lua`는 `job.modules/name.lua`에서 최대 64 KiB UTF-8 텍스트 모듈을 불러올 수 있습니다.
 - 런타임 프로세스마다 한 번에 하나만 실행하며 Host가 지정한 deadline, 메모리 예산, 출력 credit, fail-stop watchdog를 적용합니다.
 - 실행 전에 정확한 길이, SHA-256, 엄격한 UTF-8을 다시 검증하며 사전 컴파일 또는 바이너리 Lua chunk는 항상 거부합니다.
-- 16 KiB alignment를 갖춘 arm64-v8a와 x86_64 네이티브 라이브러리, 그리고 10개 언어 README, CHANGELOG, Android 텍스트를 제공합니다.
+- 16 KiB alignment를 갖춘 `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86` 네이티브 라이브러리, 그리고 10개 언어 README, CHANGELOG, Android 텍스트를 제공합니다.
 
 ******
 
@@ -142,7 +142,7 @@ return total
 
 ******
 
-Android 24+ (minSdk 24, targetSdk 36), ABI `arm64-v8a` 또는 `x86_64`, 그리고 같은 인증서의 AutoJs6 versionCode 5276 이상이 필요합니다. x86_64 설치, 실제 Host 실행, 제거 matrix는 API 24, 31, 36에서 보관되었고 API 37 end-to-end smoke도 있습니다. arm64-v8a는 빌드와 artifact gate를 통과했지만 실제 기기에서는 검증하지 않았습니다. 실제 사용에서 보고된 결함은 수정합니다.
+Android 24+ (minSdk 24, targetSdk 36), ABI `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`, 그리고 같은 인증서의 AutoJs6 versionCode 5276 이상이 필요합니다. x86_64 설치, 실제 Host 실행, 제거 matrix는 API 24, 31, 36에서 보관되었고 API 37 end-to-end smoke도 있습니다. arm64-v8a는 빌드와 artifact gate를 통과했지만 실제 기기에서는 검증하지 않았습니다. 실제 사용에서 보고된 결함은 수정합니다.
 
 ******
 
@@ -289,6 +289,7 @@ $faultArgs = @(
 
 * `개선` 64비트 네이티브 라이브러리의 16 KB 페이지 정렬을 빌드 시 검증, manifest 계약 검사 및 JSON 보고서 지원
 * `개선` 보호된 호스트 활성화, 정확한 설치 패키지 정보, 서명된 릴리스 수집을 추가하고 다국어 리소스와 읽기 전용 문서 검사를 통일
+* `개선` 네이티브 ABI 패키징과 플러그인 메타데이터를 arm64-v8a, armeabi-v7a, x86, x86_64로 확장하고 범용 APK와 ABI별 APK를 일치시킴
 
 # v0.1.0-rc.2
 

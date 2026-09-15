@@ -16,7 +16,7 @@
     "Supports adjacent module snapshots: `job.lua` can load UTF-8 text modules up to 64 KiB from `job.modules/name.lua`.",
     "Runs one execution per runtime process with a host-supplied deadline, memory budget, output credits and a fail-stop watchdog.",
     "Re-verifies exact length, SHA-256 and strict UTF-8 before execution; precompiled or binary Lua chunks are always rejected.",
-    "Ships arm64-v8a and x86_64 native libraries with 16 KiB alignment, plus README, CHANGELOG and Android text in 10 languages."
+    "Ships `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86` native libraries with 16 KiB alignment, plus README, CHANGELOG and Android text in 10 languages."
   ],
   "h3_quick_start": "Quick start",
   "p_quick_start": "**How do I install it?** There is no public APK yet, so build it as described below. `providerDebug` must pair with a debug-signed AutoJs6 using the same certificate; a release Provider must pair with the same-signed release host.\n\n**How do I enable it?** There is no switch. AutoJs6 discovers a same-signature Provider automatically, and Lua has no experimental Boolean property.\n\n**How do I run a script?** Create a file ending in `.lua` in the AutoJs6 editor, write Lua source, and tap run. The console streams live and the host receives the scalar return value at completion.\n\n**Where do I look when it fails?** A host below versionCode {{ required_host_build }} refuses dispatch as `LUA_RUNTIME_UNAVAILABLE/HOST_VERSION_UNSUPPORTED`. A deadline ends as `TIMEOUT`, excess memory as `MEMORY_LIMIT`, and an ungranted Host bridge as `HOST_CAPABILITY`; these are deterministic safety terminals.",
@@ -34,7 +34,7 @@
     "Before a native crash or watchdog kill, only a fixed 20-byte diagnostic is stored: failure kind, phase and an 8-byte source-hash prefix, never script content."
   ],
   "h3_compatibility": "Compatibility",
-  "p_compatibility": "Android {{ android_min_sdk }}+ (minSdk {{ android_min_sdk }}, targetSdk {{ android_target_sdk }}), ABIs `arm64-v8a` and `x86_64`, and AutoJs6 versionCode {{ required_host_build }} or newer with the same certificate are required. The x86_64 install, real-Host execution and uninstall matrix is archived for API 24, 31 and 36, plus an API 37 end-to-end smoke. arm64-v8a is built and artifact-gated but has not run on a physical device; defects found in real use are fixed on report.",
+  "p_compatibility": "Android {{ android_min_sdk }}+ (minSdk {{ android_min_sdk }}, targetSdk {{ android_target_sdk }}), ABIs `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`, and AutoJs6 versionCode {{ required_host_build }} or newer with the same certificate are required. The x86_64 install, real-Host execution and uninstall matrix is archived for API 24, 31 and 36, plus an API 37 end-to-end smoke. arm64-v8a is built and artifact-gated but has not run on a physical device; defects found in real use are fixed on report.",
   "h3_build": "Build",
   "p_build": "Use JDK 17+, the Android SDK, NDK `{{ ndk_version }}` and CMake `{{ cmake_version }}`. Build the ordinary development Provider with the repository Gradle Wrapper",
   "h4_build_variants": "Build variants",

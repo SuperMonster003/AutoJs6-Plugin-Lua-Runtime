@@ -10,6 +10,7 @@
 
 * `Improvement` Build verification of 16 KB page alignment for 64-bit native libraries, including manifest contract checks and JSON reports
 * `Improvement` Add protected host activation, accurate installed-package metadata and signed release collection; standardize localized resources and read-only documentation checks
+* `Improvement` Extend native ABI packaging and plugin metadata to arm64-v8a, armeabi-v7a, x86 and x86_64, with matching universal and per-ABI APKs
 
 # v0.1.0-rc.2
 

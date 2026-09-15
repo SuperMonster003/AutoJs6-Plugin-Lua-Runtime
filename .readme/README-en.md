@@ -65,7 +65,7 @@ Both discovery services are protected by the `org.autojs.permission.PLUGIN` sign
 - Supports adjacent module snapshots: `job.lua` can load UTF-8 text modules up to 64 KiB from `job.modules/name.lua`.
 - Runs one execution per runtime process with a host-supplied deadline, memory budget, output credits and a fail-stop watchdog.
 - Re-verifies exact length, SHA-256 and strict UTF-8 before execution; precompiled or binary Lua chunks are always rejected.
-- Ships arm64-v8a and x86_64 native libraries with 16 KiB alignment, plus README, CHANGELOG and Android text in 10 languages.
+- Ships `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86` native libraries with 16 KiB alignment, plus README, CHANGELOG and Android text in 10 languages.
 
 ******
 
@@ -142,7 +142,7 @@ The available libraries are base, string, math, table, utf8 and coroutine. `io`,
 
 ******
 
-Android 24+ (minSdk 24, targetSdk 36), ABIs `arm64-v8a` and `x86_64`, and AutoJs6 versionCode 5276 or newer with the same certificate are required. The x86_64 install, real-Host execution and uninstall matrix is archived for API 24, 31 and 36, plus an API 37 end-to-end smoke. arm64-v8a is built and artifact-gated but has not run on a physical device; defects found in real use are fixed on report.
+Android 24+ (minSdk 24, targetSdk 36), ABIs `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`, and AutoJs6 versionCode 5276 or newer with the same certificate are required. The x86_64 install, real-Host execution and uninstall matrix is archived for API 24, 31 and 36, plus an API 37 end-to-end smoke. arm64-v8a is built and artifact-gated but has not run on a physical device; defects found in real use are fixed on report.
 
 ******
 
@@ -289,6 +289,7 @@ Runtime boundaries: [`docs/native-execution-core.md`](docs/native-execution-core
 
 * `Improvement` Build verification of 16 KB page alignment for 64-bit native libraries, including manifest contract checks and JSON reports
 * `Improvement` Add protected host activation, accurate installed-package metadata and signed release collection; standardize localized resources and read-only documentation checks
+* `Improvement` Extend native ABI packaging and plugin metadata to arm64-v8a, armeabi-v7a, x86 and x86_64, with matching universal and per-ABI APKs
 
 # v0.1.0-rc.2
 

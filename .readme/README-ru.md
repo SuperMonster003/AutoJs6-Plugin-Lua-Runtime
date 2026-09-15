@@ -142,7 +142,7 @@ return total
 
 ******
 
-Требуются Android 24+ (minSdk 24, targetSdk 36), ABI `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`, а также AutoJs6 versionCode 5276 или новее с тем же сертификатом. Матрица x86_64 для установки, выполнения с реальным Host и удаления сохранена для API 24, 31 и 36, плюс end-to-end smoke API 37. arm64-v8a собирается и проходит artifact gate, но не проверялся на физическом устройстве; найденные в работе дефекты исправляются по отчетам.
+Требуются Android 24+ (minSdk 24, targetSdk 37), ABI `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`, а также AutoJs6 versionCode 5276 или новее с тем же сертификатом. Матрица x86_64 для установки, выполнения с реальным Host и удаления сохранена для API 24, 31 и 36, плюс end-to-end smoke API 37. arm64-v8a собирается и проходит artifact gate, но не проверялся на физическом устройстве; найденные в работе дефекты исправляются по отчетам.
 
 ******
 
@@ -182,7 +182,7 @@ return total
 
 ******
 
-Текущая версия `0.1.1-rc.2` является локально проверенным кандидатом подписанной упаковки, а не публичным release. Revision кандидата `a0ae189ac8cba042848412a671c91b0b8a7c44e1`, SHA-256 universal APK `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`; immutable receipt сохраняет `deviceVerified=false/runtimeVerified=false`. Затем split x86_64 прошел smoke с реальным Host на API 37 и матрицу API 24, 31, 36. Физическая проверка arm64 и семидневный soak были сняты 2026-08-26; далее действует fix-on-report. См. [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md), [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md), [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md), [`docs/public-release-policy.md`](docs/public-release-policy.md). R3 находится в [ROADMAP.md](ROADMAP.md), R4 в [ROADMAP-R4.md](ROADMAP-R4.md), R5 в [ROADMAP-R5.md](ROADMAP-R5.md).
+Текущая версия `0.1.2-rc.2` является локально проверенным кандидатом подписанной упаковки, а не публичным release. Revision кандидата `a0ae189ac8cba042848412a671c91b0b8a7c44e1`, SHA-256 universal APK `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`; immutable receipt сохраняет `deviceVerified=false/runtimeVerified=false`. Затем split x86_64 прошел smoke с реальным Host на API 37 и матрицу API 24, 31, 36. Физическая проверка arm64 и семидневный soak были сняты 2026-08-26; далее действует fix-on-report. См. [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md), [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md), [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md), [`docs/public-release-policy.md`](docs/public-release-policy.md). R3 находится в [ROADMAP.md](ROADMAP.md), R4 в [ROADMAP-R4.md](ROADMAP-R4.md), R5 в [ROADMAP-R5.md](ROADMAP-R5.md).
 
 ******
 
@@ -283,6 +283,12 @@ $faultArgs = @(
 
 ******
 
+# v0.1.2
+
+###### 2026/09/15
+
+* `Улучшено` Подняты compileSdk и targetSdk до 37 (Android 17); поведение плагина не зависит от нового целевого уровня
+
 # v0.1.1
 
 ###### 2026/09/11
@@ -308,16 +314,6 @@ $faultArgs = @(
 * `Улучшено` R5 вынесен из `ROADMAP-R4.md` в `ROADMAP-R5.md`, а устаревшая задача слотов традиционного китайского удалена
 * `Улучшено` Добавлены логический и OS учет PFD, offline gate одной командой, устойчивая CI, проверка release artifact и аудит исключения fault-harness
 * `Зависимость` Закреплены PUC Lua 5.4.8, Android NDK 28.2.13676358 и CMake 3.22.1
-
-# v0.1.0-rc.1
-
-###### 2026/08/13
-
-* `Примечание` Первый локальный кандидат Provider-enabled был подписан и испытан на устройстве, но публичный tag или release не создавались
-* `Добавлено` Введены отдельный процесс `:lua_runtime`, текстовое выполнение Lua, console, скалярные результаты и Binder обнаружение Provider в AutoJs6
-* `Исправлено` Некорректные и чрезмерные request отклоняются fail-closed проверками протокола, digest, UTF-8, deadline, памяти и вывода
-* `Улучшено` Созданы проверяемые доказательства для AAR, исходников Lua, ABI, выравнивания 16 KiB, подписи и rollback matrix
-* `Зависимость` Основано на стандартном PUC Lua 5.4.8 и замороженном протоколе AutoJs6 Lua 1.0
 
 ##### Другие выпуски
 

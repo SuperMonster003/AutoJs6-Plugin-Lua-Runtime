@@ -142,7 +142,7 @@ Las bibliotecas disponibles son base, string, math, table, utf8 y coroutine. `io
 
 ******
 
-Se requieren Android 24+ (minSdk 24, targetSdk 36), ABI `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`, y AutoJs6 versionCode 5276 o más reciente con el mismo certificado. La matriz x86_64 de instalación, ejecución con host real y desinstalación está archivada para API 24, 31 y 36, más un smoke end-to-end API 37. arm64-v8a se compila y verifica como artefacto, pero no se ha ejecutado en un dispositivo físico; los defectos reales se corrigen cuando se informan.
+Se requieren Android 24+ (minSdk 24, targetSdk 37), ABI `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`, y AutoJs6 versionCode 5276 o más reciente con el mismo certificado. La matriz x86_64 de instalación, ejecución con host real y desinstalación está archivada para API 24, 31 y 36, más un smoke end-to-end API 37. arm64-v8a se compila y verifica como artefacto, pero no se ha ejecutado en un dispositivo físico; los defectos reales se corrigen cuando se informan.
 
 ******
 
@@ -182,7 +182,7 @@ El script exige una revision limpia cuyo número de commits coincida con version
 
 ******
 
-La versión actual `0.1.1-rc.2` es un candidato de empaquetado firmado validado localmente, no una publicación pública. La revision candidata es `a0ae189ac8cba042848412a671c91b0b8a7c44e1` y el SHA-256 del APK universal es `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`; el recibo inmutable conserva `deviceVerified=false/runtimeVerified=false`. El split x86_64 superó después el smoke con host real en API 37 y la matriz API 24, 31 y 36. La prueba física arm64 y el soak de siete días se retiraron el 2026-08-26; la estabilidad ahora sigue fix-on-report. Consulta [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md), [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md), [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md) y [`docs/public-release-policy.md`](docs/public-release-policy.md). R3 está en [ROADMAP.md](ROADMAP.md), R4 en [ROADMAP-R4.md](ROADMAP-R4.md) y R5 en [ROADMAP-R5.md](ROADMAP-R5.md).
+La versión actual `0.1.2-rc.2` es un candidato de empaquetado firmado validado localmente, no una publicación pública. La revision candidata es `a0ae189ac8cba042848412a671c91b0b8a7c44e1` y el SHA-256 del APK universal es `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`; el recibo inmutable conserva `deviceVerified=false/runtimeVerified=false`. El split x86_64 superó después el smoke con host real en API 37 y la matriz API 24, 31 y 36. La prueba física arm64 y el soak de siete días se retiraron el 2026-08-26; la estabilidad ahora sigue fix-on-report. Consulta [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md), [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md), [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md) y [`docs/public-release-policy.md`](docs/public-release-policy.md). R3 está en [ROADMAP.md](ROADMAP.md), R4 en [ROADMAP-R4.md](ROADMAP-R4.md) y R5 en [ROADMAP-R5.md](ROADMAP-R5.md).
 
 ******
 
@@ -283,6 +283,12 @@ Límites de ejecución: [`docs/native-execution-core.md`](docs/native-execution-
 
 ******
 
+# v0.1.2
+
+###### 2026/09/15
+
+* `Mejora` compileSdk y targetSdk suben a 37 (Android 17); el comportamiento del plugin no depende del nuevo objetivo
+
 # v0.1.1
 
 ###### 2026/09/11
@@ -308,16 +314,6 @@ Límites de ejecución: [`docs/native-execution-core.md`](docs/native-execution-
 * `Mejora` R5 se separó de `ROADMAP-R4.md` en `ROADMAP-R5.md` y se eliminó la tarea obsoleta de ranuras de chino tradicional
 * `Mejora` Se añadieron contabilidad PFD lógica y de OS, control offline en un comando, CI resistente, validación release y auditorías de exclusión fault-harness
 * `Dependencia` Se fijan PUC Lua 5.4.8, Android NDK 28.2.13676358 y CMake 3.22.1
-
-# v0.1.0-rc.1
-
-###### 2026/08/13
-
-* `Nota` El primer candidato local Provider-enabled se firmó y probó en dispositivo, sin crear tag ni release público
-* `Función` Se introdujeron el proceso independiente `:lua_runtime`, ejecución Lua de texto, consola, resultados escalares y descubrimiento Binder de AutoJs6
-* `Corrección` Se rechazaron solicitudes malformadas o excesivas mediante validación fail-closed de protocolo, digest, UTF-8, deadline, memoria y salida
-* `Mejora` Se estableció evidencia verificable para AAR, fuentes Lua, ABI, alineación 16 KiB, firma y matrices de reversión
-* `Dependencia` Basado en PUC Lua 5.4.8 estándar y el protocolo Lua AutoJs6 1.0 congelado
 
 ##### Más versiones
 

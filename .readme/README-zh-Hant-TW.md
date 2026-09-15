@@ -142,7 +142,7 @@ return total
 
 ******
 
-支援 Android 24+ (minSdk 24, targetSdk 36), ABI 為 `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`, 並要求 AutoJs6 versionCode 5276 或以上及相同簽章. x86_64 已封存 API 24, 31, 36 的安裝, 真實 Host 執行與解除安裝矩陣, 以及 API 37 端對端冒煙. arm64-v8a 會建置並通過成品門禁, 但尚未在實體裝置驗證; 實際使用發現的缺陷按回報修正.
+支援 Android 24+ (minSdk 24, targetSdk 37), ABI 為 `arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`, 並要求 AutoJs6 versionCode 5276 或以上及相同簽章. x86_64 已封存 API 24, 31, 36 的安裝, 真實 Host 執行與解除安裝矩陣, 以及 API 37 端對端冒煙. arm64-v8a 會建置並通過成品門禁, 但尚未在實體裝置驗證; 實際使用發現的缺陷按回報修正.
 
 ******
 
@@ -182,7 +182,7 @@ return total
 
 ******
 
-目前版本 `0.1.1-rc.2` 是本機驗證的簽章封裝候選, 尚未公開發布. 候選 revision 為 `a0ae189ac8cba042848412a671c91b0b8a7c44e1`, universal APK SHA-256 為 `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`; 不可變回執仍保留 `deviceVerified=false/runtimeVerified=false`. x86_64 隨後通過 API 37 真實 Host 冒煙及 API 24, 31, 36 矩陣. arm64 實體裝置驗證與七日 soak 已於 2026-08-26 裁撤, 後續採用 fix-on-report. 詳見 [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md), [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md), [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md) 及 [`docs/public-release-policy.md`](docs/public-release-policy.md). R3 見 [ROADMAP.md](ROADMAP.md), R4 見 [ROADMAP-R4.md](ROADMAP-R4.md), R5 見 [ROADMAP-R5.md](ROADMAP-R5.md).
+目前版本 `0.1.2-rc.2` 是本機驗證的簽章封裝候選, 尚未公開發布. 候選 revision 為 `a0ae189ac8cba042848412a671c91b0b8a7c44e1`, universal APK SHA-256 為 `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`; 不可變回執仍保留 `deviceVerified=false/runtimeVerified=false`. x86_64 隨後通過 API 37 真實 Host 冒煙及 API 24, 31, 36 矩陣. arm64 實體裝置驗證與七日 soak 已於 2026-08-26 裁撤, 後續採用 fix-on-report. 詳見 [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md), [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md), [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md) 及 [`docs/public-release-policy.md`](docs/public-release-policy.md). R3 見 [ROADMAP.md](ROADMAP.md), R4 見 [ROADMAP-R4.md](ROADMAP-R4.md), R5 見 [ROADMAP-R5.md](ROADMAP-R5.md).
 
 ******
 
@@ -283,6 +283,12 @@ $faultArgs = @(
 
 ******
 
+# v0.1.2
+
+###### 2026/09/15
+
+* `改善` 將 compileSdk 與 targetSdk 提升到 37 (Android 17), 外掛程式行為不受新目標版本影響
+
 # v0.1.1
 
 ###### 2026/09/11
@@ -308,16 +314,6 @@ $faultArgs = @(
 * `改善` 將 R5 從 `ROADMAP-R4.md` 分拆至 `ROADMAP-R5.md`, 移除已由完整十語言成果取代的繁體中文槽位待辦
 * `改善` 補齊 PFD 邏輯與 OS 級帳目, 一鍵離線門禁, 韌性 CI, release 成品驗證及 fault-harness 排除稽核
 * `相依性` 固定 PUC Lua 5.4.8, Android NDK 28.2.13676358 與 CMake 3.22.1
-
-# v0.1.0-rc.1
-
-###### 2026/08/13
-
-* `提示` 首個 Provider-enabled 本機候選已簽章並完成裝置測試, 但沒有建立公開 tag 或 release
-* `新增` 首次提供獨立 `:lua_runtime` 處理程序, 文字 Lua 執行, console, 純量結果與 AutoJs6 Binder Provider 探索
-* `修正` 以 fail-closed 協定, 來源摘要, UTF-8, deadline, 記憶體及輸出驗證拒絕畸形或超限要求
-* `改善` 建立 protocol AAR, Lua 來源, ABI, 16 KiB 對齊, 簽章和回復矩陣的可複核證據
-* `相依性` 建構於標準 PUC Lua 5.4.8 與凍結的 AutoJs6 Lua protocol 1.0
 
 ##### 更多版本記錄
 

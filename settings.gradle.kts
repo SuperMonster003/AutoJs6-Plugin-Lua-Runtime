@@ -6,8 +6,8 @@ pluginManagement {
         gradlePluginPortal()
     }
     plugins {
-        id("io.github.supermonster003.autojs6-platform-versions") version "1.8.1"
-        id("io.github.supermonster003.autojs6-native-alignment") version "1.8.1"
+        id("io.github.supermonster003.autojs6-platform-versions") version "1.8.3"
+        id("io.github.supermonster003.autojs6-native-alignment") version "1.8.3"
     }
 }
 

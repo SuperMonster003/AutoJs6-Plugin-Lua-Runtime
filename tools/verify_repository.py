@@ -246,7 +246,10 @@ def verify_protocol() -> bool:
 
 def source_tree_fingerprint(tree_root: Path) -> tuple[int, str]:
     require(tree_root.is_dir() and not tree_root.is_symlink(), f"Vendored source tree is invalid: {tree_root}")
-    candidates = sorted(tree_root.rglob("*"))
+    candidates = sorted(
+        tree_root.rglob("*"),
+        key=lambda path: (path.as_posix().casefold(), path.as_posix()),
+    )
     require(
         not any(path.is_symlink() for path in candidates),
         f"Vendored source tree contains a symlink: {tree_root}",

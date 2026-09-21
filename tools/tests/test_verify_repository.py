@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
 import json
 from pathlib import Path
 import shutil
@@ -620,6 +621,18 @@ class VendorProvenanceTest(unittest.TestCase):
                 with mock.patch.object(verifier, "ROOT", root):
                     with self.assertRaises(RuntimeError):
                         verifier.verify_vendor()
+
+    def test_source_tree_fingerprint_uses_the_same_order_on_every_platform(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            files = [("lapi.c", b"api"), ("lua.h", b"header"), ("Makefile", b"build")]
+            for name, content in reversed(files):
+                (root / name).write_bytes(content)
+            expected = hashlib.sha256()
+            for name, content in files:
+                expected.update(name.encode("utf-8") + b"\0")
+                expected.update(hashlib.sha256(content).hexdigest().encode("ascii") + b"\n")
+            self.assertEqual((3, expected.hexdigest()), verifier.source_tree_fingerprint(root))
 
     def test_vendored_tree_count_digest_and_timestamp_are_bound(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

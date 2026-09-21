@@ -8,41 +8,41 @@
 
 ###### 2026/09/19
 
-* `修复` AGP 9.1 构建时的 SDK XML v4 解析警告及 JVM 单元测试组装任务误触发 APK 原生库对齐检查的问题 (共享构建插件 1.8.3)
-* `优化` 将 compileSdk 与 targetSdk 提升到 37 (Android 17), 插件行为不受新目标版本影响
+* `修复` AGP 9.1 构建时的 SDK XML v4 解析警告, 以及 JVM 单元测试误触发 APK 原生库对齐检查的问题 (共享构建插件 1.8.3)
+* `优化` compileSdk/targetSdk 升级至 37 (Android 17)
 
 # v0.1.1
 
 ###### 2026/09/11
 
-* `优化` 构建阶段校验 64 位原生库的 16 KB 页大小对齐, 检查 manifest 契约并输出 JSON 报告
+* `优化` 构建阶段校验 64 位原生库的 16 KB 内存页对齐及 Manifest 配置, 并输出校验报告
 * `优化` 补充受保护的宿主唤醒, 准确安装包信息与签名正式包归集, 规范多语言资源和只读文档检查
-* `优化` 扩展原生 ABI 打包与插件元数据至 arm64-v8a, armeabi-v7a, x86 和 x86_64, 同步通用 APK 与各 ABI 独立 APK
+* `优化` 原生库支持 arm64-v8a/armeabi-v7a/x86/x86_64, 并提供通用及各 ABI 独立安装包
 
 # v0.1.0-rc.2
 
 ###### 2026/08/27
 
-* `提示` 当前仍是本地验证的签名打包候选, 尚未创建公开 tag 或 GitHub Release; 不可变候选回执继续保留 `deviceVerified=false/runtimeVerified=false`
-* `提示` 按 owner 决定裁撤 arm64-v8a 物理设备冒烟和七日 production soak, 已完成的两日证据与冻结标准继续归档, 长期稳定性改为 fix-on-report
-* `新增` 加入受控 coroutine, `autojs.now()`, `console.info/warn`, Provider 侧 `ui.toast.v1`, crash diagnostic 与 `AutoJs6LuaWatchdog` 事件
-* `新增` 协同实现 `storage.kv.v1`: 按文件脚本隔离的 Host 持久化, 固定 get/put/remove/clear 形状, 有界规范值且无重试, 并完成 Host 交付的 `ui.toast.v1`
-* `新增` 开放文本模块 snapshot, 只读执行参数与设备信息桥, 并保持 deadline, cancel, 内存和输出配额贯穿全部路径
-* `新增` 提供 arm64-v8a 与 x86_64 原生库, 并归档 API 24, 31, 36, 37 的 x86_64 真实 Host 验证
-* `修复` 极小 deadline 在 `start()` 到达前过期时稳定产生唯一 `TIMEOUT/QUEUE` 终态, 不再留下无终态会话
-* `修复` 收紧 `math.randomseed` 和 Host capability 拒绝映射, 使未授权调用稳定结束为 `HOST_CAPABILITY`
-* `优化` 用显式 `providerDebug/providerRelease/nativeTestDebug/faultTestDebug` 变体替换四个 Boolean 构建模式, 并物理隔离生产发现服务与破坏性 fault harness
-* `优化` 迁移到兄弟插件统一的 `.python/generate_markdown.py` + `.readme/` + `.changelog/` 机制, 完整提供 10 语言文档并以 `zh-Hans` 作为根 README 默认语言
-* `优化` 将 R5 从 `ROADMAP-R4.md` 独立为 `ROADMAP-R5.md`, 删除已经由完整十语言落地取代的繁体槽位待办
-* `优化` 补齐 PFD 逻辑与 OS 级账目, 一键离线门禁, CI 重试/缓存, release 制品验证和 fault-harness 排除审计
-* `依赖` 固定 PUC Lua 5.4.8, Android NDK 28.2.13676358 与 CMake 3.22.1
+* `提示` 本地签名候选版本, 尚未创建公开标签或 GitHub Release (候选记录保留 deviceVerified=false/runtimeVerified=false)
+* `提示` 完成两日稳定性验证, 未执行 arm64-v8a 真机冒烟及七日持续运行测试, 后续按问题反馈修复
+* `新增` 协程, autojs.now, console.info/warn, ui.toast.v1, 崩溃诊断及 AutoJs6LuaWatchdog 事件
+* `新增` storage.kv.v1 宿主持久化存储, 按脚本隔离并支持 get/put/remove/clear, 完成 ui.toast.v1 宿主集成
+* `新增` 文本模块快照, 只读执行参数及设备信息, 支持统一的超时, 取消, 内存和输出限制
+* `新增` arm64-v8a/x86_64 原生库, 完成 Android 7/12/16/17 的 x86_64 宿主验证
+* `修复` 超时期限早于 start 调用时会话未结束的问题, 统一返回 TIMEOUT/QUEUE
+* `修复` math.randomseed 校验及宿主能力拒绝错误不一致的问题, 未授权调用返回 HOST_CAPABILITY
+* `优化` 正式插件, 原生测试及故障测试使用独立构建变体, 避免测试组件进入正式安装包
+* `优化` README 及更新日志统一从 JSON 生成, 支持 10 种语言, 默认使用简体中文
+* `优化` 开发路线图分离已完成阶段与后续工作, 移除过期的本地化待办
+* `优化` 补充文件描述符检查, 离线验证, CI 缓存及发布产物校验
+* `依赖` 锁定 PUC Lua 版本 5.4.8, Android NDK 版本 28.2.13676358 及 CMake 版本 3.22.1
 
 # v0.1.0-rc.1
 
 ###### 2026/08/13
 
-* `提示` 首个 Provider-enabled 本地候选完成签名和设备验证, 但没有创建公开 tag 或 release
-* `新增` 首次实现独立 `:lua_runtime` 进程, 文本 Lua 执行, console, 标量结果和 AutoJs6 Binder Provider 发现
-* `修复` 以 fail-closed 协议, 源码摘要, UTF-8, deadline, 内存和输出验证拒绝畸形或超限请求
-* `优化` 建立协议 AAR, Lua 源码, ABI, 16 KiB 对齐, 签名和回滚矩阵的可复核证据
-* `依赖` 基于标准 PUC Lua 5.4.8 与冻结的 AutoJs6 Lua protocol 1.0
+* `提示` 首个完成签名及设备验证的本地候选版本, 尚未创建公开标签或发行版
+* `新增` 独立 Lua 运行进程, 支持文本脚本, 控制台, 标量结果及宿主插件发现
+* `修复` 畸形及超限请求的校验问题, 补充协议, 摘要, UTF-8, 超时, 内存及输出检查
+* `优化` 补充协议, 源码, ABI, 16 KB 对齐, 签名及回滚验证
+* `依赖` 附加 PUC Lua 版本 5.4.8 及 AutoJs6 Lua 协议 1.0

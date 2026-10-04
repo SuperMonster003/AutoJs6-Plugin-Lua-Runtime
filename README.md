@@ -182,7 +182,7 @@ return total
 
 ******
 
-当前版本 `0.1.2-rc.2` 是本地验证的签名打包候选, 尚未公开发布. 当前候选属于 clean revision `a0ae189ac8cba042848412a671c91b0b8a7c44e1` (versionCode 43), universal APK SHA-256 为 `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`; 不可变回执中的 `deviceVerified=false/runtimeVerified=false` 保持不变. x86_64 split 随后通过 API 37 真实 Host 冒烟及 API 24, 31, 36 安装/执行/卸载矩阵. arm64 物理设备验证与七日 soak 已于 2026-08-26 按 owner 决定裁撤, 以后采用 fix-on-report. 详见 [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md), [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md), [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md) 与 [`docs/public-release-policy.md`](docs/public-release-policy.md). R3 历史见 [ROADMAP.md](ROADMAP.md), R4 证据见 [ROADMAP-R4.md](ROADMAP-R4.md), 当前 R5 计划见 [ROADMAP-R5.md](ROADMAP-R5.md).
+当前版本 `0.1.3-rc.2` 是本地验证的签名打包候选, 尚未公开发布. 当前候选属于 clean revision `a0ae189ac8cba042848412a671c91b0b8a7c44e1` (versionCode 43), universal APK SHA-256 为 `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`; 不可变回执中的 `deviceVerified=false/runtimeVerified=false` 保持不变. x86_64 split 随后通过 API 37 真实 Host 冒烟及 API 24, 31, 36 安装/执行/卸载矩阵. arm64 物理设备验证与七日 soak 已于 2026-08-26 按 owner 决定裁撤, 以后采用 fix-on-report. 详见 [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md), [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md), [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md) 与 [`docs/public-release-policy.md`](docs/public-release-policy.md). R3 历史见 [ROADMAP.md](ROADMAP.md), R4 证据见 [ROADMAP-R4.md](ROADMAP-R4.md), 当前 R5 计划见 [ROADMAP-R5.md](ROADMAP-R5.md).
 
 ******
 
@@ -283,6 +283,12 @@ $faultArgs = @(
 
 ******
 
+# v0.1.3
+
+###### 2026/10/04
+
+* `优化` 插件中心图标采用统一工作台调整后的尺寸, 位置, 亮暗图稿与圆形底色, 保留可重建原稿和参数
+
 # v0.1.2
 
 ###### 2026/09/19
@@ -297,24 +303,6 @@ $faultArgs = @(
 * `优化` 构建阶段校验 64 位原生库的 16 KB 内存页对齐及 Manifest 配置, 并输出校验报告
 * `优化` 补充受保护的宿主唤醒, 准确安装包信息与签名正式包归集, 规范多语言资源和只读文档检查
 * `优化` 原生库支持 arm64-v8a/armeabi-v7a/x86/x86_64, 并提供通用及各 ABI 独立安装包
-
-# v0.1.0-rc.2
-
-###### 2026/08/27
-
-* `提示` 本地签名候选版本, 尚未创建公开标签或 GitHub Release (候选记录保留 deviceVerified=false/runtimeVerified=false)
-* `提示` 完成两日稳定性验证, 未执行 arm64-v8a 真机冒烟及七日持续运行测试, 后续按问题反馈修复
-* `新增` 协程, autojs.now, console.info/warn, ui.toast.v1, 崩溃诊断及 AutoJs6LuaWatchdog 事件
-* `新增` storage.kv.v1 宿主持久化存储, 按脚本隔离并支持 get/put/remove/clear, 完成 ui.toast.v1 宿主集成
-* `新增` 文本模块快照, 只读执行参数及设备信息, 支持统一的超时, 取消, 内存和输出限制
-* `新增` arm64-v8a/x86_64 原生库, 完成 Android 7/12/16/17 的 x86_64 宿主验证
-* `修复` 超时期限早于 start 调用时会话未结束的问题, 统一返回 TIMEOUT/QUEUE
-* `修复` math.randomseed 校验及宿主能力拒绝错误不一致的问题, 未授权调用返回 HOST_CAPABILITY
-* `优化` 正式插件, 原生测试及故障测试使用独立构建变体, 避免测试组件进入正式安装包
-* `优化` README 及更新日志统一从 JSON 生成, 支持 10 种语言, 默认使用简体中文
-* `优化` 开发路线图分离已完成阶段与后续工作, 移除过期的本地化待办
-* `优化` 补充文件描述符检查, 离线验证, CI 缓存及发布产物校验
-* `依赖` 锁定 PUC Lua 版本 5.4.8, Android NDK 版本 28.2.13676358 及 CMake 版本 3.22.1
 
 ##### 更多版本记录
 

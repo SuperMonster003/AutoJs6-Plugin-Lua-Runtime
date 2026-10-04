@@ -182,7 +182,7 @@ Le script exige une revision propre avec commit count égal au versionCode, reco
 
 ******
 
-La version actuelle `0.1.2-rc.2` est un candidat d'empaquetage signé validé localement, pas une publication publique. La revision candidate est `a0ae189ac8cba042848412a671c91b0b8a7c44e1` et le SHA-256 de l'APK universal est `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`; le reçu immuable conserve `deviceVerified=false/runtimeVerified=false`. Le split x86_64 a ensuite réussi le smoke Host réel API 37 et la matrice API 24, 31, 36. Le test physique arm64 et le soak de sept jours ont été retirés le 2026-08-26; la stabilité suit désormais fix-on-report. Voir [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md), [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md), [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md) et [`docs/public-release-policy.md`](docs/public-release-policy.md). R3 se trouve dans [ROADMAP.md](ROADMAP.md), R4 dans [ROADMAP-R4.md](ROADMAP-R4.md) et R5 dans [ROADMAP-R5.md](ROADMAP-R5.md).
+La version actuelle `0.1.3-rc.2` est un candidat d'empaquetage signé validé localement, pas une publication publique. La revision candidate est `a0ae189ac8cba042848412a671c91b0b8a7c44e1` et le SHA-256 de l'APK universal est `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`; le reçu immuable conserve `deviceVerified=false/runtimeVerified=false`. Le split x86_64 a ensuite réussi le smoke Host réel API 37 et la matrice API 24, 31, 36. Le test physique arm64 et le soak de sept jours ont été retirés le 2026-08-26; la stabilité suit désormais fix-on-report. Voir [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md), [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md), [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md) et [`docs/public-release-policy.md`](docs/public-release-policy.md). R3 se trouve dans [ROADMAP.md](ROADMAP.md), R4 dans [ROADMAP-R4.md](ROADMAP-R4.md) et R5 dans [ROADMAP-R5.md](ROADMAP-R5.md).
 
 ******
 
@@ -283,6 +283,12 @@ Limites d'exécution: [`docs/native-execution-core.md`](docs/native-execution-co
 
 ******
 
+# v0.1.3
+
+###### 2026/10/04
+
+* `Amélioration` Les icônes du centre de plugins utilisent les tailles, positions, images claires et sombres et fonds circulaires réglés dans Icon Studio, avec les sources et paramètres permettant de les reproduire
+
 # v0.1.2
 
 ###### 2026/09/19
@@ -297,24 +303,6 @@ Limites d'exécution: [`docs/native-execution-core.md`](docs/native-execution-co
 * `Amélioration` Vérification à la compilation de l'alignement des pages de 16 KB des bibliothèques natives 64 bits, avec contrôle du contrat manifest et rapports JSON
 * `Amélioration` Ajouter une activation protégée, des métadonnées exactes et la collecte des versions signées; harmoniser les ressources et les contrôles documentaires en lecture seule
 * `Amélioration` Étendre les ABI natives et les métadonnées du plugin à arm64-v8a, armeabi-v7a, x86 et x86_64, avec des APK universels et par ABI cohérents
-
-# v0.1.0-rc.2
-
-###### 2026/08/27
-
-* `Note` Il s'agit toujours d'un candidat d'empaquetage signé validé localement: aucun tag public ni GitHub Release, et le reçu immuable conserve `deviceVerified=false/runtimeVerified=false`
-* `Note` Le smoke physique arm64-v8a et le soak de sept jours ont été retirés par décision du owner; les deux jours de preuves et le standard gelé restent archivés, puis la stabilité suit fix-on-report
-* `Ajout` Ajout des coroutines contrôlées, `autojs.now()`, `console.info/warn`, du côté Provider de `ui.toast.v1`, des diagnostics de crash et des événements `AutoJs6LuaWatchdog`
-* `Ajout` Implémentation négociée de `storage.kv.v1` avec persistance Host isolée par script fichier, formes get/put/remove/clear fixes, valeurs canoniques bornées et aucune nouvelle tentative, puis livraison Host de `ui.toast.v1`
-* `Ajout` Ajout des snapshots de modules texte, des arguments en lecture seule et du pont d'informations appareil tout en propageant délai, annulation, mémoire et quotas de sortie
-* `Ajout` Fourniture des bibliothèques arm64-v8a et x86_64 avec preuves x86_64 Host réel archivées sur API 24, 31, 36 et 37
-* `Correction` Un délai minime expirant avant l'arrivée de `start()` produit maintenant un seul terminal `TIMEOUT/QUEUE`, sans session orpheline
-* `Correction` Durcissement de `math.randomseed` et du rejet des capability Host afin qu'un appel non accordé finisse en `HOST_CAPABILITY`
-* `Amélioration` Remplacement des quatre modes Boolean par `providerDebug/providerRelease/nativeTestDebug/faultTestDebug`, avec isolation physique de la découverte de production et du fault harness destructif
-* `Amélioration` Migration vers la convention `.python/generate_markdown.py` + `.readme/` + `.changelog/` des plugins voisins, documentation complète en 10 langues et `zh-Hans` comme README racine
-* `Amélioration` Séparation de R5 depuis `ROADMAP-R4.md` vers `ROADMAP-R5.md` et suppression de la tâche devenue inutile pour les créneaux chinois traditionnels
-* `Amélioration` Ajout du suivi PFD logique et OS, du contrôle offline en une commande, d'une CI résiliente, de la validation release et des audits d'exclusion fault-harness
-* `Dépendance` Verrouillage de PUC Lua 5.4.8, Android NDK 28.2.13676358 et CMake 3.22.1
 
 ##### Autres versions
 

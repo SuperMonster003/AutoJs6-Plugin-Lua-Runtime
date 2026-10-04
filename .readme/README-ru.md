@@ -182,7 +182,7 @@ return total
 
 ******
 
-Текущая версия `0.1.2-rc.2` является локально проверенным кандидатом подписанной упаковки, а не публичным release. Revision кандидата `a0ae189ac8cba042848412a671c91b0b8a7c44e1`, SHA-256 universal APK `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`; immutable receipt сохраняет `deviceVerified=false/runtimeVerified=false`. Затем split x86_64 прошел smoke с реальным Host на API 37 и матрицу API 24, 31, 36. Физическая проверка arm64 и семидневный soak были сняты 2026-08-26; далее действует fix-on-report. См. [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md), [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md), [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md), [`docs/public-release-policy.md`](docs/public-release-policy.md). R3 находится в [ROADMAP.md](ROADMAP.md), R4 в [ROADMAP-R4.md](ROADMAP-R4.md), R5 в [ROADMAP-R5.md](ROADMAP-R5.md).
+Текущая версия `0.1.3-rc.2` является локально проверенным кандидатом подписанной упаковки, а не публичным release. Revision кандидата `a0ae189ac8cba042848412a671c91b0b8a7c44e1`, SHA-256 universal APK `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`; immutable receipt сохраняет `deviceVerified=false/runtimeVerified=false`. Затем split x86_64 прошел smoke с реальным Host на API 37 и матрицу API 24, 31, 36. Физическая проверка arm64 и семидневный soak были сняты 2026-08-26; далее действует fix-on-report. См. [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md), [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md), [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md), [`docs/public-release-policy.md`](docs/public-release-policy.md). R3 находится в [ROADMAP.md](ROADMAP.md), R4 в [ROADMAP-R4.md](ROADMAP-R4.md), R5 в [ROADMAP-R5.md](ROADMAP-R5.md).
 
 ******
 
@@ -283,6 +283,12 @@ $faultArgs = @(
 
 ******
 
+# v0.1.3
+
+###### 2026/10/04
+
+* `Улучшено` Значки центра плагинов используют размеры, положение, светлые и тёмные изображения и круглые фоны, настроенные в Icon Studio, сохраняя исходники и параметры для воспроизведения
+
 # v0.1.2
 
 ###### 2026/09/19
@@ -297,24 +303,6 @@ $faultArgs = @(
 * `Улучшено` Проверка выравнивания страниц 16 KB для 64-битных нативных библиотек при сборке, включая контракт manifest и отчеты JSON
 * `Улучшено` Добавлены защищенная активация, точные метаданные установленного пакета и сбор подписанных выпусков; согласованы локализация и проверка документации без записи
 * `Улучшено` Расширение набора нативных ABI и метаданных плагина до arm64-v8a, armeabi-v7a, x86 и x86_64 с согласованными универсальными и отдельными APK для каждой ABI
-
-# v0.1.0-rc.2
-
-###### 2026/08/27
-
-* `Примечание` Это по-прежнему локально проверенный кандидат подписанной упаковки: публичного tag и GitHub Release нет, immutable receipt сохраняет `deviceVerified=false/runtimeVerified=false`
-* `Примечание` Физический smoke arm64-v8a и семидневный production soak сняты по решению owner; завершенные два дня и замороженный стандарт сохранены, а стабильность перешла на fix-on-report
-* `Добавлено` Добавлены контролируемые coroutine, `autojs.now()`, `console.info/warn`, сторона Provider `ui.toast.v1`, диагностика crash и события `AutoJs6LuaWatchdog`
-* `Добавлено` Реализован согласованный `storage.kv.v1` с изолированным по файловому script хранилищем Host, фиксированными формами get/put/remove/clear, ограниченными canonical value и без retry, а также доставка `ui.toast.v1` через Host
-* `Добавлено` Добавлены текстовые snapshot модулей, аргументы только для чтения и мост информации устройства с сохранением deadline, отмены, памяти и квот вывода
-* `Добавлено` Поставляются native library arm64-v8a и x86_64, а доказательства x86_64 с реальным Host сохранены для API 24, 31, 36 и 37
-* `Исправлено` Минимальный deadline до прихода `start()` теперь дает один детерминированный терминал `TIMEOUT/QUEUE`, а не session без завершения
-* `Исправлено` Усилены `math.randomseed` и mapping отказа capability Host, поэтому неразрешенные вызовы завершаются как `HOST_CAPABILITY`
-* `Улучшено` Четыре Boolean режима заменены на `providerDebug/providerRelease/nativeTestDebug/faultTestDebug`, а производственное обнаружение физически отделено от разрушительного fault harness
-* `Улучшено` Выполнен переход на соглашение соседних плагинов `.python/generate_markdown.py` + `.readme/` + `.changelog/`, с 10 языками и `zh-Hans` как корневым README
-* `Улучшено` R5 вынесен из `ROADMAP-R4.md` в `ROADMAP-R5.md`, а устаревшая задача слотов традиционного китайского удалена
-* `Улучшено` Добавлены логический и OS учет PFD, offline gate одной командой, устойчивая CI, проверка release artifact и аудит исключения fault-harness
-* `Зависимость` Закреплены PUC Lua 5.4.8, Android NDK 28.2.13676358 и CMake 3.22.1
 
 ##### Другие выпуски
 

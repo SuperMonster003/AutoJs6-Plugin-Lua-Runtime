@@ -182,7 +182,7 @@ The script requires a clean revision whose commit count matches versionCode, per
 
 ******
 
-Current version `0.1.2-rc.2` is a locally validated signed-packaging candidate, not a public release. The current signed-packaging candidate belongs to clean plugin revision `a0ae189ac8cba042848412a671c91b0b8a7c44e1` (versionCode 43); its universal APK SHA-256 is `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`. device/runtime verification deliberately remains `false` in that immutable receipt. The x86_64 split later passed the API 37 real-Host smoke and install, real-Host execution, and Provider uninstall on API 24, 31, and 36. The arm64 physical-device half was descoped on 2026-08-26 together with the seven-day soak; stability now follows fix-on-report. See [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md), [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md), [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md), and [`docs/public-release-policy.md`](docs/public-release-policy.md). R3 history is in [ROADMAP.md](ROADMAP.md), the R4 evidence ledger in [ROADMAP-R4.md](ROADMAP-R4.md), and the active R5 plan in [ROADMAP-R5.md](ROADMAP-R5.md).
+Current version `0.1.3-rc.2` is a locally validated signed-packaging candidate, not a public release. The current signed-packaging candidate belongs to clean plugin revision `a0ae189ac8cba042848412a671c91b0b8a7c44e1` (versionCode 43); its universal APK SHA-256 is `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`. device/runtime verification deliberately remains `false` in that immutable receipt. The x86_64 split later passed the API 37 real-Host smoke and install, real-Host execution, and Provider uninstall on API 24, 31, and 36. The arm64 physical-device half was descoped on 2026-08-26 together with the seven-day soak; stability now follows fix-on-report. See [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md), [`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md), [`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md), and [`docs/public-release-policy.md`](docs/public-release-policy.md). R3 history is in [ROADMAP.md](ROADMAP.md), the R4 evidence ledger in [ROADMAP-R4.md](ROADMAP-R4.md), and the active R5 plan in [ROADMAP-R5.md](ROADMAP-R5.md).
 
 ******
 
@@ -283,6 +283,12 @@ Runtime boundaries: [`docs/native-execution-core.md`](docs/native-execution-core
 
 ******
 
+# v0.1.3
+
+###### 2026/10/04
+
+* `Improvement` Plugin Center icons use the sizes, positions, light and dark artwork, and circular backgrounds adjusted in Icon Studio, retaining reproducible sources and parameters
+
 # v0.1.2
 
 ###### 2026/09/19
@@ -297,24 +303,6 @@ Runtime boundaries: [`docs/native-execution-core.md`](docs/native-execution-core
 * `Improvement` Build verification of 16 KB page alignment for 64-bit native libraries, including manifest contract checks and JSON reports
 * `Improvement` Add protected host activation, accurate installed-package metadata and signed release collection; standardize localized resources and read-only documentation checks
 * `Improvement` Extend native ABI packaging and plugin metadata to arm64-v8a, armeabi-v7a, x86 and x86_64, with matching universal and per-ABI APKs
-
-# v0.1.0-rc.2
-
-###### 2026/08/27
-
-* `Hint` This remains a locally validated signed-packaging candidate: no public tag or GitHub Release exists, and the immutable receipt still says `deviceVerified=false/runtimeVerified=false`
-* `Hint` The arm64-v8a physical-device smoke and seven-day production soak were descoped by owner decision; the completed two-day evidence and frozen standard remain archived, while long-run stability follows fix-on-report
-* `Feature` Added controlled coroutines, `autojs.now()`, `console.info/warn`, the Provider side of `ui.toast.v1`, crash diagnostics and `AutoJs6LuaWatchdog` events
-* `Feature` Implemented negotiated `storage.kv.v1` with file-script-isolated Host persistence, fixed get/put/remove/clear shapes, bounded canonical values and no retry, and completed Host-delivered `ui.toast.v1`
-* `Feature` Added text module snapshots, read-only execution arguments and the device-information bridge while carrying deadlines, cancellation, memory and output quotas across every path
-* `Feature` Ships arm64-v8a and x86_64 native libraries and archives real-Host x86_64 evidence on API 24, 31, 36 and 37
-* `Fix` A tiny deadline expiring before `start()` arrives now yields one deterministic `TIMEOUT/QUEUE` terminal instead of leaving a session without a terminal state
-* `Fix` Tightened `math.randomseed` and Host-capability rejection mapping so ungranted calls terminate deterministically as `HOST_CAPABILITY`
-* `Improvement` Replaced four Boolean build modes with explicit `providerDebug/providerRelease/nativeTestDebug/faultTestDebug` variants and physically isolated production discovery from the destructive fault harness
-* `Improvement` Migrated to the sibling-plugin `.python/generate_markdown.py` + `.readme/` + `.changelog/` convention, with complete documentation in 10 languages and `zh-Hans` as the root README default
-* `Improvement` Split R5 out of `ROADMAP-R4.md` into `ROADMAP-R5.md` and removed the obsolete Traditional-Chinese-slot task now superseded by the complete 10-language set
-* `Improvement` Added exact logical and OS-level PFD accounting, a one-command offline gate, resilient CI, release artifact validation and fault-harness exclusion audits
-* `Dependency` Pins PUC Lua 5.4.8, Android NDK 28.2.13676358 and CMake 3.22.1
 
 ##### For more releases
 

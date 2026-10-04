@@ -182,7 +182,7 @@ return total
 
 ******
 
-الإصدار الحالي `0.1.2-rc.2` مرشح تغليف موقع تم التحقق منه محليا, وليس release عاما. revision المرشح هو `a0ae189ac8cba042848412a671c91b0b8a7c44e1`, وSHA-256 لملف APK universal هو `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`; يحافظ receipt الثابت على `deviceVerified=false/runtimeVerified=false`. اجتاز split x86_64 لاحقا smoke عبر Host حقيقية على API 37 ومصفوفة API 24 و31 و36. ألغيت تجربة arm64 الفعلية وsoak سبعة أيام في 2026-08-26, وتتبع الاستقرار الآن fix-on-report. راجع [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md) و[`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md) و[`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md) و[`docs/public-release-policy.md`](docs/public-release-policy.md). يوجد R3 في [ROADMAP.md](ROADMAP.md), وR4 في [ROADMAP-R4.md](ROADMAP-R4.md), وR5 في [ROADMAP-R5.md](ROADMAP-R5.md).
+الإصدار الحالي `0.1.3-rc.2` مرشح تغليف موقع تم التحقق منه محليا, وليس release عاما. revision المرشح هو `a0ae189ac8cba042848412a671c91b0b8a7c44e1`, وSHA-256 لملف APK universal هو `93f72bc7d38a975b939e97e9e8a47873fc43a1419290cda07f0b803d27c85dfd`; يحافظ receipt الثابت على `deviceVerified=false/runtimeVerified=false`. اجتاز split x86_64 لاحقا smoke عبر Host حقيقية على API 37 ومصفوفة API 24 و31 و36. ألغيت تجربة arm64 الفعلية وsoak سبعة أيام في 2026-08-26, وتتبع الاستقرار الآن fix-on-report. راجع [`docs/release-candidate-rc2.md`](docs/release-candidate-rc2.md) و[`docs/release-candidate-rc2-emulator-smoke.md`](docs/release-candidate-rc2-emulator-smoke.md) و[`docs/release-candidate-rc2-api-matrix.md`](docs/release-candidate-rc2-api-matrix.md) و[`docs/public-release-policy.md`](docs/public-release-policy.md). يوجد R3 في [ROADMAP.md](ROADMAP.md), وR4 في [ROADMAP-R4.md](ROADMAP-R4.md), وR5 في [ROADMAP-R5.md](ROADMAP-R5.md).
 
 ******
 
@@ -283,6 +283,12 @@ $faultArgs = @(
 
 ******
 
+# v0.1.3
+
+###### 2026/10/04
+
+* `تحسين` تستخدم أيقونات مركز الملحقات الأحجام والمواضع والصور الفاتحة والداكنة والخلفيات الدائرية المعدلة في Icon Studio مع الاحتفاظ بالمصادر والمعلمات لإعادة إنتاجها
+
 # v0.1.2
 
 ###### 2026/09/19
@@ -297,24 +303,6 @@ $faultArgs = @(
 * `تحسين` التحقق أثناء البناء من محاذاة صفحات 16 KB للمكتبات الأصلية ذات 64 بت, مع فحص عقد manifest وتقارير JSON
 * `تحسين` إضافة تنشيط مضيف محمي وبيانات دقيقة للحزمة المثبتة وجمع الإصدارات الموقعة مع توحيد الموارد وفحص المستندات للقراءة فقط
 * `تحسين` توسيع حزم ABI الأصلية وبيانات الإضافة الوصفية لتشمل arm64-v8a وarmeabi-v7a وx86 وx86_64, مع ملفات APK عامة ومنفصلة متطابقة لكل ABI
-
-# v0.1.0-rc.2
-
-###### 2026/08/27
-
-* `تلميح` ما زال مرشح تغليف موقع تم التحقق منه محليا: لا يوجد tag عام أو GitHub Release, ويحافظ receipt الثابت على `deviceVerified=false/runtimeVerified=false`
-* `تلميح` ألغيت تجربة arm64-v8a الفعلية وproduction soak لسبعة أيام بقرار owner; يبقى دليل اليومين والمعيار المجمد محفوظين, وينتقل الاستقرار إلى fix-on-report
-* `ميزة` إضافة coroutine المقيدة و`autojs.now()` و`console.info/warn` وجانب Provider من `ui.toast.v1` وتشخيص crash وأحداث `AutoJs6LuaWatchdog`
-* `ميزة` تنفيذ `storage.kv.v1` المتفاوض عليه مع storage في Host معزولة لكل file script وأشكال get/put/remove/clear ثابتة وcanonical value محدودة ومن دون retry, وإكمال `ui.toast.v1` عبر Host
-* `ميزة` إضافة snapshot لوحدات النص وحجج التنفيذ للقراءة فقط وجسر معلومات الجهاز مع استمرار deadline والإلغاء والذاكرة وحصص الإخراج
-* `ميزة` توفير native library لـ arm64-v8a وx86_64 وحفظ دليل x86_64 عبر Host حقيقية على API 24 و31 و36 و37
-* `إصلاح` أصبح deadline الصغير الذي ينتهي قبل وصول `start()` ينتج نهاية `TIMEOUT/QUEUE` حتمية واحدة بدلا من session بلا نهاية
-* `إصلاح` تشديد `math.randomseed` وmapping رفض capability في Host كي تنتهي الاستدعاءات غير الممنوحة كـ `HOST_CAPABILITY`
-* `تحسين` استبدال أربعة أوضاع Boolean بمتغيرات `providerDebug/providerRelease/nativeTestDebug/faultTestDebug` وعزل اكتشاف الإنتاج فعليا عن fault harness التخريبي
-* `تحسين` الانتقال إلى نهج الإضافات الشقيقة `.python/generate_markdown.py` + `.readme/` + `.changelog/` مع توثيق كامل بعشر لغات و`zh-Hans` كملف README جذري
-* `تحسين` فصل R5 من `ROADMAP-R4.md` إلى `ROADMAP-R5.md` وإزالة مهمة خانات الصينية التقليدية التي لم تعد لازمة
-* `تحسين` إضافة حساب PFD المنطقي وعلى مستوى OS وبوابة offline بأمر واحد وCI مرنة والتحقق من release artifact وتدقيق استبعاد fault-harness
-* `تبعية` تثبيت PUC Lua 5.4.8 وAndroid NDK 28.2.13676358 وCMake 3.22.1
 
 ##### مزيد من الإصدارات
 

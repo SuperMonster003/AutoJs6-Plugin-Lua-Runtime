@@ -25,3 +25,9 @@ The provider packages the Lua native runtime. Derive release ABI splits and Plug
 Use `:app:assembleProviderDebug`, `:app:testProviderDebugUnitTest`, `:app:assembleProviderDebugAndroidTest`, and `:app:lintProviderDebug` for the real application variant. `:app:appendDigestToReleasedFiles` collects the signed provider release and preserves the existing RC release preconditions. Supply the ignored signing property file and keystore through the existing `autojs.lua.release.signingPropertiesFile` and `autojs.lua.release.signingStoreFile` Gradle properties (or their documented environment equivalents). Do not infer a new ABI or stable promotion from another runtime repository.
 
 INFO `getInfo()` also enforces the configured AutoJs6 host UID. Plugin instrumentation verifies discovery, explicit binding, the descriptor and rejection of its own non-host UID. Positive INFO metadata and runtime Binder acceptance must run from the matching signed AutoJs6 host; do not weaken caller verification to make a plugin-local test pass.
+
+
+## Icon Studio publication snapshot (2026-10-04)
+
+- `.icons/recipe.json` and its content-addressed original assets own the current icon geometry, tone and backgrounds. Keep the portable renderer, generated resources, keep rules and icon CI in the same change.
+- Use `.python/generate_icon_studio.py --check` for read-only reproduction checks. Optical size bands are advisory; retain canvas, transparency and safe-circle checks. Three uses neutral foregrounds and fixed #FAFAFA / #212121 surfaces; other plugins may use colored artwork and custom or transparent surfaces.

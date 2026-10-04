@@ -602,7 +602,7 @@ def verify_localization_workflow() -> None:
         english_readme,
         (
             "English [en] # current",
-            "complete documentation in 10 languages",
+            *(f"README-{code}.md" for code in language_codes if code != "en"),
             "the active R5 plan in [ROADMAP-R5.md]",
         ),
         "Generated English README",

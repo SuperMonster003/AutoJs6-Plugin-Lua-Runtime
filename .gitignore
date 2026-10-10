@@ -21,3 +21,7 @@ releases/
 /gradle.properties.local
 !protocol/*.aar
 !gradle/wrapper/gradle-wrapper.jar
+
+# Local agent instruction files stay out of the repository.
+AGENTS.md
+CLAUDE.md

@@ -27,6 +27,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          # The artifact verifier compares VERSION_BUILD with the full commit count.
+          fetch-depth: 0
       - uses: actions/setup-java@v6
         with:
           distribution: temurin

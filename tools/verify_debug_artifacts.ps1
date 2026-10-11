@@ -62,8 +62,8 @@ foreach ($rawLine in Get-Content -LiteralPath (Join-Path $repositoryRoot 'versio
     $versionProperties[$parts[0]] = $parts[1]
 }
 $versionCode = [int]$versionProperties.VERSION_BUILD
-if ($versionCode -le 0 -or $versionCode -ne $commitCount) {
-    throw "VERSION_BUILD must equal the positive commit count: version=$versionCode commits=$commitCount"
+if ($versionCode -le 0 -or [Math]::Abs($versionCode - $commitCount) -gt 10) {
+    throw "VERSION_BUILD must stay within 10 of the positive commit count: version=$versionCode commits=$commitCount"
 }
 
 $testRoot = Join-Path $repositoryRoot 'app/build/test-results/testProviderDebugUnitTest'

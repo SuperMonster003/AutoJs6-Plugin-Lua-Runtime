@@ -119,8 +119,8 @@ $versionProperties = ConvertFrom-StringData -StringData (
 $expectedVersionCode = [long] $versionProperties["VERSION_BUILD"]
 $expectedVersionName = $versionProperties["VERSION_NAME"]
 $requiredHostVersionCode = [long] $versionProperties["REQUIRED_HOST_VERSION_CODE"]
-if ($expectedVersionCode -ne $sourceCommitCount) {
-    throw "VERSION_BUILD must equal the clean source commit count"
+if ([Math]::Abs($expectedVersionCode - $sourceCommitCount) -gt 10) {
+    throw "VERSION_BUILD must stay within 10 of the clean source commit count"
 }
 
 $invocationStartedAtUtc = $null

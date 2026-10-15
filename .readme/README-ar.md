@@ -211,7 +211,7 @@ python .\.python\generate_markdown.py --check
 
 #### المدخلات الثابتة
 
-يتكون البروتوكول من ثلاثة ملفات AAR محلية مقفلة بـ SHA-256 فقط. المدخل الأصلي هو PUC Lua 5.4.8 مع archive SHA-256 `4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae`; يعيد verifier حساب بصمة الشجرة كاملة, ولا يسمح CMake إلا بالمصادر المراجعة. راجع [`protocol/README.md`](protocol/README.md) و[`vendor-lock.json`](app/src/main/cpp/vendor/vendor-lock.json).
+يتكون البروتوكول من ثلاثة ملفات AAR محلية مقفلة بـ SHA-256 فقط (`common-plugin-api`, `protocol-wire-api`, `lua-runtime-api`). المدخل الأصلي هو PUC Lua 5.4.8 مع archive SHA-256 `4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae`; يعيد verifier حساب بصمة الشجرة كاملة, ولا يسمح CMake إلا بالمصادر المراجعة. راجع [`protocol/README.md`](protocol/README.md) و[`vendor-lock.json`](app/src/main/cpp/vendor/vendor-lock.json).
 
 #### التحقق من artifact الإصدار
 

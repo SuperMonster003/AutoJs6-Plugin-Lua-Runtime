@@ -56,7 +56,7 @@
   "h4_offline_gate": "Автономная проверка",
   "p_offline_gate": "Сценарий объединяет build-ready verifier, hostile suite Python и `:app:testProviderDebugUnitTest --offline`, затем сверяет XML report с единым test count из `verification.properties`. CI повторяет те же границы.",
   "h4_immutable_inputs": "Неизменяемые входы",
-  "p_immutable_inputs": "Протокол содержит ровно три локальных AAR, закрепленных SHA-256. Нативный вход PUC Lua {{ lua_version }} имеет archive SHA-256 `4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae`; verifier пересчитывает fingerprint всего дерева, а CMake допускает только проверенные source. См. [`protocol/README.md`](protocol/README.md) и [`vendor-lock.json`](app/src/main/cpp/vendor/vendor-lock.json).",
+  "p_immutable_inputs": "Входные данные протокола состоят ровно из трех локальных AAR, зафиксированных по SHA-256 (`common-plugin-api`, `protocol-wire-api`, `lua-runtime-api`). Нативный вход PUC Lua {{ lua_version }} имеет archive SHA-256 `4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae`; verifier пересчитывает fingerprint всего дерева, а CMake допускает только проверенные source. См. [`protocol/README.md`](protocol/README.md) и [`vendor-lock.json`](app/src/main/cpp/vendor/vendor-lock.json).",
   "h4_release_validation": "Проверка release artifact",
   "p_release_validation": "`providerRelease` можно собрать unsigned, но публикуемый кандидат должен читать подпись из внешних абсолютных путей и выполнять fresh offline задачи",
   "p_release_validation_note": "Затем запустите artifact verifier с тем же сертификатом. Он проверяет JVM count, signer, ABI, выравнивание ZIP/ELF 16 KiB, non-debuggable и отсутствие fault harness; это остается доказательством упаковки.",

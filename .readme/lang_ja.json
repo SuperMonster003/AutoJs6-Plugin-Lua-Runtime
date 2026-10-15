@@ -56,7 +56,7 @@
   "h4_offline_gate": "オフライン検証 gate",
   "p_offline_gate": "build-ready verifier, hostile Python suite, `:app:testProviderDebugUnitTest --offline` を連結し, `verification.properties` の単一 test count と XML report を照合します. CI も同じ境界です.",
   "h4_immutable_inputs": "不変入力",
-  "p_immutable_inputs": "protocol 入力は SHA-256 lock 済みのリポジトリ内 AAR 3 個だけです. native 入力は archive SHA-256 `4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae` の PUC Lua {{ lua_version }} です. verifier は source tree 全体を再計算し, CMake はレビュー済み source だけを許可します. [`protocol/README.md`](protocol/README.md) と [`vendor-lock.json`](app/src/main/cpp/vendor/vendor-lock.json) を参照してください.",
+  "p_immutable_inputs": "プロトコル入力は, SHA-256 で固定したリポジトリ内の 3 つの AAR (`common-plugin-api`, `protocol-wire-api`, `lua-runtime-api`) のみです. native 入力は archive SHA-256 `4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae` の PUC Lua {{ lua_version }} です. verifier は source tree 全体を再計算し, CMake はレビュー済み source だけを許可します. [`protocol/README.md`](protocol/README.md) と [`vendor-lock.json`](app/src/main/cpp/vendor/vendor-lock.json) を参照してください.",
   "h4_release_validation": "Release artifact 検証",
   "p_release_validation": "`providerRelease` は unsigned でビルドできますが, 公開候補は外部絶対パスの署名情報を読み, fresh offline task を実行します",
   "p_release_validation_note": "続いて同じ証明書で artifact verifier を実行します. JVM count, signer, ABI, 16 KiB ZIP/ELF alignment, non-debuggable, fault-harness 除外を確認しますが, これは package 証拠だけです.",

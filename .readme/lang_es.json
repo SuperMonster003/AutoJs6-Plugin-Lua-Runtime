@@ -56,7 +56,7 @@
   "h4_offline_gate": "Control sin conexión",
   "p_offline_gate": "Este script encadena el verifier build-ready, la suite Python hostil y `:app:testProviderDebugUnitTest --offline`, y comprueba los informes XML con el recuento único de `verification.properties`. CI replica esos límites.",
   "h4_immutable_inputs": "Entradas inmutables",
-  "p_immutable_inputs": "El protocolo contiene exactamente tres AAR locales bloqueados por SHA-256. La entrada nativa es PUC Lua {{ lua_version }}, archive SHA-256 `4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae`; el verifier recalcula la huella completa y CMake solo admite fuentes revisadas. Consulta [`protocol/README.md`](protocol/README.md) y [`vendor-lock.json`](app/src/main/cpp/vendor/vendor-lock.json).",
+  "p_immutable_inputs": "Las entradas del protocolo son exactamente tres AAR locales fijados mediante SHA-256 (`common-plugin-api`, `protocol-wire-api`, `lua-runtime-api`). La entrada nativa es PUC Lua {{ lua_version }}, archive SHA-256 `4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae`; el verifier recalcula la huella completa y CMake solo admite fuentes revisadas. Consulta [`protocol/README.md`](protocol/README.md) y [`vendor-lock.json`](app/src/main/cpp/vendor/vendor-lock.json).",
   "h4_release_validation": "Validación de artefactos release",
   "p_release_validation": "`providerRelease` puede compilarse unsigned, pero un candidato publicable debe leer las firmas desde rutas absolutas externas y ejecutar tareas fresh sin conexión",
   "p_release_validation_note": "Después ejecuta el verifier con el mismo certificado. Comprueba recuento JVM, signer, ABI, alineación ZIP/ELF de 16 KiB, non-debuggable y exclusión del fault harness; sigue siendo evidencia de empaquetado.",

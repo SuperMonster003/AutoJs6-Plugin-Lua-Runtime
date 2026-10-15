@@ -211,7 +211,7 @@ build-ready verifier, hostile Python suite, `:app:testProviderDebugUnitTest --of
 
 #### 不変入力
 
-protocol 入力は SHA-256 lock 済みのリポジトリ内 AAR 3 個だけです. native 入力は archive SHA-256 `4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae` の PUC Lua 5.4.8 です. verifier は source tree 全体を再計算し, CMake はレビュー済み source だけを許可します. [`protocol/README.md`](protocol/README.md) と [`vendor-lock.json`](app/src/main/cpp/vendor/vendor-lock.json) を参照してください.
+プロトコル入力は, SHA-256 で固定したリポジトリ内の 3 つの AAR (`common-plugin-api`, `protocol-wire-api`, `lua-runtime-api`) のみです. native 入力は archive SHA-256 `4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae` の PUC Lua 5.4.8 です. verifier は source tree 全体を再計算し, CMake はレビュー済み source だけを許可します. [`protocol/README.md`](protocol/README.md) と [`vendor-lock.json`](app/src/main/cpp/vendor/vendor-lock.json) を参照してください.
 
 #### Release artifact 検証
 

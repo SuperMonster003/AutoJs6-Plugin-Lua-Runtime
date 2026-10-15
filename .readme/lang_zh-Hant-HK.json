@@ -56,7 +56,7 @@
   "h4_offline_gate": "離線驗證門禁",
   "p_offline_gate": "此指令碼串連 build-ready verifier, Python 敵意套件與 `:app:testProviderDebugUnitTest --offline`, 再依 `verification.properties` 的單一計數核對 XML 報告. CI 使用相同邊界.",
   "h4_immutable_inputs": "不可變輸入",
-  "p_immutable_inputs": "協定輸入恰好為三個倉庫內 SHA-256 鎖定 AAR. 原生輸入是 archive SHA-256 `4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae` 的 PUC Lua {{ lua_version }}; verifier 重算完整來源樹指紋, CMake 只接納已審查來源. 詳見 [`protocol/README.md`](protocol/README.md) 與 [`vendor-lock.json`](app/src/main/cpp/vendor/vendor-lock.json).",
+  "p_immutable_inputs": "協議輸入恰好是三個倉庫內以 SHA-256 鎖定的 AAR (`common-plugin-api`, `protocol-wire-api`, `lua-runtime-api`). 原生輸入是 archive SHA-256 `4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae` 的 PUC Lua {{ lua_version }}; verifier 重算完整來源樹指紋, CMake 只接納已審查來源. 詳見 [`protocol/README.md`](protocol/README.md) 與 [`vendor-lock.json`](app/src/main/cpp/vendor/vendor-lock.json).",
   "h4_release_validation": "Release 制品驗證",
   "p_release_validation": "原始 `providerRelease` 可無簽章建置, 但可發佈候選必須從外部絕對路徑讀取簽章材料並執行 fresh 離線任務",
   "p_release_validation_note": "再以相同憑證執行制品 verifier. 它核對 JVM 數量, signer, ABI, 16 KiB ZIP/ELF 對齊, non-debuggable 與 fault-harness 排除; 結果仍只屬封裝證據.",

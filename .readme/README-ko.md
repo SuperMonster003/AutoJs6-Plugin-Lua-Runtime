@@ -211,7 +211,7 @@ build-ready verifier, hostile Python suite, `:app:testProviderDebugUnitTest --of
 
 #### 불변 입력
 
-프로토콜 입력은 SHA-256으로 잠근 저장소 내부 AAR 3개뿐입니다. 네이티브 입력은 archive SHA-256 `4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae`인 PUC Lua 5.4.8입니다. verifier는 전체 source tree 지문을 다시 계산하고 CMake는 검토된 source만 허용합니다. [`protocol/README.md`](protocol/README.md)와 [`vendor-lock.json`](app/src/main/cpp/vendor/vendor-lock.json)을 참고하세요.
+프로토콜 입력은 저장소 안에서 SHA-256으로 고정한 세 AAR (`common-plugin-api`, `protocol-wire-api`, `lua-runtime-api`)뿐입니다. 네이티브 입력은 archive SHA-256 `4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae`인 PUC Lua 5.4.8입니다. verifier는 전체 source tree 지문을 다시 계산하고 CMake는 검토된 source만 허용합니다. [`protocol/README.md`](protocol/README.md)와 [`vendor-lock.json`](app/src/main/cpp/vendor/vendor-lock.json)을 참고하세요.
 
 #### Release artifact 검증
 

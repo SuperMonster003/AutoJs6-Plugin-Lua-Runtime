@@ -211,7 +211,7 @@ Este script encadena el verifier build-ready, la suite Python hostil y `:app:tes
 
 #### Entradas inmutables
 
-El protocolo contiene exactamente tres AAR locales bloqueados por SHA-256. La entrada nativa es PUC Lua 5.4.8, archive SHA-256 `4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae`; el verifier recalcula la huella completa y CMake solo admite fuentes revisadas. Consulta [`protocol/README.md`](protocol/README.md) y [`vendor-lock.json`](app/src/main/cpp/vendor/vendor-lock.json).
+Las entradas del protocolo son exactamente tres AAR locales fijados mediante SHA-256 (`common-plugin-api`, `protocol-wire-api`, `lua-runtime-api`). La entrada nativa es PUC Lua 5.4.8, archive SHA-256 `4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae`; el verifier recalcula la huella completa y CMake solo admite fuentes revisadas. Consulta [`protocol/README.md`](protocol/README.md) y [`vendor-lock.json`](app/src/main/cpp/vendor/vendor-lock.json).
 
 #### Validación de artefactos release
 

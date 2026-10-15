@@ -211,7 +211,7 @@ python .\.python\generate_markdown.py --check
 
 #### 不可變輸入
 
-協定輸入恰好為三個倉庫內 SHA-256 鎖定 AAR. 原生輸入是 archive SHA-256 `4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae` 的 PUC Lua 5.4.8; verifier 重算完整來源樹指紋, CMake 只接納已審查來源. 詳見 [`protocol/README.md`](protocol/README.md) 與 [`vendor-lock.json`](app/src/main/cpp/vendor/vendor-lock.json).
+協議輸入恰好是三個倉庫內以 SHA-256 鎖定的 AAR (`common-plugin-api`, `protocol-wire-api`, `lua-runtime-api`). 原生輸入是 archive SHA-256 `4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae` 的 PUC Lua 5.4.8; verifier 重算完整來源樹指紋, CMake 只接納已審查來源. 詳見 [`protocol/README.md`](protocol/README.md) 與 [`vendor-lock.json`](app/src/main/cpp/vendor/vendor-lock.json).
 
 #### Release 制品驗證
 

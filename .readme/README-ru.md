@@ -211,7 +211,7 @@ python .\.python\generate_markdown.py --check
 
 #### Неизменяемые входы
 
-Протокол содержит ровно три локальных AAR, закрепленных SHA-256. Нативный вход PUC Lua 5.4.8 имеет archive SHA-256 `4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae`; verifier пересчитывает fingerprint всего дерева, а CMake допускает только проверенные source. См. [`protocol/README.md`](protocol/README.md) и [`vendor-lock.json`](app/src/main/cpp/vendor/vendor-lock.json).
+Входные данные протокола состоят ровно из трех локальных AAR, зафиксированных по SHA-256 (`common-plugin-api`, `protocol-wire-api`, `lua-runtime-api`). Нативный вход PUC Lua 5.4.8 имеет archive SHA-256 `4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae`; verifier пересчитывает fingerprint всего дерева, а CMake допускает только проверенные source. См. [`protocol/README.md`](protocol/README.md) и [`vendor-lock.json`](app/src/main/cpp/vendor/vendor-lock.json).
 
 #### Проверка release artifact
 

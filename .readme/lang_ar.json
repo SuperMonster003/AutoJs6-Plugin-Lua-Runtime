@@ -56,7 +56,7 @@
   "h4_offline_gate": "بوابة التحقق من دون اتصال",
   "p_offline_gate": "تجمع الأداة verifier الجاهز للبناء واختبارات Python العدائية و`:app:testProviderDebugUnitTest --offline`, ثم تطابق تقارير XML مع test count الوحيد في `verification.properties`. تكرر CI الحدود نفسها.",
   "h4_immutable_inputs": "المدخلات الثابتة",
-  "p_immutable_inputs": "يتكون البروتوكول من ثلاثة ملفات AAR محلية مقفلة بـ SHA-256 فقط. المدخل الأصلي هو PUC Lua {{ lua_version }} مع archive SHA-256 `4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae`; يعيد verifier حساب بصمة الشجرة كاملة, ولا يسمح CMake إلا بالمصادر المراجعة. راجع [`protocol/README.md`](protocol/README.md) و[`vendor-lock.json`](app/src/main/cpp/vendor/vendor-lock.json).",
+  "p_immutable_inputs": "يتكون البروتوكول من ثلاثة ملفات AAR محلية مقفلة بـ SHA-256 فقط (`common-plugin-api`, `protocol-wire-api`, `lua-runtime-api`). المدخل الأصلي هو PUC Lua {{ lua_version }} مع archive SHA-256 `4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae`; يعيد verifier حساب بصمة الشجرة كاملة, ولا يسمح CMake إلا بالمصادر المراجعة. راجع [`protocol/README.md`](protocol/README.md) و[`vendor-lock.json`](app/src/main/cpp/vendor/vendor-lock.json).",
   "h4_release_validation": "التحقق من artifact الإصدار",
   "p_release_validation": "يمكن بناء `providerRelease` من نوع unsigned, لكن المرشح القابل للنشر يجب أن يقرأ التوقيع من مسارات مطلقة خارجية وينفذ مهام fresh offline",
   "p_release_validation_note": "ثم شغل artifact verifier بالشهادة نفسها. يفحص JVM count وsigner وABI ومحاذاة ZIP/ELF بحجم 16 KiB وnon-debuggable واستبعاد fault harness; ويبقى ذلك دليل تغليف فقط.",

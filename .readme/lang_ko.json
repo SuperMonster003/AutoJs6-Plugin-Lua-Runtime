@@ -56,7 +56,7 @@
   "h4_offline_gate": "오프라인 검증 gate",
   "p_offline_gate": "build-ready verifier, hostile Python suite, `:app:testProviderDebugUnitTest --offline`를 연결하고 `verification.properties`의 단일 test count와 XML report를 비교합니다. CI도 같은 경계를 사용합니다.",
   "h4_immutable_inputs": "불변 입력",
-  "p_immutable_inputs": "프로토콜 입력은 SHA-256으로 잠근 저장소 내부 AAR 3개뿐입니다. 네이티브 입력은 archive SHA-256 `4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae`인 PUC Lua {{ lua_version }}입니다. verifier는 전체 source tree 지문을 다시 계산하고 CMake는 검토된 source만 허용합니다. [`protocol/README.md`](protocol/README.md)와 [`vendor-lock.json`](app/src/main/cpp/vendor/vendor-lock.json)을 참고하세요.",
+  "p_immutable_inputs": "프로토콜 입력은 저장소 안에서 SHA-256으로 고정한 세 AAR (`common-plugin-api`, `protocol-wire-api`, `lua-runtime-api`)뿐입니다. 네이티브 입력은 archive SHA-256 `4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae`인 PUC Lua {{ lua_version }}입니다. verifier는 전체 source tree 지문을 다시 계산하고 CMake는 검토된 source만 허용합니다. [`protocol/README.md`](protocol/README.md)와 [`vendor-lock.json`](app/src/main/cpp/vendor/vendor-lock.json)을 참고하세요.",
   "h4_release_validation": "Release artifact 검증",
   "p_release_validation": "`providerRelease`는 unsigned로 빌드할 수 있지만 게시 후보는 외부 절대 경로에서 서명 자료를 읽고 fresh offline task를 실행해야 합니다",
   "p_release_validation_note": "그 다음 같은 인증서로 artifact verifier를 실행합니다. JVM count, signer, ABI, 16 KiB ZIP/ELF alignment, non-debuggable, fault-harness 제외를 확인하지만 package 증거일 뿐입니다.",

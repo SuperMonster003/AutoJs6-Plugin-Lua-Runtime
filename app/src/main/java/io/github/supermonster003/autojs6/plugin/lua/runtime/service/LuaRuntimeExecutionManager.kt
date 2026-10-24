@@ -141,7 +141,7 @@ internal class LuaRuntimeExecutionManager(
     override fun close() {
         val snapshot = synchronized(lifecycleLock) {
             if (!closed.compareAndSet(false, true)) return
-            sessions.toList()
+            snapshotOf(sessions)
         }
         snapshot.forEach(RemoteLuaExecutionSession::serviceDestroyed)
         startLeaseScheduler.shutdownNow()
@@ -294,6 +294,13 @@ private class RemoteLuaExecutionSession(
         controller.close()
     }
 }
+
+/**
+ * Copies sessions that finish concurrently outside [LuaRuntimeExecutionManager]'s lifecycle lock.
+ * [ArrayList] copies through the concurrent set's own toArray, while Kotlin's toList reads the size first
+ * and then calls next() on an iterator that may already be empty.
+ */
+internal fun <T> snapshotOf(live: Collection<T>): List<T> = ArrayList(live)
 
 private class BinderLuaExecutionObserver(
     private val callback: ILuaExecutionCallback,

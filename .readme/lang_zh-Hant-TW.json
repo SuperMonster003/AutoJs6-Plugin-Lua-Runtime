@@ -25,6 +25,7 @@
   "p_module_example": "需要重複使用程式碼時, 可在入口 `job.lua` 旁建立 `job.modules/`, 將 `helper.lua` 放入其中, 再呼叫 `require(\"helper\")`. V1 模組名稱只接受最長 64 字元的扁平 ASCII 識別字, 不接受路徑, 點號, 二進位模組或 C 模組.",
   "h3_script_api": "指令碼 API",
   "p_script_api": "`require(\"autojs\")` 傳回橋接表. `autojs.console.log/info(text)` 寫入 stdout, `error/warn(text)` 寫入 stderr; 全域 `print(...)` 與 `warn(text)` 使用同一受控雙流. `autojs.now()` 傳回 Unix epoch 毫秒. `autojs.arguments` 是本次執行參數的唯讀快照. `autojs.device.info()` 傳回 brand, manufacturer, model, device, product 與 sdkInt. 對具穩定檔案身份的指令碼, `autojs.storage.get/put/remove/clear` 提供 Host 持久化值: key 為 1 至 64 bytes ASCII 識別碼, 規範值最多 252 KiB, 每個 principal 最多 256 keys / 2 MiB; 每次執行最多 64 次操作與 32 次 mutation. `autojs.ui.toast(text)` 最多計費 4 次, 接受 1 至 1024 bytes 嚴格 UTF-8, 只派發一次且不重試. Host 未授予任一協商功能時穩定得到 `HOST_CAPABILITY`, 沒有本機回退或重試.\n\n可用函式庫為 base, string, math, table, utf8 和 coroutine. `io`, `os`, `debug`, `package`, `load`, `loadfile`, `dofile`, `string.dump`, `pcall`, `xpcall`, `getmetatable` 與 `setmetatable` 均刻意關閉. 唯一原始碼載入器是文字模式 `luaL_loadbufferx(..., \"t\")`, 因此二進位 chunk 無法進入執行環境. 詳細邊界見 [`docs/native-execution-core.md`](docs/native-execution-core.md) 與 [`docs/safe-standard-library-subset.md`](docs/safe-standard-library-subset.md).",
+  "p_type_definitions": "型別定義: `docs/types/autojs.lua` 是 `autojs` 模組的 LuaLS 定義 (`---@meta`). Ace Editor 外掛內建同一份定義, 為 `.lua` 腳本提供自動完成與懸停提示; 使用其他編輯器時, 可將 `docs/types` 加入 LuaLS 的 `Lua.workspace.library`.",
   "h3_limits": "限制與安全",
   "limits": [
     "每個執行環境處理程序一次執行一個指令碼, 最多保留兩個已準備工作階段且沒有佇列; 額外要求立即失敗.",

@@ -124,6 +124,8 @@ Pour réutiliser du code, créez `job.modules/` à côté du script d'entrée `j
 
 Les bibliothèques disponibles sont base, string, math, table, utf8 et coroutine. `io`, `os`, `debug`, `package`, `load`, `loadfile`, `dofile`, `string.dump`, `pcall`, `xpcall`, `getmetatable` et `setmetatable` sont désactivés volontairement. Le seul chargeur est `luaL_loadbufferx(..., "t")` en mode texte, ce qui interdit les chunks binaires. Voir [`docs/native-execution-core.md`](docs/native-execution-core.md) et [`docs/safe-standard-library-subset.md`](docs/safe-standard-library-subset.md).
 
+Définitions de types: `docs/types/autojs.lua` est la définition LuaLS (`---@meta`) du module `autojs`. Le plug-in Ace Editor intègre la même définition pour la complétion et l'aide au survol dans les scripts `.lua`; avec d'autres éditeurs, ajoutez `docs/types` à `Lua.workspace.library` de LuaLS.
+
 ******
 
 ### Limites et sécurité

@@ -124,6 +124,8 @@ return total
 
 사용 가능한 라이브러리는 base, string, math, table, utf8, coroutine입니다. `io`, `os`, `debug`, `package`, `load`, `loadfile`, `dofile`, `string.dump`, `pcall`, `xpcall`, `getmetatable`, `setmetatable`은 의도적으로 비활성화했습니다. 유일한 소스 로더는 텍스트 모드 `luaL_loadbufferx(..., "t")`이므로 바이너리 chunk는 들어올 수 없습니다. 자세한 경계는 [`docs/native-execution-core.md`](docs/native-execution-core.md)와 [`docs/safe-standard-library-subset.md`](docs/safe-standard-library-subset.md)를 참고하세요.
 
+타입 정의: `docs/types/autojs.lua`는 `autojs` 모듈의 LuaLS 정의(`---@meta`)입니다. Ace Editor 플러그인은 같은 정의를 내장하여 `.lua` 스크립트의 자동 완성과 호버 도움말에 사용합니다. 다른 편집기에서는 `docs/types`를 LuaLS의 `Lua.workspace.library`에 추가하세요.
+
 ******
 
 ### 제한과 안전

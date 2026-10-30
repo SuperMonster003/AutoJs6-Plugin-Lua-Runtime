@@ -124,6 +124,8 @@ return total
 
 المكتبات المتاحة هي base وstring وmath وtable وutf8 وcoroutine. أزيلت عمدا `io` و`os` و`debug` و`package` و`load` و`loadfile` و`dofile` و`string.dump` و`pcall` و`xpcall` و`getmetatable` و`setmetatable`. محمل المصدر الوحيد هو `luaL_loadbufferx(..., "t")` في وضع النص, لذلك لا تدخل chunk ثنائية. راجع [`docs/native-execution-core.md`](docs/native-execution-core.md) و[`docs/safe-standard-library-subset.md`](docs/safe-standard-library-subset.md).
 
+تعريفات الأنواع: الملف `docs/types/autojs.lua` هو تعريف LuaLS (`---@meta`) للوحدة `autojs`. تتضمن إضافة Ace Editor التعريف نفسه لإكمال الشيفرة وتلميحات التمرير في سكربتات `.lua`; وفي المحررات الأخرى أضف `docs/types` إلى `Lua.workspace.library` في LuaLS.
+
 ******
 
 ### الحدود والأمان

@@ -124,6 +124,8 @@ return total
 
 Доступны base, string, math, table, utf8 и coroutine. `io`, `os`, `debug`, `package`, `load`, `loadfile`, `dofile`, `string.dump`, `pcall`, `xpcall`, `getmetatable` и `setmetatable` намеренно выключены. Единственный загрузчик исходного кода работает в текстовом режиме `luaL_loadbufferx(..., "t")`, поэтому бинарный chunk не попадет в среду. Подробности в [`docs/native-execution-core.md`](docs/native-execution-core.md) и [`docs/safe-standard-library-subset.md`](docs/safe-standard-library-subset.md).
 
+Определения типов: `docs/types/autojs.lua` - определение LuaLS (`---@meta`) модуля `autojs`. Плагин Ace Editor содержит то же определение для автодополнения и подсказок при наведении в скриптах `.lua`; в других редакторах добавьте `docs/types` в `Lua.workspace.library` LuaLS.
+
 ******
 
 ### Ограничения и безопасность

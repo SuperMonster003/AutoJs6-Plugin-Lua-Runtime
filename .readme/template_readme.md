@@ -101,6 +101,8 @@ return total
 
 {{ p_script_api }}
 
+{{ p_type_definitions }}
+
 ******
 
 ### {{ h3_limits }}

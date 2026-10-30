@@ -124,6 +124,8 @@ return total
 
 可用函式庫為 base, string, math, table, utf8 和 coroutine. `io`, `os`, `debug`, `package`, `load`, `loadfile`, `dofile`, `string.dump`, `pcall`, `xpcall`, `getmetatable` 與 `setmetatable` 均刻意關閉. 唯一原始碼載入器是文字模式 `luaL_loadbufferx(..., "t")`, 因此二進位 chunk 無法進入執行環境. 詳細邊界見 [`docs/native-execution-core.md`](docs/native-execution-core.md) 與 [`docs/safe-standard-library-subset.md`](docs/safe-standard-library-subset.md).
 
+類型定義: `docs/types/autojs.lua` 是 `autojs` 模組的 LuaLS 定義 (`---@meta`). Ace Editor 外掛程式內置同一份定義, 為 `.lua` 腳本提供補全與懸停提示; 使用其他編輯器時, 可把 `docs/types` 加入 LuaLS 的 `Lua.workspace.library`.
+
 ******
 
 ### 限制與安全

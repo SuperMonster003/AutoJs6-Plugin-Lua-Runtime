@@ -124,6 +124,8 @@ return total
 
 利用可能なライブラリは base, string, math, table, utf8, coroutine です. `io`, `os`, `debug`, `package`, `load`, `loadfile`, `dofile`, `string.dump`, `pcall`, `xpcall`, `getmetatable`, `setmetatable` は意図的に無効です. ソースローダーはテキストモードの `luaL_loadbufferx(..., "t")` だけなので, バイナリ chunk は入りません. 詳細は [`docs/native-execution-core.md`](docs/native-execution-core.md) と [`docs/safe-standard-library-subset.md`](docs/safe-standard-library-subset.md) を参照してください.
 
+型定義: `docs/types/autojs.lua` は `autojs` モジュールの LuaLS 定義 (`---@meta`) です. Ace Editor プラグインは同じ定義を内蔵し, `.lua` スクリプトの補完とホバー表示に使います. 他のエディターでは `docs/types` を LuaLS の `Lua.workspace.library` に追加してください.
+
 ******
 
 ### 制限と安全性

@@ -124,6 +124,8 @@ For reusable code, create `job.modules/` next to the entry script `job.lua`, pla
 
 The available libraries are base, string, math, table, utf8 and coroutine. `io`, `os`, `debug`, `package`, `load`, `loadfile`, `dofile`, `string.dump`, `pcall`, `xpcall`, `getmetatable` and `setmetatable` are unavailable by design. The only source loader is text-mode `luaL_loadbufferx(..., "t")`, so binary chunks cannot enter the runtime. See [`docs/native-execution-core.md`](docs/native-execution-core.md) and [`docs/safe-standard-library-subset.md`](docs/safe-standard-library-subset.md) for the exact boundary.
 
+Type definitions: `docs/types/autojs.lua` is the LuaLS definition (`---@meta`) of the `autojs` module. The Ace Editor plugin bundles the same definition for completion and hover help in `.lua` scripts; with other editors, add `docs/types` to `Lua.workspace.library` of LuaLS.
+
 ******
 
 ### Limits and safety
